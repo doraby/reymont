@@ -67,9 +67,12 @@ Deno.serve(async (req) => {
     return json({ ok: true }, 200, cors);
   }
 
-  // бесплатный тариф: 10 хайлайтов, дальше — Reymont Pro
-  const { count, error: cntErr } = await supa.from("highlights").select("*", { count: "exact", head: true });
-  if (!cntErr && (count ?? 0) > 10) return err("Free limit reached", 402, cors);
+  // Pro-подписчики (оплата через Stripe) без лимита; бесплатный тариф — 10 хайлайтов
+  const { data: pro } = await supa.from("pro_users").select("user_id").eq("user_id", user.id).maybeSingle();
+  if (!pro) {
+    const { count, error: cntErr } = await supa.from("highlights").select("*", { count: "exact", head: true });
+    if (!cntErr && (count ?? 0) > 10) return err("Free limit reached", 402, cors);
+  }
 
   const text = String(body.text ?? "").slice(0, 3000);
   const para = String(body.para ?? "").slice(0, 1500);
