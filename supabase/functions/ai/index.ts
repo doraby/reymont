@@ -41,9 +41,29 @@ Deno.serve(async (req) => {
 
   // заявка на платную версию — квота на неё не действует
   if (body.action === "upgrade") {
+    const message = String(body.message ?? "").slice(0, 500);
     const { error } = await supa.from("upgrade_requests")
-      .insert({ email: user.email, message: String(body.message ?? "").slice(0, 500) });
+      .insert({ email: user.email, message });
     if (error) return err("Could not save the request: " + error.message, 500, cors);
+
+    // письмо владельцу через Resend; сбой почты не роняет заявку — она уже в таблице
+    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
+    const NOTIFY_EMAIL = Deno.env.get("NOTIFY_EMAIL") ?? "";
+    if (RESEND_API_KEY && NOTIFY_EMAIL) {
+      try {
+        const r = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${RESEND_API_KEY}` },
+          body: JSON.stringify({
+            from: "Reymont <onboarding@resend.dev>",
+            to: [NOTIFY_EMAIL],
+            subject: "Reymont Pro — new upgrade request",
+            text: `New Reymont Pro request ($10/month)\n\nFrom: ${user.email}\nUser id: ${user.id}\nMessage: ${message}\nTime: ${new Date().toISOString()}\n\nAll requests: Supabase → Table Editor → upgrade_requests`,
+          }),
+        });
+        if (!r.ok) console.error("resend:", r.status, await r.text());
+      } catch (e) { console.error("resend:", e); }
+    }
     return json({ ok: true }, 200, cors);
   }
 
