@@ -38,6 +38,19 @@ Deno.serve(async (req) => {
   if (!user) return err("Sign in required", 401, cors);
 
   const body = await req.json().catch(() => ({}));
+
+  // заявка на платную версию — квота на неё не действует
+  if (body.action === "upgrade") {
+    const { error } = await supa.from("upgrade_requests")
+      .insert({ email: user.email, message: String(body.message ?? "").slice(0, 500) });
+    if (error) return err("Could not save the request: " + error.message, 500, cors);
+    return json({ ok: true }, 200, cors);
+  }
+
+  // бесплатный тариф: 10 хайлайтов, дальше — Reymont Pro
+  const { count, error: cntErr } = await supa.from("highlights").select("*", { count: "exact", head: true });
+  if (!cntErr && (count ?? 0) > 10) return err("Free limit reached", 402, cors);
+
   const text = String(body.text ?? "").slice(0, 3000);
   const para = String(body.para ?? "").slice(0, 1500);
   const lang = String(body.lang ?? "English").slice(0, 30);
