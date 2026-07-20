@@ -1,2 +1,10 @@
-# reymont
-AI-powered reader with translations and illustartions
+# Reymont · [reymont.app](https://reymont.app)
+
+EPUB-читалка с AI-переводом: выделите слово или абзац — получите перевод
+(OpenAI), карточку из Википедии, веб-поиск с источниками и картинки с
+Викисклада. Выделения сохраняются как хайлайты с кешем ответов.
+
+Статичное приложение: один `index.html`, книги и OpenAI-ключ хранятся
+только в браузере (IndexedDB / localStorage).
+
+Хостинг: GitHub Pages, домен привязан через `CNAME`.
