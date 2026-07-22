@@ -5,6 +5,33 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 const CORS_ORIGINS = ["https://reymont.app", "https://www.reymont.app", "https://doraby.github.io"];
+const ILLUSTRATIONS_BUCKET = "illustrations";
+
+// Отдельный клиент с service-role ключом — только для загрузки картинок в Storage,
+// в обход RLS/Storage policies (доступ к этому action и так ограничен одним email).
+function storageAdmin() {
+  return createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+}
+function base64ToBytes(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+// Заливает PNG в Storage по стабильному пути (перегенерация перезаписывает тот же файл)
+// и возвращает публичный URL с ?v= для сброса кеша браузера/CDN.
+async function uploadIllustration(path: string, b64: string): Promise<{ url?: string; error?: string }> {
+  try {
+    const admin = storageAdmin();
+    const { error } = await admin.storage.from(ILLUSTRATIONS_BUCKET)
+      .upload(path, base64ToBytes(b64), { contentType: "image/png", upsert: true });
+    if (error) return { error: "Storage upload failed: " + error.message };
+    const { data } = admin.storage.from(ILLUSTRATIONS_BUCKET).getPublicUrl(path);
+    return { url: data.publicUrl + "?v=" + Date.now() };
+  } catch (e) {
+    return { error: "Storage upload failed: " + (e instanceof Error ? e.message : String(e)) };
+  }
+}
 
 function corsHeaders(req: Request) {
   const origin = req.headers.get("origin") ?? "";
@@ -167,13 +194,23 @@ Deno.serve(async (req) => {
       if (!title) return err("No title", 400, cors);
       prompt = `Book cover illustration for the classic novel "${title}"${author ? " by " + author : ""}.\n` +
         `Capture the overall mood, setting and themes of the book in a single evocative scene — the essence, not a specific plot spoiler.\n` +
-        MALCZEWSKI_STYLE + ` Portrait orientation suited for a book cover, with a clear focal point and open space near the top for a title to be overlaid separately. ` +
-        `No text, letters, titles, author names or watermarks in the image.`;
+        MALCZEWSKI_STYLE + ` Portrait orientation suited for a book cover.\n` +
+        `Render the title "${title}" as elegant, legible typography near the top of the cover` +
+        (author ? `, and the author name "${author}" in smaller type near the bottom` : "") +
+        `, in a style fitting a fin-de-siècle Polish edition (serif lettering, no modern fonts). ` +
+        `No other text, captions or watermarks in the image.`;
     }
 
     const result = await generateImage(prompt);
     if (result.error) return err(result.error, result.status ?? 500, cors);
-    return json({ b64: result.b64, usedRefs: result.usedRefs }, 200, cors);
+    if (!result.b64) return err("No image returned", 502, cors);
+
+    const path = body.action === "illustrate"
+      ? `${user.id}/notes/${String(body.noteId ?? "unknown").replace(/[^a-zA-Z0-9_-]/g, "")}.png`
+      : `${user.id}/covers/${String(body.bookId ?? "unknown").replace(/[^a-zA-Z0-9_-]/g, "")}.png`;
+    const upload = await uploadIllustration(path, result.b64);
+    if (upload.error) return err(upload.error, 500, cors);
+    return json({ url: upload.url, usedRefs: result.usedRefs }, 200, cors);
   }
 
   // Pro-подписчики (оплата через Stripe) без лимита; бесплатный тариф — 10 хайлайтов
