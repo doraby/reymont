@@ -22,36 +22,84 @@ function err(message: string, status: number, cors: Record<string, string>) {
   return json({ error: { message } }, status, cors);
 }
 
-// Подлинные картины Яцека Мальчевского (обществ. достояние) как референс стиля для gpt-image-2.
-// Кэшируется в памяти тёплого инстанса функции, чтобы не дёргать Commons на каждый запрос.
-let cachedRefs: Blob[] | null = null;
-async function getStyleReferenceImages(): Promise<Blob[]> {
+// Референс стиля — ровно две картины Мальчевского, которые владелец сам выбрал и одобрил
+// (третью, с обнажённой натурой, специально исключили — она валила запрос safety-фильтром
+// OpenAI). Ищем каждую отдельным точным запросом вместо перебора всей категории на Commons,
+// чтобы не подхватить что-то незапланированное. Названия файлов не подтверждены вручную
+// (нет прямого доступа в интернет из этой сессии) — если поиск найдёт не то, usedRefs
+// в ответе функции покажет, что именно выбралось, и запрос можно будет уточнить.
+const REF_SEARCHES = [
+  "Malczewski faun flute self-portrait",
+  "Malczewski Śmierć peasant scythe",
+];
+let cachedRefs: { blobs: Blob[]; titles: string[] } | null = null;
+async function getStyleReferenceImages(): Promise<{ blobs: Blob[]; titles: string[] }> {
   if (cachedRefs) return cachedRefs;
-  const apiUrl = "https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*" +
-    "&generator=categorymembers&gcmtitle=" + encodeURIComponent("Category:Paintings by Jacek Malczewski") +
-    "&gcmtype=file&gcmlimit=40&prop=imageinfo&iiprop=url|size&iiurlwidth=1024";
-  try {
-    const res = await fetch(apiUrl);
-    const j = await res.json();
-    const pages = Object.values(j.query?.pages ?? {}) as Array<{ imageinfo?: Array<{ thumburl?: string; width?: number }> }>;
-    const candidates = pages
-      .map((p) => p.imageinfo?.[0])
-      .filter((ii): ii is { thumburl: string; width?: number } =>
-        !!ii?.thumburl && /\.(jpe?g|png)(\?|$)/i.test(ii.thumburl) && (ii.width ?? 0) > 400)
-      .sort((a, b) => a.thumburl.localeCompare(b.thumburl))
-      .slice(0, 4);
-    const blobs: Blob[] = [];
-    for (const c of candidates) {
-      try {
-        const r = await fetch(c.thumburl);
-        if (r.ok) blobs.push(await r.blob());
-      } catch (_e) { /* пропускаем недоступную картинку */ }
-    }
-    cachedRefs = blobs;
-  } catch (_e) {
-    cachedRefs = [];
+  const blobs: Blob[] = [];
+  const titles: string[] = [];
+  for (const q of REF_SEARCHES) {
+    try {
+      const apiUrl = "https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*" +
+        "&generator=search&gsrnamespace=6&gsrlimit=1&gsrsearch=" + encodeURIComponent(q) +
+        "&prop=imageinfo&iiprop=url|size&iiurlwidth=1024";
+      const res = await fetch(apiUrl);
+      const j = await res.json();
+      const pages = Object.values(j.query?.pages ?? {}) as Array<{ title?: string; imageinfo?: Array<{ thumburl?: string }> }>;
+      const hit = pages[0];
+      const thumburl = hit?.imageinfo?.[0]?.thumburl;
+      if (thumburl) {
+        const r = await fetch(thumburl);
+        if (r.ok) { blobs.push(await r.blob()); titles.push(hit.title ?? thumburl); }
+      }
+    } catch (_e) { /* пропускаем, если конкретный поиск не сработал */ }
   }
+  cachedRefs = { blobs, titles };
   return cachedRefs;
+}
+
+const MALCZEWSKI_STYLE = "Style: Polish Symbolist oil painting in the manner of Jacek Malczewski (1854-1929) — " +
+  "visible painterly brushstrokes, muted earthy palette (ochre, umber, sage green, dull red) with sudden warm " +
+  "golden light, symbolist mood blending Polish peasant realism with allegorical or mythological figures where " +
+  "fitting, atmospheric countryside backgrounds, formal painterly composition. The attached reference images are " +
+  "genuine Malczewski paintings — match their exact technique, palette and mood closely.";
+
+type ImageResult = { b64?: string; error?: string; status?: number; usedRefs?: string[] };
+
+async function callOpenAIImage(prompt: string, refBlobs: Blob[]): Promise<ImageResult> {
+  const form = new FormData();
+  form.append("model", "gpt-image-2");
+  form.append("prompt", prompt);
+  form.append("size", "1024x1536");
+  form.append("quality", "medium");
+  refBlobs.forEach((blob, i) => form.append("image[]", blob, `ref${i}.jpg`));
+  const url = refBlobs.length ? "https://api.openai.com/v1/images/edits" : "https://api.openai.com/v1/images/generations";
+  const r = await fetch(url, { method: "POST", headers: { Authorization: `Bearer ${OPENAI_API_KEY}` }, body: form });
+  if (!r.ok) {
+    const t = await r.text();
+    return { error: "Image generation failed: " + t.slice(0, 400), status: r.status };
+  }
+  const j = await r.json();
+  const b64 = j.data?.[0]?.b64_json;
+  if (!b64) return { error: "No image returned", status: 502 };
+  return { b64 };
+}
+
+async function generateImage(prompt: string): Promise<ImageResult> {
+  try {
+    const { blobs, titles } = await getStyleReferenceImages();
+    let result = await callOpenAIImage(prompt, blobs);
+    // Малчевский часто рисовал обнажённую натуру (фавны, музы) — если картинка-референс
+    // всё же зацепила safety-фильтр OpenAI, пробуем ещё раз тем же текстом, но без картинок.
+    if (result.error && blobs.length && /safety|sexual/i.test(result.error)) {
+      result = await callOpenAIImage(prompt, []);
+      if (!result.error) result.usedRefs = ["(none — safety fallback)"];
+    } else if (!result.error) {
+      result.usedRefs = titles;
+    }
+    return result;
+  } catch (e) {
+    return { error: "Illustration error: " + (e instanceof Error ? e.message : String(e)), status: 500 };
+  }
 }
 
 Deno.serve(async (req) => {
@@ -99,51 +147,35 @@ Deno.serve(async (req) => {
     return json({ ok: true }, 200, cors);
   }
 
-  // AI-иллюстрации — приглашённым по email, вне общей квоты (проверяем до неё)
-  if (body.action === "illustrate") {
+  // AI-иллюстрации и обложки — приглашённым по email, вне общей квоты (проверяем до неё)
+  if (body.action === "illustrate" || body.action === "illustrate_cover") {
     const ILLUSTRATOR_EMAIL = (Deno.env.get("ILLUSTRATOR_EMAIL") ?? "").toLowerCase();
     if (!ILLUSTRATOR_EMAIL || (user.email ?? "").toLowerCase() !== ILLUSTRATOR_EMAIL) {
       return err("Illustrations are invite-only right now", 403, cors);
     }
-    const text = String(body.text ?? "").slice(0, 2000);
-    const para = String(body.para ?? "").slice(0, 1500);
     const title = String(body.title ?? "").slice(0, 200);
     const author = String(body.author ?? "").slice(0, 200);
-    if (!text) return err("No text", 400, cors);
 
-    try {
-      const refImages = await getStyleReferenceImages();
-      const prompt = `Book illustration for a scene from the novel "${title}"${author ? " by " + author : ""}.\n` +
+    let prompt: string;
+    if (body.action === "illustrate") {
+      const text = String(body.text ?? "").slice(0, 2000);
+      const para = String(body.para ?? "").slice(0, 1500);
+      if (!text) return err("No text", 400, cors);
+      prompt = `Book illustration for a scene from the novel "${title}"${author ? " by " + author : ""}.\n` +
         `Depicted moment (the reader's highlighted text): "${text}"\n` +
         (para ? `Full paragraph for context: """${para}"""\n` : "") +
-        `Style: Polish Symbolist oil painting in the manner of Jacek Malczewski (1854-1929) — visible painterly ` +
-        `brushstrokes, muted earthy palette (ochre, umber, sage green, dull red) with sudden warm golden light, ` +
-        `symbolist mood blending Polish peasant realism with allegorical or mythological figures where fitting, ` +
-        `atmospheric countryside backgrounds, formal painterly composition. The attached reference images are ` +
-        `genuine Malczewski paintings — match their exact technique, palette and mood closely. ` +
-        `No text, letters, signatures or watermarks in the image.`;
-      const form = new FormData();
-      form.append("model", "gpt-image-2");
-      form.append("prompt", prompt);
-      form.append("size", "1024x1536");
-      form.append("quality", "medium");
-      refImages.forEach((blob, i) => form.append("image[]", blob, `ref${i}.jpg`));
-      const r = await fetch("https://api.openai.com/v1/images/edits", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
-        body: form,
-      });
-      if (!r.ok) {
-        const t = await r.text();
-        return err("Image generation failed: " + t.slice(0, 300), r.status, cors);
-      }
-      const j = await r.json();
-      const b64 = j.data?.[0]?.b64_json;
-      if (!b64) return err("No image returned", 502, cors);
-      return json({ b64 }, 200, cors);
-    } catch (e) {
-      return err("Illustration error: " + (e instanceof Error ? e.message : String(e)), 500, cors);
+        MALCZEWSKI_STYLE + ` No text, letters, signatures or watermarks in the image.`;
+    } else {
+      if (!title) return err("No title", 400, cors);
+      prompt = `Book cover illustration for the classic novel "${title}"${author ? " by " + author : ""}.\n` +
+        `Capture the overall mood, setting and themes of the book in a single evocative scene — the essence, not a specific plot spoiler.\n` +
+        MALCZEWSKI_STYLE + ` Portrait orientation suited for a book cover, with a clear focal point and open space near the top for a title to be overlaid separately. ` +
+        `No text, letters, titles, author names or watermarks in the image.`;
     }
+
+    const result = await generateImage(prompt);
+    if (result.error) return err(result.error, result.status ?? 500, cors);
+    return json({ b64: result.b64, usedRefs: result.usedRefs }, 200, cors);
   }
 
   // Pro-подписчики (оплата через Stripe) без лимита; бесплатный тариф — 10 хайлайтов
