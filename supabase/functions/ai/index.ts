@@ -77,6 +77,7 @@ Deno.serve(async (req) => {
   const text = String(body.text ?? "").slice(0, 3000);
   const para = String(body.para ?? "").slice(0, 1500);
   const lang = String(body.lang ?? "English").slice(0, 30);
+  const extra = String(body.extra ?? "").slice(0, 500);
   if (!text) return err("No text", 400, cors);
 
   if (body.action === "translate") {
@@ -84,7 +85,8 @@ Deno.serve(async (req) => {
       (body.short
         ? ` Since the text is a single word or short phrase: first line — the best translation as used in this context; then a new line in parentheses with the part of speech and 2–4 alternative meanings in ${lang}, comma-separated.`
         : " Preserve the tone and style of the original.") +
-      (para ? " A <context> tag contains the surrounding paragraph — use it only to disambiguate meaning; never translate or mention it." : "");
+      (para ? " A <context> tag contains the surrounding paragraph — use it only to disambiguate meaning; never translate or mention it." : "") +
+      (extra ? ` The reader also set this standing instruction for this book, apply it every time after the translation, as extra lines starting with "— ": ${extra}` : "");
     const userMsg = para ? `<text>${text}</text>\n<context>${para}</context>` : `<text>${text}</text>`;
     const r = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -103,7 +105,8 @@ Deno.serve(async (req) => {
     const author = String(body.author ?? "").slice(0, 200);
     const prompt = `Search the web for information about: "${text}". It appears in the book "${title}"${author ? " by " + author : ""}.` +
       (para ? `\nHere is the paragraph where it appears — use it to identify what "${text}" actually refers to, and trust this context over guesses:\n"""${para}"""` : "") +
-      `\nIn ${lang}, briefly explain (3-5 sentences) what or who this is and the most interesting facts about it. If it is a place, person, work of art or historical event — say so. If the web results clearly do not match the meaning in the paragraph, say what it means in the book instead of forcing a match. Answer in ${lang} only.`;
+      `\nIn ${lang}, briefly explain (3-5 sentences) what or who this is and the most interesting facts about it. If it is a place, person, work of art or historical event — say so. If the web results clearly do not match the meaning in the paragraph, say what it means in the book instead of forcing a match. Answer in ${lang} only.` +
+      (extra ? `\nThe reader also set this standing instruction for this book, apply it every time when relevant: ${extra}` : "");
     const call = (tool: string) => fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },
