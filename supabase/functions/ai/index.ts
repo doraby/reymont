@@ -22,6 +22,38 @@ function err(message: string, status: number, cors: Record<string, string>) {
   return json({ error: { message } }, status, cors);
 }
 
+// Подлинные картины Яцека Мальчевского (обществ. достояние) как референс стиля для gpt-image-2.
+// Кэшируется в памяти тёплого инстанса функции, чтобы не дёргать Commons на каждый запрос.
+let cachedRefs: Blob[] | null = null;
+async function getStyleReferenceImages(): Promise<Blob[]> {
+  if (cachedRefs) return cachedRefs;
+  const apiUrl = "https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*" +
+    "&generator=categorymembers&gcmtitle=" + encodeURIComponent("Category:Paintings by Jacek Malczewski") +
+    "&gcmtype=file&gcmlimit=40&prop=imageinfo&iiprop=url|size&iiurlwidth=1024";
+  try {
+    const res = await fetch(apiUrl);
+    const j = await res.json();
+    const pages = Object.values(j.query?.pages ?? {}) as Array<{ imageinfo?: Array<{ thumburl?: string; width?: number }> }>;
+    const candidates = pages
+      .map((p) => p.imageinfo?.[0])
+      .filter((ii): ii is { thumburl: string; width?: number } =>
+        !!ii?.thumburl && /\.(jpe?g|png)(\?|$)/i.test(ii.thumburl) && (ii.width ?? 0) > 400)
+      .sort((a, b) => a.thumburl.localeCompare(b.thumburl))
+      .slice(0, 4);
+    const blobs: Blob[] = [];
+    for (const c of candidates) {
+      try {
+        const r = await fetch(c.thumburl);
+        if (r.ok) blobs.push(await r.blob());
+      } catch (_e) { /* пропускаем недоступную картинку */ }
+    }
+    cachedRefs = blobs;
+  } catch (_e) {
+    cachedRefs = [];
+  }
+  return cachedRefs;
+}
+
 Deno.serve(async (req) => {
   const cors = corsHeaders(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -65,6 +97,53 @@ Deno.serve(async (req) => {
       } catch (e) { console.error("resend:", e); }
     }
     return json({ ok: true }, 200, cors);
+  }
+
+  // AI-иллюстрации — приглашённым по email, вне общей квоты (проверяем до неё)
+  if (body.action === "illustrate") {
+    const ILLUSTRATOR_EMAIL = (Deno.env.get("ILLUSTRATOR_EMAIL") ?? "").toLowerCase();
+    if (!ILLUSTRATOR_EMAIL || (user.email ?? "").toLowerCase() !== ILLUSTRATOR_EMAIL) {
+      return err("Illustrations are invite-only right now", 403, cors);
+    }
+    const text = String(body.text ?? "").slice(0, 2000);
+    const para = String(body.para ?? "").slice(0, 1500);
+    const title = String(body.title ?? "").slice(0, 200);
+    const author = String(body.author ?? "").slice(0, 200);
+    if (!text) return err("No text", 400, cors);
+
+    try {
+      const refImages = await getStyleReferenceImages();
+      const prompt = `Book illustration for a scene from the novel "${title}"${author ? " by " + author : ""}.\n` +
+        `Depicted moment (the reader's highlighted text): "${text}"\n` +
+        (para ? `Full paragraph for context: """${para}"""\n` : "") +
+        `Style: Polish Symbolist oil painting in the manner of Jacek Malczewski (1854-1929) — visible painterly ` +
+        `brushstrokes, muted earthy palette (ochre, umber, sage green, dull red) with sudden warm golden light, ` +
+        `symbolist mood blending Polish peasant realism with allegorical or mythological figures where fitting, ` +
+        `atmospheric countryside backgrounds, formal painterly composition. The attached reference images are ` +
+        `genuine Malczewski paintings — match their exact technique, palette and mood closely. ` +
+        `No text, letters, signatures or watermarks in the image.`;
+      const form = new FormData();
+      form.append("model", "gpt-image-2");
+      form.append("prompt", prompt);
+      form.append("size", "1024x1536");
+      form.append("quality", "medium");
+      refImages.forEach((blob, i) => form.append("image[]", blob, `ref${i}.jpg`));
+      const r = await fetch("https://api.openai.com/v1/images/edits", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
+        body: form,
+      });
+      if (!r.ok) {
+        const t = await r.text();
+        return err("Image generation failed: " + t.slice(0, 300), r.status, cors);
+      }
+      const j = await r.json();
+      const b64 = j.data?.[0]?.b64_json;
+      if (!b64) return err("No image returned", 502, cors);
+      return json({ b64 }, 200, cors);
+    } catch (e) {
+      return err("Illustration error: " + (e instanceof Error ? e.message : String(e)), 500, cors);
+    }
   }
 
   // Pro-подписчики (оплата через Stripe) без лимита; бесплатный тариф — 10 хайлайтов
