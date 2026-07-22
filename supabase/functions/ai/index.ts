@@ -22,37 +22,35 @@ function err(message: string, status: number, cors: Record<string, string>) {
   return json({ error: { message } }, status, cors);
 }
 
-// Референс стиля — ровно две картины Мальчевского, которые владелец сам выбрал и одобрил
-// (третью, с обнажённой натурой, специально исключили — она валила запрос safety-фильтром
-// OpenAI). Ищем каждую отдельным точным запросом вместо перебора всей категории на Commons,
-// чтобы не подхватить что-то незапланированное. Названия файлов не подтверждены вручную
-// (нет прямого доступа в интернет из этой сессии) — если поиск найдёт не то, usedRefs
-// в ответе функции покажет, что именно выбралось, и запрос можно будет уточнить.
-const REF_SEARCHES = [
-  "Malczewski faun flute self-portrait",
-  "Malczewski Śmierć peasant scythe",
+// Референс стиля — четыре конкретных файла на Wikimedia Commons, которые владелец сам
+// выбрал и прислал ссылками (не подбор по категории или поиску — эти проверены вручную).
+const REF_FILE_TITLES = [
+  "File:Jacek Malczewski - Portret Karola Potkańskiego 1906.jpg",
+  "File:Jacek Malczewski pejzaz z jarzebina.jpg",
+  "File:Jacek Malczewski - Koncert I 1905.jpg",
+  "File:Jacek Malczewski - Środkowa część tryptyku Za aniołem.jpg",
 ];
 let cachedRefs: { blobs: Blob[]; titles: string[] } | null = null;
 async function getStyleReferenceImages(): Promise<{ blobs: Blob[]; titles: string[] }> {
   if (cachedRefs) return cachedRefs;
   const blobs: Blob[] = [];
   const titles: string[] = [];
-  for (const q of REF_SEARCHES) {
-    try {
-      const apiUrl = "https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*" +
-        "&generator=search&gsrnamespace=6&gsrlimit=1&gsrsearch=" + encodeURIComponent(q) +
-        "&prop=imageinfo&iiprop=url|size&iiurlwidth=1024";
-      const res = await fetch(apiUrl);
-      const j = await res.json();
-      const pages = Object.values(j.query?.pages ?? {}) as Array<{ title?: string; imageinfo?: Array<{ thumburl?: string }> }>;
-      const hit = pages[0];
-      const thumburl = hit?.imageinfo?.[0]?.thumburl;
-      if (thumburl) {
+  try {
+    const apiUrl = "https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*" +
+      "&titles=" + encodeURIComponent(REF_FILE_TITLES.join("|")) +
+      "&prop=imageinfo&iiprop=url&iiurlwidth=1024";
+    const res = await fetch(apiUrl);
+    const j = await res.json();
+    const pages = Object.values(j.query?.pages ?? {}) as Array<{ title?: string; imageinfo?: Array<{ thumburl?: string }> }>;
+    for (const p of pages) {
+      const thumburl = p.imageinfo?.[0]?.thumburl;
+      if (!thumburl) continue;
+      try {
         const r = await fetch(thumburl);
-        if (r.ok) { blobs.push(await r.blob()); titles.push(hit.title ?? thumburl); }
-      }
-    } catch (_e) { /* пропускаем, если конкретный поиск не сработал */ }
-  }
+        if (r.ok) { blobs.push(await r.blob()); titles.push(p.title ?? thumburl); }
+      } catch (_e) { /* пропускаем недоступный конкретный файл */ }
+    }
+  } catch (_e) { /* Commons недоступен — сработает fallback без референсов */ }
   cachedRefs = { blobs, titles };
   return cachedRefs;
 }
