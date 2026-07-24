@@ -184,11 +184,14 @@ Deno.serve(async (req) => {
     let prompt: string;
     if (body.action === "illustrate") {
       const text = String(body.text ?? "").slice(0, 2000);
-      const para = String(body.para ?? "").slice(0, 1500);
+      const para = String(body.para ?? "").slice(0, 3000);
+      const chapter = String(body.chapter ?? "").slice(0, 200);
       if (!text) return err("No text", 400, cors);
-      prompt = `Book illustration for a scene from the novel "${title}"${author ? " by " + author : ""}.\n` +
+      console.log("illustrate: chapter=", JSON.stringify(chapter), "| para=", JSON.stringify(para.slice(0, 200)) + "…");
+      prompt = `Book illustration for a scene from the novel "${title}"${author ? " by " + author : ""}` +
+        `${chapter ? ` (from the chapter/section "${chapter}")` : ""}.\n` +
         `Depicted moment (the reader's highlighted text): "${text}"\n` +
-        (para ? `Full paragraph for context: """${para}"""\n` : "") +
+        (para ? `Surrounding passage — a couple of paragraphs before and after the highlighted moment, for accurate scene, character and setting detail:\n"""${para}"""\n` : "") +
         MALCZEWSKI_STYLE + ` No text, letters, signatures or watermarks in the image.`;
     } else {
       if (!title) return err("No title", 400, cors);
@@ -227,13 +230,17 @@ Deno.serve(async (req) => {
   if (!text) return err("No text", 400, cors);
 
   if (body.action === "translate") {
+    console.log("translate: text=", JSON.stringify(text), "para=", JSON.stringify(para.slice(0, 80)), "lang=", lang, "extra=", JSON.stringify(extra));
     const sys = `You are an expert literary translator. Translate the text inside <text> tags into ${lang}. Output ONLY the translation, no comments, tags or quotes.` +
       (body.short
         ? ` Since the text is a single word or short phrase: first line — the best translation as used in this context; then a new line in parentheses with the part of speech and 2–4 alternative meanings in ${lang}, comma-separated.`
         : " Preserve the tone and style of the original.") +
       (para ? " A <context> tag contains the surrounding paragraph — use it only to disambiguate meaning; never translate or mention it." : "") +
-      (extra ? ` The reader also set this standing instruction for this book, apply it every time after the translation, as extra lines starting with "— ": ${extra}` : "");
-    const userMsg = para ? `<text>${text}</text>\n<context>${para}</context>` : `<text>${text}</text>`;
+      (extra ? ` A <reader_instruction> tag contains a standing instruction from the reader for this book. Follow it and generate new content accordingly, as extra lines after the translation, each starting with "— ". Never quote, repeat or translate the instruction text itself — it is not part of the passage.` : "");
+    const userMsg = (para ? `<text>${text}</text>\n<context>${para}</context>` : `<text>${text}</text>`) +
+      (extra ? `\n<reader_instruction>${extra}</reader_instruction>` : "");
+    console.log("translate: sys=", JSON.stringify(sys));
+    console.log("translate: userMsg=", JSON.stringify(userMsg));
     const r = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },
