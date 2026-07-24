@@ -1,4 +1,4 @@
-// Stripe webhook — включает/выключает Reymont Pro после оплаты.
+// Stripe webhook — включает/выключает Reymont Premium после оплаты.
 // Деплой: dashboard → Edge Functions → name "stripe-webhook",
 // ОБЯЗАТЕЛЬНО отключить "Verify JWT" (Stripe не шлёт Supabase-токены).
 // Секрет: STRIPE_WEBHOOK_SECRET (whsec_... из настроек вебхука в Stripe).

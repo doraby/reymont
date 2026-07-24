@@ -162,8 +162,8 @@ Deno.serve(async (req) => {
           body: JSON.stringify({
             from: "Reymont <onboarding@resend.dev>",
             to: [NOTIFY_EMAIL],
-            subject: "Reymont Pro — new upgrade request",
-            text: `New Reymont Pro request ($10/month)\n\nFrom: ${user.email}\nUser id: ${user.id}\nMessage: ${message}\nTime: ${new Date().toISOString()}\n\nAll requests: Supabase → Table Editor → upgrade_requests`,
+            subject: "Reymont Premium — new upgrade request",
+            text: `New Reymont Premium request ($10/month)\n\nFrom: ${user.email}\nUser id: ${user.id}\nMessage: ${message}\nTime: ${new Date().toISOString()}\n\nAll requests: Supabase → Table Editor → upgrade_requests`,
           }),
         });
         if (!r.ok) console.error("resend:", r.status, await r.text());
