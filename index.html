@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Reymont</title>
-<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMzAgNzQiPjxnIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzNEMzkyOSIgc3Ryb2tlLXdpZHRoPSI3IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxjaXJjbGUgY3g9IjMzIiBjeT0iMzkiIHI9IjI3Ii8+PGNpcmNsZSBjeD0iOTMiIGN5PSIzOSIgcj0iMjciLz48cGF0aCBkPSJNNTMgMTkgUTYzIDQgNzMgMTkiLz48L2c+PHBhdGggZD0iTTk4LDUgQzEwMSwyMCAxMTIsMjQgMTQzLDI5IEMxMjAsMzIgMTA3LDQxIDk4LDY2IEM5NCw0OSA4NSw0MSA2OCwzNiBDODcsMzAgOTQsMjAgOTgsNSBaIiBmaWxsPSIjQzE1RjNDIi8+PC9zdmc+">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PGcgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjM0QzOTI5IiBzdHJva2Utd2lkdGg9IjEuOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48Y2lyY2xlIGN4PSI2LjUiIGN5PSIxNCIgcj0iNC41Ii8+PGNpcmNsZSBjeD0iMTcuNSIgY3k9IjE0IiByPSI0LjUiLz48cGF0aCBkPSJNMTAuMywxMSBRMTIsNiAxMy43LDExIi8+PC9nPjxwYXRoIGQ9Ik0xOS41LDIuOCBDMjAsNC42IDIwLDQuNiAyMyw1LjUgQzIwLDYuNCAyMCw2LjQgMTkuNSw4LjggQzE5LDYuNCAxOSw2LjQgMTYuMyw1LjUgQzE5LDQuNiAxOSw0LjYgMTkuNSwyLjggWiIgZmlsbD0iI0MxNUYzQyIvPjwvc3ZnPg==">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
@@ -65,10 +65,9 @@
   #library { height: 100%; overflow-y: auto; }
   .lib-inner { max-width: 960px; margin: 0 auto; padding: 48px 32px 80px; }
   .lib-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
-  .wordmark { font-size: 34px; font-weight: 600; letter-spacing: -0.01em; display: flex; align-items: center; gap: 12px; }
+  .wordmark { font-size: 34px; font-weight: 600; letter-spacing: -0.01em; }
   .wordmark .tail { color: var(--accent); }
-  .brand-mark { width: 42px; height: 24px; color: var(--text); flex: none; }
-  .icon-btn svg.settings-mark { width: 21px; height: 12px; }
+  .icon-btn svg.settings-mark { width: 38px; height: 38px; }
   .app-ver { font-size: 12px; font-weight: 400; color: var(--muted); font-style: italic; letter-spacing: 0; vertical-align: 6px; }
   .modal h2 .app-ver { vertical-align: 3px; }
   .lib-sub { color: var(--muted); font-style: italic; font-size: 15px; margin-bottom: 36px; }
@@ -385,13 +384,10 @@
 <div id="library">
   <div class="lib-inner">
     <div class="lib-header">
-      <div class="wordmark">
-        <svg class="brand-mark" viewBox="0 0 130 74" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"><circle cx="33" cy="39" r="27"/><circle cx="93" cy="39" r="27"/><path d="M53 19 Q63 4 73 19"/></g><path d="M98,5 C101,20 112,24 143,29 C120,32 107,41 98,66 C94,49 85,41 68,36 C87,30 94,20 98,5 Z" fill="var(--accent)"/></svg>
-        Reymont<span class="tail">.</span> <span class="app-ver">v3.6</span>
-      </div>
+      <div class="wordmark">Reymont<span class="tail">.</span> <span class="app-ver">v3.7</span></div>
       <div class="lib-actions">
       <button class="icon-btn" onclick="openSettings()" title="Settings" aria-label="Settings">
-        <svg class="settings-mark" viewBox="0 0 130 74"><g fill="none" stroke="currentColor" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"><circle cx="33" cy="39" r="27"/><circle cx="93" cy="39" r="27"/><path d="M53 19 Q63 4 73 19"/></g><path d="M98,5 C101,20 112,24 143,29 C120,32 107,41 98,66 C94,49 85,41 68,36 C87,30 94,20 98,5 Z" fill="currentColor"/></svg>
+        <svg class="settings-mark" viewBox="0 0 24 24"><circle cx="6.5" cy="14" r="4.5"/><circle cx="17.5" cy="14" r="4.5"/><path d="M10.3,11 Q12,6 13.7,11"/><path d="M19.5,2.8 C20,4.6 20,4.6 23,5.5 C20,6.4 20,6.4 19.5,8.8 C19,6.4 19,6.4 16.3,5.5 C19,4.6 19,4.6 19.5,2.8 Z" fill="var(--accent)" stroke="none"/></svg>
       </button>
       </div>
     </div>
@@ -429,7 +425,7 @@
       <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
     </button>
     <button class="icon-btn" onclick="openSettings()" title="Settings" aria-label="Settings">
-      <svg class="settings-mark" viewBox="0 0 130 74"><g fill="none" stroke="currentColor" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"><circle cx="33" cy="39" r="27"/><circle cx="93" cy="39" r="27"/><path d="M53 19 Q63 4 73 19"/></g><path d="M98,5 C101,20 112,24 143,29 C120,32 107,41 98,66 C94,49 85,41 68,36 C87,30 94,20 98,5 Z" fill="currentColor"/></svg>
+      <svg class="settings-mark" viewBox="0 0 24 24"><circle cx="6.5" cy="14" r="4.5"/><circle cx="17.5" cy="14" r="4.5"/><path d="M10.3,11 Q12,6 13.7,11"/><path d="M19.5,2.8 C20,4.6 20,4.6 23,5.5 C20,6.4 20,6.4 19.5,8.8 C19,6.4 19,6.4 16.3,5.5 C19,4.6 19,4.6 19.5,2.8 Z" fill="var(--accent)" stroke="none"/></svg>
     </button>
   </div>
 
@@ -547,7 +543,7 @@
 <!-- ════════ Settings modal ════════ -->
 <div id="overlay">
   <div class="modal">
-    <h2>Settings <span class="app-ver">v3.6</span></h2>
+    <h2>Settings <span class="app-ver">v3.7</span></h2>
     <div class="m-sub">The key is stored only in your browser and sent only to OpenAI.</div>
     <div id="account-field" class="field" style="display:none">
       <label>Account</label>
@@ -677,12 +673,12 @@ function copyDbg() {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
   else fallback();
 }
-console.log('Reymont v3.6 |', navigator.userAgent);
+console.log('Reymont v3.7 |', navigator.userAgent);
 </script>
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.6'; // поднимать при каждом деплое — и в двух статичных бейджах .app-ver в HTML
+const APP_VERSION = '3.7'; // поднимать при каждом деплое — и в двух статичных бейджах .app-ver в HTML
 
 /* ════════════════════════ Cloud sync (Supabase) ════════════════════════
    Авторизация по magic-ссылке + облачное хранение хайлайтов.
