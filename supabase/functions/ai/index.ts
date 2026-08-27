@@ -236,7 +236,7 @@ Deno.serve(async (req) => {
         ? ` Since the text is a single word or short phrase: first line — the best translation as used in this context; then a new line in parentheses with the part of speech and 2–4 alternative meanings in ${lang}, comma-separated.`
         : " Preserve the tone and style of the original.") +
       (para ? " A <context> tag contains the surrounding paragraph — use it only to disambiguate meaning; never translate or mention it." : "") +
-      (extra ? ` A <reader_instruction> tag contains a standing instruction from the reader for this book. Follow it and generate new content accordingly, as extra lines after the translation, each starting with "— ". Never quote, repeat or translate the instruction text itself — it is not part of the passage.` : "");
+      (extra ? ` A <reader_instruction> tag contains a standing instruction from the reader for this book. You must actively carry it out, not describe or repeat it: produce the actual analysis/content it asks for, as extra lines after the translation, each starting with "— ". Even if you are not fully certain (e.g. an obscure or dialectal word), give your best-effort informed answer rather than refusing or restating the instruction. Under no circumstances output the wording of the instruction itself, in any language — it is a private note to you, not part of the passage or the reply.` : "");
     const userMsg = (para ? `<text>${text}</text>\n<context>${para}</context>` : `<text>${text}</text>`) +
       (extra ? `\n<reader_instruction>${extra}</reader_instruction>` : "");
     console.log("translate: sys=", JSON.stringify(sys));

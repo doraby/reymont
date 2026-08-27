@@ -384,7 +384,7 @@
 <div id="library">
   <div class="lib-inner">
     <div class="lib-header">
-      <div class="wordmark">Reymont<span class="tail">.</span> <span class="app-ver">v3.7</span></div>
+      <div class="wordmark">Reymont<span class="tail">.</span> <span class="app-ver">v3.8</span></div>
       <div class="lib-actions">
       <button class="icon-btn" onclick="openSettings()" title="Settings" aria-label="Settings">
         <svg class="settings-mark" viewBox="0 0 24 24"><circle cx="6.5" cy="14" r="4.5"/><circle cx="17.5" cy="14" r="4.5"/><path d="M10.3,11 Q12,6 13.7,11"/><path d="M19.5,2.8 C20,4.6 20,4.6 23,5.5 C20,6.4 20,6.4 19.5,8.8 C19,6.4 19,6.4 16.3,5.5 C19,4.6 19,4.6 19.5,2.8 Z" fill="var(--accent)" stroke="none"/></svg>
@@ -543,7 +543,7 @@
 <!-- ════════ Settings modal ════════ -->
 <div id="overlay">
   <div class="modal">
-    <h2>Settings <span class="app-ver">v3.7</span></h2>
+    <h2>Settings <span class="app-ver">v3.8</span></h2>
     <div class="m-sub">The key is stored only in your browser and sent only to OpenAI.</div>
     <div id="account-field" class="field" style="display:none">
       <label>Account</label>
@@ -673,12 +673,12 @@ function copyDbg() {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
   else fallback();
 }
-console.log('Reymont v3.7 |', navigator.userAgent);
+console.log('Reymont v3.8 |', navigator.userAgent);
 </script>
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.7'; // поднимать при каждом деплое — и в двух статичных бейджах .app-ver в HTML
+const APP_VERSION = '3.8'; // поднимать при каждом деплое — и в двух статичных бейджах .app-ver в HTML
 
 /* ════════════════════════ Cloud sync (Supabase) ════════════════════════
    Авторизация по magic-ссылке + облачное хранение хайлайтов.
@@ -1396,6 +1396,24 @@ function saveNotePart(note, field, value) {
   if (field === 'translation') renderNotesList();
 }
 
+/* Defensive net: some models echo the reader's own custom instruction back verbatim
+   instead of acting on it (seen with gpt-4o-mini on obscure/dialectal words). Strip
+   any line that matches the instruction text so it never reaches the reader. */
+function stripEchoedInstruction(text, instruction) {
+  if (!instruction) return text;
+  const norm = s => s.toLowerCase().replace(/^[—\-–\s]+/, '').replace(/[«»"'“”.,!?]/g, '').trim();
+  const instrNorm = norm(instruction);
+  if (!instrNorm) return text;
+  const lines = text.split('\n').filter(line => {
+    const lineNorm = norm(line);
+    if (!lineNorm) return true;
+    if (lineNorm === instrNorm) return false;
+    if (instrNorm.length > 15 && (lineNorm.includes(instrNorm) || instrNorm.includes(lineNorm))) return false;
+    return true;
+  });
+  return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 /* ════════════════════════ OpenAI: translation (streaming) ════════════════════════ */
 async function translate(text, gen, words, para, note) {
   translateAbort = new AbortController();
@@ -1409,7 +1427,7 @@ async function translate(text, gen, words, para, note) {
         ? ` Since the text is a single word or short phrase: first line — the best translation as used in this context; then a new line in parentheses with the part of speech and 2–4 alternative meanings in ${settings.lang}, comma-separated.`
         : ' Preserve the tone and style of the original.')
         + (para ? ' A <context> tag contains the surrounding paragraph — use it only to disambiguate meaning; never translate or mention it.' : '')
-        + (currentPrompt ? ` A <reader_instruction> tag contains a standing instruction from the reader for this book. Follow it and generate new content accordingly, as extra lines after the translation, each starting with "— ". Never quote, repeat or translate the instruction text itself — it is not part of the passage.` : '');
+        + (currentPrompt ? ` A <reader_instruction> tag contains a standing instruction from the reader for this book. You must actively carry it out, not describe or repeat it: produce the actual analysis/content it asks for, as extra lines after the translation, each starting with "— ". Even if you are not fully certain (e.g. an obscure or dialectal word), give your best-effort informed answer rather than refusing or restating the instruction. Under no circumstances output the wording of the instruction itself, in any language — it is a private note to you, not part of the passage or the reply.` : '');
       const userMsg = (para ? `<text>${text}</text>\n<context>${para}</context>` : `<text>${text}</text>`)
         + (currentPrompt ? `\n<reader_instruction>${currentPrompt}</reader_instruction>` : '');
       console.log('translate: sys =', JSON.stringify(sys));
@@ -1459,7 +1477,9 @@ async function translate(text, gen, words, para, note) {
       }
     }
     console.log('translate: final response =', JSON.stringify(acc));
-    if (gen === selGeneration) saveNotePart(note, 'translation', acc);
+    const clean = stripEchoedInstruction(acc, currentPrompt);
+    if (clean !== acc) { console.warn('translate: stripped echoed reader_instruction from output'); out.textContent = clean; }
+    if (gen === selGeneration) saveNotePart(note, 'translation', clean);
   } catch (err) {
     if (err.name === 'AbortError' || gen !== selGeneration) return;
     console.error('translate: failed —', err.name + ':', err.message);
