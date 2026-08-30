@@ -122,6 +122,9 @@
   .book-card:hover .book-illus { opacity: 1; }
   .book-illus:hover { background: rgba(193,95,60,.9); }
   .book-illus.busy { opacity: 1; pointer-events: none; }
+  .book-curated .book-cover { background: linear-gradient(160deg, #8C9A6E, #5E6B45); }
+  .book-add-hint { font-size: 11.5px; color: var(--accent); margin-top: 4px; font-weight: 600; }
+  .book-curated.pending { pointer-events: none; opacity: .6; }
   #lib-empty { color: var(--muted); font-style: italic; font-size: 15px; }
   .lib-footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--border);
     font-size: 12.5px; color: var(--muted); }
@@ -384,7 +387,7 @@
 <div id="library">
   <div class="lib-inner">
     <div class="lib-header">
-      <div class="wordmark">Reymont<span class="tail">.</span> <span class="app-ver">v3.8</span></div>
+      <div class="wordmark">Reymont<span class="tail">.</span> <span class="app-ver">v3.9</span></div>
       <div class="lib-actions">
       <button class="icon-btn" onclick="openSettings()" title="Settings" aria-label="Settings">
         <svg class="settings-mark" viewBox="0 0 24 24"><circle cx="6.5" cy="14" r="4.5"/><circle cx="17.5" cy="14" r="4.5"/><path d="M10.3,11 Q12,6 13.7,11"/><path d="M19.5,2.8 C20,4.6 20,4.6 23,5.5 C20,6.4 20,6.4 19.5,8.8 C19,6.4 19,6.4 16.3,5.5 C19,4.6 19,4.6 19.5,2.8 Z" fill="var(--accent)" stroke="none"/></svg>
@@ -543,7 +546,7 @@
 <!-- ════════ Settings modal ════════ -->
 <div id="overlay">
   <div class="modal">
-    <h2>Settings <span class="app-ver">v3.8</span></h2>
+    <h2>Settings <span class="app-ver">v3.9</span></h2>
     <div class="m-sub">The key is stored only in your browser and sent only to OpenAI.</div>
     <div id="account-field" class="field" style="display:none">
       <label>Account</label>
@@ -673,12 +676,12 @@ function copyDbg() {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
   else fallback();
 }
-console.log('Reymont v3.8 |', navigator.userAgent);
+console.log('Reymont v3.9 |', navigator.userAgent);
 </script>
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.8'; // поднимать при каждом деплое — и в двух статичных бейджах .app-ver в HTML
+const APP_VERSION = '3.9'; // поднимать при каждом деплое — и в двух статичных бейджах .app-ver в HTML
 
 /* ════════════════════════ Cloud sync (Supabase) ════════════════════════
    Авторизация по magic-ссылке + облачное хранение хайлайтов.
@@ -977,6 +980,22 @@ async function renderLibrary() {
   addCard.addEventListener('click', () => $('file-input').click());
   grid.appendChild(addCard);
 
+  const ownedIds = new Set(books.map(b => b.id));
+  for (const cb of CURATED_BOOKS) {
+    if (ownedIds.has(cb.id)) continue;
+    const card = document.createElement('div');
+    card.className = 'book-card book-curated';
+    card.innerHTML = `
+      <div class="book-cover"><div class="gen-title">${esc(cb.title)}</div></div>
+      <div class="book-meta">
+        <div class="book-title">${esc(cb.title)}</div>
+        <div class="book-author">${esc(cb.author || '')}</div>
+        <div class="book-add-hint">Tap to add — free</div>
+      </div>`;
+    card.addEventListener('click', () => importCuratedBook(cb, card));
+    grid.appendChild(card);
+  }
+
   for (const b of books) {
     const card = document.createElement('div');
     card.className = 'book-card';
@@ -1076,6 +1095,57 @@ function libError(msg) {
   el.style.display = 'block';
 }
 
+/* Общая часть импорта книги — разбор метаданных/обложки из уже готового EPUB-архива.
+   Используется и при загрузке своего файла, и при добавлении книги из каталога. */
+async function parseEpubForLibrary(data) {
+  const tmp = ePub(data.slice(0));
+  ['manifest', 'spine', 'metadata', 'cover', 'navigation', 'resources', 'displayOptions'].forEach(k => {
+    const p = tmp.loaded && tmp.loaded[k];
+    if (p && p.then) p.then(() => console.log('loaded.' + k + ' ✓'), err => console.error('loaded.' + k + ' ✗', err));
+  });
+  if (tmp.opened && tmp.opened.then) tmp.opened.then(() => console.log('opened ✓'), err => console.error('opened ✗', err));
+  // Полный book.ready ждёт и необязательные части (напр. displayOptions), которые
+  // в некоторых Chrome зависают навсегда. Для полки хватает архива и метаданных.
+  await withTimeout(tmp.opened, 20000, 'opening the book archive');
+  const meta = await withTimeout(tmp.loaded.metadata, 20000, 'reading metadata');
+  let cover = null;
+  try {
+    const url = await withTimeout(tmp.coverUrl(), 10000, 'cover');
+    if (url) cover = await blobUrlToDataUrl(url);
+  } catch (e) { console.warn('cover extraction failed:', e); }
+  try { tmp.destroy(); } catch (e) {}
+  return { meta, cover };
+}
+
+/* Каталог бесплатных книг, зашитых в приложение — файлы лежат в /books рядом с index.html. */
+const CURATED_BOOKS = [
+  { id: 'curated-chlopi', file: 'books/chlopi.epub', title: 'Chłopi', author: 'Władysław Reymont' },
+];
+
+async function importCuratedBook(curated, cardEl) {
+  try {
+    toast('Downloading “' + curated.title + '”…');
+    if (cardEl) cardEl.classList.add('pending');
+    const res = await fetch(curated.file);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    let data = await res.arrayBuffer();
+    data = await normalizeEpubData(data);
+    const { meta, cover } = await parseEpubForLibrary(data);
+    await dbPut('books', {
+      id: curated.id, data, cover,
+      title: meta.title || curated.title,
+      author: meta.creator || curated.author || '',
+      added: Date.now(), lastOpened: Date.now(), progress: 0,
+    });
+    await renderLibrary();
+    await openBook(curated.id);
+  } catch (err) {
+    console.error('importCuratedBook:', err);
+    libError(`Couldn’t add “${curated.title}”. ${err && err.message || err}`);
+    if (cardEl) cardEl.classList.remove('pending');
+  }
+}
+
 async function importFile(file) {
   if (!file) return;
   $('lib-error').style.display = 'none';
@@ -1090,22 +1160,7 @@ async function importFile(file) {
     step = 'parsing the EPUB';
     console.log('import: file', file.name, file.size + ' bytes, type "' + (file.type || '—') + '"');
     data = await normalizeEpubData(data);
-    const tmp = ePub(data.slice(0));
-    ['manifest', 'spine', 'metadata', 'cover', 'navigation', 'resources', 'displayOptions'].forEach(k => {
-      const p = tmp.loaded && tmp.loaded[k];
-      if (p && p.then) p.then(() => console.log('loaded.' + k + ' ✓'), err => console.error('loaded.' + k + ' ✗', err));
-    });
-    if (tmp.opened && tmp.opened.then) tmp.opened.then(() => console.log('opened ✓'), err => console.error('opened ✗', err));
-    // Полный book.ready ждёт и необязательные части (напр. displayOptions), которые
-    // в некоторых Chrome зависают навсегда. Для полки хватает архива и метаданных.
-    await withTimeout(tmp.opened, 20000, 'opening the book archive');
-    const meta = await withTimeout(tmp.loaded.metadata, 20000, 'reading metadata');
-    let cover = null;
-    try {
-      const url = await withTimeout(tmp.coverUrl(), 10000, 'cover');
-      if (url) cover = await blobUrlToDataUrl(url);
-    } catch (e) { console.warn('cover extraction failed:', e); }
-    try { tmp.destroy(); } catch (e) {}
+    const { meta, cover } = await parseEpubForLibrary(data);
     step = 'saving';
     const id = 'b' + Math.abs(hashStr(file.name + ':' + file.size));
     await dbPut('books', {
