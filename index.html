@@ -387,7 +387,7 @@
 <div id="library">
   <div class="lib-inner">
     <div class="lib-header">
-      <div class="wordmark">Reymont<span class="tail">.</span> <span class="app-ver">v3.9</span></div>
+      <div class="wordmark">Reymont<span class="tail">.</span> <span class="app-ver">v3.10</span></div>
       <div class="lib-actions">
       <button class="icon-btn" onclick="openSettings()" title="Settings" aria-label="Settings">
         <svg class="settings-mark" viewBox="0 0 24 24"><circle cx="6.5" cy="14" r="4.5"/><circle cx="17.5" cy="14" r="4.5"/><path d="M10.3,11 Q12,6 13.7,11"/><path d="M19.5,2.8 C20,4.6 20,4.6 23,5.5 C20,6.4 20,6.4 19.5,8.8 C19,6.4 19,6.4 16.3,5.5 C19,4.6 19,4.6 19.5,2.8 Z" fill="var(--accent)" stroke="none"/></svg>
@@ -546,7 +546,7 @@
 <!-- ════════ Settings modal ════════ -->
 <div id="overlay">
   <div class="modal">
-    <h2>Settings <span class="app-ver">v3.9</span></h2>
+    <h2>Settings <span class="app-ver">v3.10</span></h2>
     <div class="m-sub">The key is stored only in your browser and sent only to OpenAI.</div>
     <div id="account-field" class="field" style="display:none">
       <label>Account</label>
@@ -676,12 +676,12 @@ function copyDbg() {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
   else fallback();
 }
-console.log('Reymont v3.9 |', navigator.userAgent);
+console.log('Reymont v3.10 |', navigator.userAgent);
 </script>
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.9'; // поднимать при каждом деплое — и в двух статичных бейджах .app-ver в HTML
+const APP_VERSION = '3.10'; // поднимать при каждом деплое — и в двух статичных бейджах .app-ver в HTML
 
 /* ════════════════════════ Cloud sync (Supabase) ════════════════════════
    Авторизация по magic-ссылке + облачное хранение хайлайтов.
@@ -1126,7 +1126,7 @@ async function importCuratedBook(curated, cardEl) {
   try {
     toast('Downloading “' + curated.title + '”…');
     if (cardEl) cardEl.classList.add('pending');
-    const res = await fetch(curated.file);
+    const res = await fetch(curated.file, { cache: 'no-store' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     let data = await res.arrayBuffer();
     data = await normalizeEpubData(data);
