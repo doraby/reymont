@@ -387,7 +387,7 @@
 <div id="library">
   <div class="lib-inner">
     <div class="lib-header">
-      <div class="wordmark">Reymont<span class="tail">.</span> <span class="app-ver">v3.10</span></div>
+      <div class="wordmark">Reymont<span class="tail">.</span> <span class="app-ver">v3.11</span></div>
       <div class="lib-actions">
       <button class="icon-btn" onclick="openSettings()" title="Settings" aria-label="Settings">
         <svg class="settings-mark" viewBox="0 0 24 24"><circle cx="6.5" cy="14" r="4.5"/><circle cx="17.5" cy="14" r="4.5"/><path d="M10.3,11 Q12,6 13.7,11"/><path d="M19.5,2.8 C20,4.6 20,4.6 23,5.5 C20,6.4 20,6.4 19.5,8.8 C19,6.4 19,6.4 16.3,5.5 C19,4.6 19,4.6 19.5,2.8 Z" fill="var(--accent)" stroke="none"/></svg>
@@ -546,7 +546,7 @@
 <!-- ════════ Settings modal ════════ -->
 <div id="overlay">
   <div class="modal">
-    <h2>Settings <span class="app-ver">v3.10</span></h2>
+    <h2>Settings <span class="app-ver">v3.11</span></h2>
     <div class="m-sub">The key is stored only in your browser and sent only to OpenAI.</div>
     <div id="account-field" class="field" style="display:none">
       <label>Account</label>
@@ -676,12 +676,12 @@ function copyDbg() {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
   else fallback();
 }
-console.log('Reymont v3.10 |', navigator.userAgent);
+console.log('Reymont v3.11 |', navigator.userAgent);
 </script>
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.10'; // поднимать при каждом деплое — и в двух статичных бейджах .app-ver в HTML
+const APP_VERSION = '3.11'; // поднимать при каждом деплое — и в двух статичных бейджах .app-ver в HTML
 
 /* ════════════════════════ Cloud sync (Supabase) ════════════════════════
    Авторизация по magic-ссылке + облачное хранение хайлайтов.
@@ -986,13 +986,20 @@ async function renderLibrary() {
     const card = document.createElement('div');
     card.className = 'book-card book-curated';
     card.innerHTML = `
-      <div class="book-cover"><div class="gen-title">${esc(cb.title)}</div></div>
+      <div class="book-cover"><div class="gen-title">${esc(cb.title)}</div>
+        ${sbUser ? `<button class="book-illus" title="Generate AI cover">🎨</button>` : ''}
+      </div>
       <div class="book-meta">
         <div class="book-title">${esc(cb.title)}</div>
         <div class="book-author">${esc(cb.author || '')}</div>
         <div class="book-add-hint">Tap to add — free</div>
       </div>`;
     card.addEventListener('click', () => importCuratedBook(cb, card));
+    const curIllusBtn = card.querySelector('.book-illus');
+    if (curIllusBtn) curIllusBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      generateCuratedCover(cb, curIllusBtn);
+    });
     grid.appendChild(card);
   }
 
@@ -1122,27 +1129,47 @@ const CURATED_BOOKS = [
   { id: 'curated-chlopi', file: 'books/chlopi.epub', title: 'Chłopi', author: 'Władysław Reymont' },
 ];
 
+async function fetchAndSaveCuratedBook(curated) {
+  const res = await fetch(curated.file, { cache: 'no-store' });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  let data = await res.arrayBuffer();
+  data = await normalizeEpubData(data);
+  const { meta, cover } = await parseEpubForLibrary(data);
+  await dbPut('books', {
+    id: curated.id, data, cover,
+    title: meta.title || curated.title,
+    author: meta.creator || curated.author || '',
+    added: Date.now(), lastOpened: Date.now(), progress: 0,
+  });
+}
+
 async function importCuratedBook(curated, cardEl) {
   try {
     toast('Downloading “' + curated.title + '”…');
     if (cardEl) cardEl.classList.add('pending');
-    const res = await fetch(curated.file, { cache: 'no-store' });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    let data = await res.arrayBuffer();
-    data = await normalizeEpubData(data);
-    const { meta, cover } = await parseEpubForLibrary(data);
-    await dbPut('books', {
-      id: curated.id, data, cover,
-      title: meta.title || curated.title,
-      author: meta.creator || curated.author || '',
-      added: Date.now(), lastOpened: Date.now(), progress: 0,
-    });
+    await fetchAndSaveCuratedBook(curated);
     await renderLibrary();
     await openBook(curated.id);
   } catch (err) {
     console.error('importCuratedBook:', err);
     libError(`Couldn’t add “${curated.title}”. ${err && err.message || err}`);
     if (cardEl) cardEl.classList.remove('pending');
+  }
+}
+
+async function generateCuratedCover(curated, btn) {
+  btn.classList.add('busy'); btn.textContent = '⏳';
+  try {
+    let rec = await dbGet('books', curated.id);
+    if (!rec) {
+      toast('Adding “' + curated.title + '”…');
+      await fetchAndSaveCuratedBook(curated);
+    }
+    await generateCover(curated.id, btn); // re-renders the library once done
+  } catch (err) {
+    console.error('generateCuratedCover:', err);
+    libError(`Couldn’t add “${curated.title}”. ${err && err.message || err}`);
+    btn.classList.remove('busy'); btn.textContent = '🎨';
   }
 }
 
