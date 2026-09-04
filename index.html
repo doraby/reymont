@@ -396,7 +396,7 @@
 <div id="library">
   <div class="lib-inner">
     <div class="lib-header">
-      <div class="wordmark">Reymont<span class="tail">.</span> <span class="app-ver">v3.14</span></div>
+      <div class="wordmark">Reymont<span class="tail">.</span> <span class="app-ver">v3.15</span></div>
       <div class="lib-actions">
       <button class="icon-btn" onclick="openSettings()" title="Settings" aria-label="Settings">
         <svg class="settings-mark" viewBox="0 0 24 24"><circle cx="6.5" cy="14" r="4.5"/><circle cx="17.5" cy="14" r="4.5"/><path d="M10.3,11 Q12,6 13.7,11"/><path d="M19.5,2.8 C20,4.6 20,4.6 23,5.5 C20,6.4 20,6.4 19.5,8.8 C19,6.4 19,6.4 16.3,5.5 C19,4.6 19,4.6 19.5,2.8 Z" fill="var(--accent)" stroke="none"/></svg>
@@ -555,7 +555,7 @@
 <!-- ════════ Settings modal ════════ -->
 <div id="overlay">
   <div class="modal">
-    <h2>Settings <span class="app-ver">v3.14</span></h2>
+    <h2>Settings <span class="app-ver">v3.15</span></h2>
     <div class="m-sub">The key is stored only in your browser and sent only to OpenAI.</div>
     <div id="account-field" class="field" style="display:none">
       <label>Account</label>
@@ -687,12 +687,12 @@ function copyDbg() {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
   else fallback();
 }
-console.log('Reymont v3.14 |', navigator.userAgent);
+console.log('Reymont v3.15 |', navigator.userAgent);
 </script>
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.14'; // поднимать при каждом деплое — и в двух статичных бейджах .app-ver в HTML
+const APP_VERSION = '3.15'; // поднимать при каждом деплое — и в двух статичных бейджах .app-ver в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 
 /* ════════════════════════ Cloud sync (Supabase) ════════════════════════
@@ -703,6 +703,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_mRBZJDQylQ5nifnkbsDTCw_QKHNLtj8';
 const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/8x2fZh4wO2R14lH3dHbwk01';
 let sb = null, sbUser = null;
 let curatedCoverOverrides = {}; // id → url, из общей таблицы curated_covers (обложки каталога, поставленные владельцем)
+let cloudBooksList = []; // метаданные книг читателя, загруженных с других устройств, но ещё не скачанных на это
 
 function cloudConfigured() {
   return SUPABASE_URL.startsWith('https://') && !SUPABASE_ANON_KEY.startsWith('__');
@@ -715,6 +716,7 @@ async function initCloud() {
   sb.auth.onAuthStateChange((_ev, session) => {
     const was = sbUser && sbUser.id;
     sbUser = session ? session.user : null;
+    if (!sbUser) cloudBooksList = []; // не показывать чужие/прошлые «облачные» книги после выхода
     updateAuthUi();
     if (sbUser && sbUser.id !== was) fullSync();
   });
@@ -847,6 +849,47 @@ async function cloudDeleteNote(id) {
   try { const { error } = await sb.from('highlights').delete().eq('id', id); if (error) throw error; }
   catch (e) { console.warn('cloud delete:', e.message || e); }
 }
+
+/* ═══════════ Cloud sync — book files themselves (not just highlights) ═══════════
+   Каталожные книги (CURATED_BOOKS) сюда не попадают — они и так «синхронизируются»,
+   каждый раз скачиваясь заново с того же общего файла. */
+function isCuratedId(id) { return CURATED_BOOKS.some(cb => cb.id === id); }
+async function cloudUploadBook(rec) {
+  if (!sb || !sbUser || isCuratedId(rec.id)) return;
+  try {
+    const blob = new Blob([rec.data], { type: 'application/epub+zip' });
+    const { error: upErr } = await sb.storage.from('user-books')
+      .upload(sbUser.id + '/' + rec.id + '.epub', blob, { upsert: true, contentType: 'application/epub+zip' });
+    if (upErr) throw upErr;
+    const { error: rowErr } = await sb.from('books').upsert({
+      id: rec.id, user_id: sbUser.id, title: rec.title, author: rec.author || '',
+      cover: rec.cover || null, added: rec.added || Date.now(), updated: Date.now(),
+    });
+    if (rowErr) throw rowErr;
+    console.log('cloudUploadBook: synced', rec.id);
+  } catch (e) { console.warn('cloudUploadBook:', e.message || e); }
+}
+async function cloudDeleteBook(id) {
+  if (!sb || !sbUser || isCuratedId(id)) return;
+  try {
+    await sb.storage.from('user-books').remove([sbUser.id + '/' + id + '.epub']);
+    const { error } = await sb.from('books').delete().eq('id', id);
+    if (error) throw error;
+  } catch (e) { console.warn('cloudDeleteBook:', e.message || e); }
+}
+/* Список облачных книг (метаданные без файла) + докачка тех, что есть локально, но ещё не в облаке. */
+async function syncBooksList() {
+  if (!sb || !sbUser) { cloudBooksList = []; return; }
+  try {
+    const { data: remote, error } = await sb.from('books')
+      .select('id,title,author,cover,added,updated').eq('user_id', sbUser.id);
+    if (error) throw error;
+    cloudBooksList = remote || [];
+    const rmap = new Map(cloudBooksList.map(r => [r.id, r]));
+    const local = (await dbAll('books')).filter(b => !isCuratedId(b.id));
+    for (const b of local) if (!rmap.has(b.id)) cloudUploadBook(b);
+  } catch (e) { console.warn('syncBooksList:', e.message || e); }
+}
 async function fullSync() {
   if (!sb || !sbUser) return;
   try {
@@ -872,6 +915,8 @@ async function fullSync() {
     }
     if (pushed || pulled) toast('Highlights synced ✓');
   } catch (e) { console.warn('sync:', e.message || e); }
+  await syncBooksList();
+  if ($('library') && $('library').style.display !== 'none') renderLibrary();
 }
 
 const LS = {
@@ -1030,6 +1075,25 @@ async function renderLibrary() {
     grid.appendChild(card);
   }
 
+  // Книги, добавленные читателем на другом устройстве — ещё не скачаны на это.
+  for (const r of cloudBooksList) {
+    if (ownedIds.has(r.id)) continue;
+    const card = document.createElement('div');
+    card.className = 'book-card book-curated';
+    card.innerHTML = `
+      <div class="book-cover">${r.cover
+        ? `<img src="${esc(r.cover)}" alt="">`
+        : `<div class="gen-title">${esc(r.title)}</div>`}
+      </div>
+      <div class="book-meta">
+        <div class="book-title">${esc(r.title)}</div>
+        <div class="book-author">${esc(r.author || '')}</div>
+        <div class="book-add-hint">☁️ Tap to download</div>
+      </div>`;
+    card.addEventListener('click', () => downloadCloudBook(r, card));
+    grid.appendChild(card);
+  }
+
   for (const b of books) {
     const card = document.createElement('div');
     card.className = 'book-card';
@@ -1056,6 +1120,7 @@ async function renderLibrary() {
       e.stopPropagation();
       if (!confirm(`Remove “${b.title}” from the shelf (with its highlights)?`)) return;
       await dbDelete('books', b.id);
+      cloudDeleteBook(b.id);
       for (const n of await dbAll('notes')) if (n.bookId === b.id) { await dbDelete('notes', n.id); cloudDeleteNote(n.id); }
       localStorage.removeItem(LS.pos(b.id));
       renderLibrary();
@@ -1184,6 +1249,27 @@ async function importCuratedBook(curated, cardEl) {
   }
 }
 
+async function downloadCloudBook(remote, cardEl) {
+  try {
+    toast('Downloading “' + remote.title + '”…');
+    if (cardEl) cardEl.classList.add('pending');
+    const { data, error } = await sb.storage.from('user-books').download(sbUser.id + '/' + remote.id + '.epub');
+    if (error) throw error;
+    const buf = await data.arrayBuffer();
+    await dbPut('books', {
+      id: remote.id, data: buf, cover: remote.cover || null,
+      title: remote.title, author: remote.author || '',
+      added: Number(remote.added) || Date.now(), lastOpened: Date.now(), progress: 0,
+    });
+    await renderLibrary();
+    await openBook(remote.id);
+  } catch (err) {
+    console.error('downloadCloudBook:', err);
+    libError(`Couldn’t download “${remote.title}”. ${err && err.message || err}`);
+    if (cardEl) cardEl.classList.remove('pending');
+  }
+}
+
 async function generateCuratedCover(curated, btn) {
   btn.classList.add('busy'); btn.textContent = '⏳';
   try {
@@ -1219,12 +1305,14 @@ async function importFile(file) {
     const { meta, cover } = await parseEpubForLibrary(data);
     step = 'saving';
     const id = 'b' + Math.abs(hashStr(file.name + ':' + file.size));
-    await dbPut('books', {
+    const rec = {
       id, data, cover,
       title: meta.title || file.name.replace(/\.epub$/i, ''),
       author: meta.creator || '',
       added: Date.now(), lastOpened: Date.now(), progress: 0,
-    });
+    };
+    await dbPut('books', rec);
+    cloudUploadBook(rec); // best-effort, background — so it also shows up on your other devices
     await renderLibrary();
     step = 'opening the book';
     await openBook(id);
