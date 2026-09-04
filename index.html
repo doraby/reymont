@@ -396,7 +396,7 @@
 <div id="library">
   <div class="lib-inner">
     <div class="lib-header">
-      <div class="wordmark">Reymont<span class="tail">.</span> <span class="app-ver">v3.16</span></div>
+      <div class="wordmark">Reymont<span class="tail">.</span> <span class="app-ver">v3.17</span></div>
       <div class="lib-actions">
       <button class="icon-btn" onclick="openSettings()" title="Settings" aria-label="Settings">
         <svg class="settings-mark" viewBox="0 0 24 24"><circle cx="6.5" cy="14" r="4.5"/><circle cx="17.5" cy="14" r="4.5"/><path d="M10.3,11 Q12,6 13.7,11"/><path d="M19.5,2.8 C20,4.6 20,4.6 23,5.5 C20,6.4 20,6.4 19.5,8.8 C19,6.4 19,6.4 16.3,5.5 C19,4.6 19,4.6 19.5,2.8 Z" fill="var(--accent)" stroke="none"/></svg>
@@ -555,7 +555,7 @@
 <!-- ════════ Settings modal ════════ -->
 <div id="overlay">
   <div class="modal">
-    <h2>Settings <span class="app-ver">v3.16</span></h2>
+    <h2>Settings <span class="app-ver">v3.17</span></h2>
     <div class="m-sub">The key is stored only in your browser and sent only to OpenAI.</div>
     <div id="account-field" class="field" style="display:none">
       <label>Account</label>
@@ -687,12 +687,12 @@ function copyDbg() {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
   else fallback();
 }
-console.log('Reymont v3.16 |', navigator.userAgent);
+console.log('Reymont v3.17 |', navigator.userAgent);
 </script>
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.16'; // поднимать при каждом деплое — и в двух статичных бейджах .app-ver в HTML
+const APP_VERSION = '3.17'; // поднимать при каждом деплое — и в двух статичных бейджах .app-ver в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 
 /* ════════════════════════ Cloud sync (Supabase) ════════════════════════
@@ -1376,6 +1376,7 @@ async function openBook(id) {
   rendition.hooks.content.register(contents => {
     contents.addStylesheet('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&display=swap');
     injectIllustrations(contents);
+    bindTouchSelectionFallback(contents);
   });
 
   await loadNotes(id); // до display(), чтобы картинки уже были на месте при первом рендере
@@ -1494,6 +1495,28 @@ $('sel-fab').addEventListener('click', () => {
   hideSelFab();
   startLookup(text, para, cfiRange);
 });
+
+/* iOS Safari почти никогда не шлёт 'selectionchange' внутри iframe — а epub.js's
+   собственный механизм выделения (Contents.onSelectionChange) целиком на нём завязан.
+   В итоге нативное выделение на экране прекрасно видно (синие ручки, меню Copy/Look
+   Up), а событие 'selected' у rendition просто никогда не срабатывает. touchend внутри
+   контента, в отличие от selectionchange, срабатывает на iOS надёжно — используем его,
+   чтобы вручную запустить ту же цепочку событий, что и обычно делает сам epub.js. */
+function bindTouchSelectionFallback(contents) {
+  if (!contents.document) return;
+  let touchSelTimer = null;
+  contents.document.addEventListener('touchend', () => {
+    clearTimeout(touchSelTimer);
+    touchSelTimer = setTimeout(() => {
+      const sel = contents.window.getSelection();
+      if (sel && sel.rangeCount > 0 && !sel.getRangeAt(0).collapsed) {
+        console.log('bindTouchSelectionFallback: touchend selection — triggering epub.js selected event manually');
+        try { contents.triggerSelectedEvent(sel); }
+        catch (e) { console.error('bindTouchSelectionFallback: triggerSelectedEvent unavailable —', e.message); }
+      }
+    }, 120);
+  }, { passive: true });
+}
 
 /* ════════════════════════ Selection → panel ════════════════════════
    На тач-устройствах ручки выделения двигаются несколько раз подряд —
