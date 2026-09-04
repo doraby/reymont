@@ -397,7 +397,7 @@
 <div id="library">
   <div class="lib-inner">
     <div class="lib-header">
-      <div class="wordmark">Reymont<span class="tail">.</span> <span class="app-ver">v3.18</span></div>
+      <div class="wordmark">Reymont<span class="tail">.</span> <span class="app-ver">v3.19</span></div>
       <div class="lib-actions">
       <button class="icon-btn" onclick="openSettings()" title="Settings" aria-label="Settings">
         <svg class="settings-mark" viewBox="0 0 24 24"><circle cx="6.5" cy="14" r="4.5"/><circle cx="17.5" cy="14" r="4.5"/><path d="M10.3,11 Q12,6 13.7,11"/><path d="M19.5,2.8 C20,4.6 20,4.6 23,5.5 C20,6.4 20,6.4 19.5,8.8 C19,6.4 19,6.4 16.3,5.5 C19,4.6 19,4.6 19.5,2.8 Z" fill="var(--accent)" stroke="none"/></svg>
@@ -556,7 +556,7 @@
 <!-- ════════ Settings modal ════════ -->
 <div id="overlay">
   <div class="modal">
-    <h2>Settings <span class="app-ver">v3.18</span></h2>
+    <h2>Settings <span class="app-ver">v3.19</span></h2>
     <div class="m-sub">The key is stored only in your browser and sent only to OpenAI.</div>
     <div id="account-field" class="field" style="display:none">
       <label>Account</label>
@@ -688,12 +688,12 @@ function copyDbg() {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
   else fallback();
 }
-console.log('Reymont v3.18 |', navigator.userAgent);
+console.log('Reymont v3.19 |', navigator.userAgent);
 </script>
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.18'; // поднимать при каждом деплое — и в двух статичных бейджах .app-ver в HTML
+const APP_VERSION = '3.19'; // поднимать при каждом деплое — и в двух статичных бейджах .app-ver в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 
 /* ════════════════════════ Cloud sync (Supabase) ════════════════════════
@@ -1403,6 +1403,7 @@ async function openBook(id) {
   });
   rendition.on('selected', onTextSelected);
   rendition.on('keyup', readerKeys);
+  startSelectionPoll();
 
   if (!hintShown) {
     hintShown = true;
@@ -1458,6 +1459,7 @@ function markTocActive(href) {
 }
 
 function backToLibrary() {
+  stopSelectionPoll();
   closePanel();
   toggleToc(false);
   $('reader').classList.remove('open');
@@ -1517,6 +1519,41 @@ function bindTouchSelectionFallback(contents) {
       }
     }, 120);
   }, { passive: true });
+}
+
+/* Подстраховка поверх подстраховки: на iOS даже touchend внутри контента не сработал
+   в реальном тесте — похоже, системный жест выделения (лупа, ручки) перехватывает его
+   раньше, чем событие доходит до JS. Единственный по-настоящему надёжный вариант —
+   не ждать никакого события, а просто периодически спрашивать браузер о текущем
+   выделении, пока открыта книга. */
+let selPollTimer = null;
+let lastPolledSelText = '';
+function startSelectionPoll() {
+  if (!IS_TOUCH || selPollTimer) return;
+  console.log('startSelectionPoll: started');
+  selPollTimer = setInterval(() => {
+    if (!rendition) return;
+    try {
+      for (const contents of rendition.getContents()) {
+        if (!contents.window) continue;
+        const sel = contents.window.getSelection();
+        const t = sel && !sel.isCollapsed && sel.rangeCount > 0 ? sel.toString() : '';
+        if (t && t !== lastPolledSelText) {
+          lastPolledSelText = t;
+          console.log('selectionPoll: detected selection —', JSON.stringify(t.slice(0, 60)));
+          try { contents.triggerSelectedEvent(sel); }
+          catch (e) { console.error('selectionPoll: triggerSelectedEvent failed —', e.message); }
+        } else if (!t) {
+          lastPolledSelText = '';
+        }
+      }
+    } catch (e) { console.warn('selectionPoll:', e.message); }
+  }, 600);
+}
+function stopSelectionPoll() {
+  clearInterval(selPollTimer);
+  selPollTimer = null;
+  lastPolledSelText = '';
 }
 
 /* ════════════════════════ Selection → panel ════════════════════════
