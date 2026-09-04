@@ -6,6 +6,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 const CORS_ORIGINS = ["https://reymont.app", "https://www.reymont.app", "https://doraby.github.io"];
 const ILLUSTRATIONS_BUCKET = "illustrations";
+// Держим в синхроне со списком CURATED_BOOKS в index.html.
+const CURATED_BOOK_IDS = new Set(["curated-chlopi"]);
 
 // Отдельный клиент с service-role ключом — только для загрузки картинок в Storage,
 // в обход RLS/Storage policies (доступ к этому action и так ограничен одним email).
@@ -172,11 +174,16 @@ Deno.serve(async (req) => {
     return json({ ok: true }, 200, cors);
   }
 
-  // AI-иллюстрации и обложки — приглашённым по email, вне общей квоты (проверяем до неё)
+  // AI-иллюстрации и обложки — вне общей квоты (проверяем до неё).
+  // Для книг из каталога (CURATED_BOOK_IDS) — только владелец, результат общий для всех.
+  // Для книг, которые читатель добавил сам, — доступно любому вошедшему пользователю.
   if (body.action === "illustrate" || body.action === "illustrate_cover") {
-    const ILLUSTRATOR_EMAIL = (Deno.env.get("ILLUSTRATOR_EMAIL") ?? "").toLowerCase();
-    if (!ILLUSTRATOR_EMAIL || (user.email ?? "").toLowerCase() !== ILLUSTRATOR_EMAIL) {
-      return err("Illustrations are invite-only right now", 403, cors);
+    const isCurated = CURATED_BOOK_IDS.has(String(body.bookId ?? ""));
+    if (isCurated) {
+      const ILLUSTRATOR_EMAIL = (Deno.env.get("ILLUSTRATOR_EMAIL") ?? "").toLowerCase();
+      if (!ILLUSTRATOR_EMAIL || (user.email ?? "").toLowerCase() !== ILLUSTRATOR_EMAIL) {
+        return err("Illustrations for the built-in library are curated by the Reymont team only", 403, cors);
+      }
     }
     const title = String(body.title ?? "").slice(0, 200);
     const author = String(body.author ?? "").slice(0, 200);
@@ -213,6 +220,15 @@ Deno.serve(async (req) => {
       : `${user.id}/covers/${String(body.bookId ?? "unknown").replace(/[^a-zA-Z0-9_-]/g, "")}.png`;
     const upload = await uploadIllustration(path, result.b64);
     if (upload.error) return err(upload.error, 500, cors);
+
+    // Обложка из каталога — сохраняем в общую таблицу, чтобы её видели все читатели,
+    // не только тот, кто нажал «сгенерировать».
+    if (isCurated && body.action === "illustrate_cover" && upload.url) {
+      const { error: covErr } = await storageAdmin().from("curated_covers")
+        .upsert({ id: String(body.bookId), url: upload.url, updated_at: new Date().toISOString() });
+      if (covErr) console.error("curated_covers upsert failed:", covErr.message);
+    }
+
     return json({ url: upload.url, usedRefs: result.usedRefs }, 200, cors);
   }
 

@@ -387,7 +387,7 @@
 <div id="library">
   <div class="lib-inner">
     <div class="lib-header">
-      <div class="wordmark">Reymont<span class="tail">.</span> <span class="app-ver">v3.11</span></div>
+      <div class="wordmark">Reymont<span class="tail">.</span> <span class="app-ver">v3.12</span></div>
       <div class="lib-actions">
       <button class="icon-btn" onclick="openSettings()" title="Settings" aria-label="Settings">
         <svg class="settings-mark" viewBox="0 0 24 24"><circle cx="6.5" cy="14" r="4.5"/><circle cx="17.5" cy="14" r="4.5"/><path d="M10.3,11 Q12,6 13.7,11"/><path d="M19.5,2.8 C20,4.6 20,4.6 23,5.5 C20,6.4 20,6.4 19.5,8.8 C19,6.4 19,6.4 16.3,5.5 C19,4.6 19,4.6 19.5,2.8 Z" fill="var(--accent)" stroke="none"/></svg>
@@ -546,7 +546,7 @@
 <!-- ════════ Settings modal ════════ -->
 <div id="overlay">
   <div class="modal">
-    <h2>Settings <span class="app-ver">v3.11</span></h2>
+    <h2>Settings <span class="app-ver">v3.12</span></h2>
     <div class="m-sub">The key is stored only in your browser and sent only to OpenAI.</div>
     <div id="account-field" class="field" style="display:none">
       <label>Account</label>
@@ -676,12 +676,12 @@ function copyDbg() {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
   else fallback();
 }
-console.log('Reymont v3.11 |', navigator.userAgent);
+console.log('Reymont v3.12 |', navigator.userAgent);
 </script>
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.11'; // поднимать при каждом деплое — и в двух статичных бейджах .app-ver в HTML
+const APP_VERSION = '3.12'; // поднимать при каждом деплое — и в двух статичных бейджах .app-ver в HTML
 
 /* ════════════════════════ Cloud sync (Supabase) ════════════════════════
    Авторизация по magic-ссылке + облачное хранение хайлайтов.
@@ -690,6 +690,7 @@ const SUPABASE_URL = 'https://onetabmtufauhulgjaxv.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_mRBZJDQylQ5nifnkbsDTCw_QKHNLtj8';
 const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/8x2fZh4wO2R14lH3dHbwk01';
 let sb = null, sbUser = null;
+let curatedCoverOverrides = {}; // id → url, из общей таблицы curated_covers (обложки каталога, поставленные владельцем)
 
 function cloudConfigured() {
   return SUPABASE_URL.startsWith('https://') && !SUPABASE_ANON_KEY.startsWith('__');
@@ -707,6 +708,18 @@ async function initCloud() {
   });
   updateAuthUi();
   if (sbUser) fullSync();
+  loadCuratedCoverOverrides();
+}
+/* Обложки каталожных книг, сгенерированные владельцем — публично читаемая таблица,
+   чтобы их видели все читатели, а не только тот, кто их сгенерировал. */
+async function loadCuratedCoverOverrides() {
+  if (!sb || !CURATED_BOOKS.length) return;
+  try {
+    const { data, error } = await sb.from('curated_covers').select('id,url');
+    if (error) { console.warn('curated_covers: fetch failed —', error.message); return; }
+    for (const row of (data || [])) curatedCoverOverrides[row.id] = row.url;
+    if ($('library') && $('library').style.display !== 'none') renderLibrary();
+  } catch (e) { console.warn('curated_covers: fetch failed —', e); }
 }
 function updateAuthUi() {
   const acc = $('account-field'), signin = $('signin-field');
@@ -986,7 +999,9 @@ async function renderLibrary() {
     const card = document.createElement('div');
     card.className = 'book-card book-curated';
     card.innerHTML = `
-      <div class="book-cover"><div class="gen-title">${esc(cb.title)}</div>
+      <div class="book-cover">${curatedCoverOverrides[cb.id]
+        ? `<img src="${esc(curatedCoverOverrides[cb.id])}" alt="">`
+        : `<div class="gen-title">${esc(cb.title)}</div>`}
         ${sbUser ? `<button class="book-illus" title="Generate AI cover">🎨</button>` : ''}
       </div>
       <div class="book-meta">
@@ -1136,7 +1151,7 @@ async function fetchAndSaveCuratedBook(curated) {
   data = await normalizeEpubData(data);
   const { meta, cover } = await parseEpubForLibrary(data);
   await dbPut('books', {
-    id: curated.id, data, cover,
+    id: curated.id, data, cover: curatedCoverOverrides[curated.id] || cover,
     title: meta.title || curated.title,
     author: meta.creator || curated.author || '',
     added: Date.now(), lastOpened: Date.now(), progress: 0,
@@ -1165,7 +1180,9 @@ async function generateCuratedCover(curated, btn) {
       toast('Adding “' + curated.title + '”…');
       await fetchAndSaveCuratedBook(curated);
     }
-    await generateCover(curated.id, btn); // re-renders the library once done
+    await generateCover(curated.id, btn); // saves the new cover on the book record and re-renders
+    rec = await dbGet('books', curated.id);
+    if (rec && rec.cover) curatedCoverOverrides[curated.id] = rec.cover; // server also shared it via curated_covers, for every other reader
   } catch (err) {
     console.error('generateCuratedCover:', err);
     libError(`Couldn’t add “${curated.title}”. ${err && err.message || err}`);
@@ -1728,10 +1745,10 @@ async function requestIllustration(noteId) {
     console.log('requestIllustration: chapter =', JSON.stringify(ctx.chapter), '| wideContext =', JSON.stringify(ctx.wideContext.slice(0, 200)) + '…');
     console.log('requestIllustration: calling aiProxy…');
     const res = await aiProxy({ action: 'illustrate', text: note.text, para: ctx.wideContext || note.para, chapter: ctx.chapter,
-      title: currentMeta.title, author: currentMeta.author, noteId: note.id }, illustrateAbort.signal, 120000);
+      title: currentMeta.title, author: currentMeta.author, noteId: note.id, bookId: currentBookId }, illustrateAbort.signal, 120000);
     if (res.status === 403) {
       console.warn('requestIllustration: 403 — not invited');
-      if (zone) zone.innerHTML = `<div class="ctx-pending">🎨 Illustrations are invite-only right now.</div>`;
+      if (zone) zone.innerHTML = `<div class="ctx-pending">🎨 Illustrations for the built-in library are curated by the Reymont team only.</div>`;
       return;
     }
     if (!res.ok) {
@@ -1765,7 +1782,7 @@ async function generateCover(bookId, btn) {
   try {
     console.log('generateCover: calling aiProxy for', rec.title);
     const res = await aiProxy({ action: 'illustrate_cover', title: rec.title, author: rec.author, bookId }, undefined, 120000);
-    if (res.status === 403) { console.warn('generateCover: 403 — not invited'); toast('Cover generation is invite-only right now'); return; }
+    if (res.status === 403) { console.warn('generateCover: 403 — not invited'); toast('Only the Reymont team can set covers for built-in library books'); return; }
     if (!res.ok) {
       let msg = 'HTTP ' + res.status;
       try { msg = (await res.json()).error.message; } catch (e) { console.warn('generateCover: could not parse error body:', e); }
