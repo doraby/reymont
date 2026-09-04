@@ -8,6 +8,8 @@ const CORS_ORIGINS = ["https://reymont.app", "https://www.reymont.app", "https:/
 const ILLUSTRATIONS_BUCKET = "illustrations";
 // Держим в синхроне со списком CURATED_BOOKS в index.html.
 const CURATED_BOOK_IDS = new Set(["curated-chlopi"]);
+// Бесплатный лимит AI-иллюстраций/обложек на книги читателя (не на каталог — там куратор без лимита).
+const IMAGE_QUOTA_LIMIT = 3;
 
 // Отдельный клиент с service-role ключом — только для загрузки картинок в Storage,
 // в обход RLS/Storage policies (доступ к этому action и так ограничен одним email).
@@ -184,6 +186,15 @@ Deno.serve(async (req) => {
       if (!ILLUSTRATOR_EMAIL || (user.email ?? "").toLowerCase() !== ILLUSTRATOR_EMAIL) {
         return err("Illustrations for the built-in library are curated by the Reymont team only", 403, cors);
       }
+    } else {
+      // Каждый образ стоит денег (gpt-image-2) — на книги читателя лимит в 3 штуки навсегда.
+      // Куратор (владелец, ветка выше) в этот лимит не упирается.
+      const { data: quotaRow } = await storageAdmin().from("image_quota")
+        .select("count").eq("user_id", user.id).maybeSingle();
+      const used = quotaRow?.count ?? 0;
+      if (used >= IMAGE_QUOTA_LIMIT) {
+        return err(`You’ve used all ${IMAGE_QUOTA_LIMIT} free illustrations`, 402, cors);
+      }
     }
     const title = String(body.title ?? "").slice(0, 200);
     const author = String(body.author ?? "").slice(0, 200);
@@ -214,6 +225,15 @@ Deno.serve(async (req) => {
     const result = await generateImage(prompt);
     if (result.error) return err(result.error, result.status ?? 500, cors);
     if (!result.b64) return err("No image returned", 502, cors);
+
+    // Счётчик — сразу после успешной генерации, деньги уже потрачены независимо от аплоада ниже.
+    if (!isCurated) {
+      const { data: quotaRow } = await storageAdmin().from("image_quota")
+        .select("count").eq("user_id", user.id).maybeSingle();
+      const { error: quotaErr } = await storageAdmin().from("image_quota")
+        .upsert({ user_id: user.id, count: (quotaRow?.count ?? 0) + 1, updated_at: new Date().toISOString() });
+      if (quotaErr) console.error("image_quota upsert failed:", quotaErr.message);
+    }
 
     const path = body.action === "illustrate"
       ? `${user.id}/notes/${String(body.noteId ?? "unknown").replace(/[^a-zA-Z0-9_-]/g, "")}.png`
