@@ -133,15 +133,18 @@
   .lib-footer span { margin: 0 8px; }
 
   /* ───────────────── Reader ───────────────── */
-  #reader { display: none; height: 100%; flex-direction: column; }
+  #reader { display: none; height: 100%; flex-direction: column; position: relative; }
   #reader.open { display: flex; }
 
+  /* Topbar/bottombar float over the text instead of taking up layout space, so
+     hiding/showing them never resizes (and re-paginates) the viewer underneath. */
   #topbar {
-    height: var(--topbar-h); flex: none;
+    position: absolute; top: 0; left: 0; right: 0; height: var(--topbar-h);
     display: flex; align-items: center; gap: 6px; padding: 0 12px;
     background: var(--surface); border-bottom: 1px solid var(--border);
-    z-index: 30;
+    z-index: 30; transition: transform .25s ease;
   }
+  #reader.chrome-hidden #topbar { transform: translateY(-100%); }
   #tb-title {
     flex: 1; text-align: center; font-size: 15px; font-style: italic; color: var(--muted);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 8px;
@@ -160,18 +163,25 @@
   #viewer-wrap:hover .nav-arrow { color: var(--border); }
   .nav-arrow:hover { color: var(--accent-soft) !important; }
   #nav-prev { left: 0; } #nav-next { right: 0; }
+  /* Page-turning happens via swipe on touch devices instead — the tap-zones would
+     only get in the way of swipe/tap gestures over the text. */
+  .is-touch .nav-arrow { display: none; }
 
   #bottombar {
-    height: var(--bottombar-h); flex: none; display: flex; align-items: center; gap: 14px;
+    position: absolute; bottom: 0; left: 0; right: 0; height: var(--bottombar-h);
+    display: flex; align-items: center; gap: 14px;
     padding: 0 20px; font-size: 12px; color: var(--muted);
+    background: var(--surface); border-top: 1px solid var(--border);
+    z-index: 20; transition: transform .25s ease;
   }
+  #reader.chrome-hidden #bottombar { transform: translateY(100%); }
   #chapter-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-style: italic; }
   #progress-track { width: 180px; height: 3px; background: var(--surface-2); border-radius: 2px; overflow: hidden; flex: none; }
   #progress-fill { display: block; height: 100%; width: 0; background: var(--accent-soft); transition: width .3s; }
   #percent-label { flex: none; min-width: 34px; text-align: right; font-variant-numeric: tabular-nums; }
 
   #hint {
-    position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
+    position: absolute; left: 50%; bottom: 56px; transform: translateX(-50%);
     background: var(--text); color: var(--bg); font-size: 13px; font-style: italic;
     padding: 8px 18px; border-radius: 100px; opacity: 0.92; z-index: 6;
     pointer-events: none; transition: opacity .4s;
@@ -397,7 +407,7 @@
 <div id="library">
   <div class="lib-inner">
     <div class="lib-header">
-      <div class="wordmark">Reymont<span class="tail">.</span> <span class="app-ver">v3.19</span></div>
+      <div class="wordmark">Reymont<span class="tail">.</span> <span class="app-ver">v3.20</span></div>
       <div class="lib-actions">
       <button class="icon-btn" onclick="openSettings()" title="Settings" aria-label="Settings">
         <svg class="settings-mark" viewBox="0 0 24 24"><circle cx="6.5" cy="14" r="4.5"/><circle cx="17.5" cy="14" r="4.5"/><path d="M10.3,11 Q12,6 13.7,11"/><path d="M19.5,2.8 C20,4.6 20,4.6 23,5.5 C20,6.4 20,6.4 19.5,8.8 C19,6.4 19,6.4 16.3,5.5 C19,4.6 19,4.6 19.5,2.8 Z" fill="var(--accent)" stroke="none"/></svg>
@@ -556,7 +566,7 @@
 <!-- ════════ Settings modal ════════ -->
 <div id="overlay">
   <div class="modal">
-    <h2>Settings <span class="app-ver">v3.19</span></h2>
+    <h2>Settings <span class="app-ver">v3.20</span></h2>
     <div class="m-sub">The key is stored only in your browser and sent only to OpenAI.</div>
     <div id="account-field" class="field" style="display:none">
       <label>Account</label>
@@ -688,13 +698,14 @@ function copyDbg() {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
   else fallback();
 }
-console.log('Reymont v3.19 |', navigator.userAgent);
+console.log('Reymont v3.20 |', navigator.userAgent);
 </script>
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.19'; // поднимать при каждом деплое — и в двух статичных бейджах .app-ver в HTML
+const APP_VERSION = '3.20'; // поднимать при каждом деплое — и в двух статичных бейджах .app-ver в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
 /* ════════════════════════ Cloud sync (Supabase) ════════════════════════
    Авторизация по magic-ссылке + облачное хранение хайлайтов.
@@ -1378,6 +1389,8 @@ async function openBook(id) {
     contents.addStylesheet('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&display=swap');
     injectIllustrations(contents);
     bindTouchSelectionFallback(contents);
+    if (IS_TOUCH) bindTouchGestures(contents);
+    else contents.document.addEventListener('mousemove', showChromeAndScheduleHide, { passive: true });
   });
 
   await loadNotes(id); // до display(), чтобы картинки уже были на месте при первом рендере
@@ -1404,6 +1417,9 @@ async function openBook(id) {
   rendition.on('selected', onTextSelected);
   rendition.on('keyup', readerKeys);
   startSelectionPoll();
+
+  setChromeHidden(false);
+  if (!IS_TOUCH) scheduleChromeHide();
 
   if (!hintShown) {
     hintShown = true;
@@ -1460,6 +1476,7 @@ function markTocActive(href) {
 
 function backToLibrary() {
   stopSelectionPoll();
+  clearTimeout(chromeIdleTimer);
   closePanel();
   toggleToc(false);
   $('reader').classList.remove('open');
@@ -1492,6 +1509,7 @@ document.addEventListener('keyup', e => {
 $('nav-prev').addEventListener('click', () => rendition && rendition.prev());
 $('nav-next').addEventListener('click', () => rendition && rendition.next());
 window.addEventListener('resize', () => { if (rendition) try { rendition.resize(); } catch (e) {} });
+if (!IS_TOUCH) $('reader').addEventListener('mousemove', showChromeAndScheduleHide);
 $('sel-fab').addEventListener('click', () => {
   if (!pendingSelection) return;
   const { text, para, cfiRange } = pendingSelection;
@@ -1554,6 +1572,58 @@ function stopSelectionPoll() {
   clearInterval(selPollTimer);
   selPollTimer = null;
   lastPolledSelText = '';
+}
+
+/* ═══════════ Immersive reading — hide topbar/bottombar while reading ═══════════
+   Desktop: any mouse movement over the reader reveals them, auto-hide after a
+   pause. Touch: hidden until a plain tap on the text toggles them — a swipe/drag
+   or a tap that lands on a highlight doesn't count (see bindTouchGestures). */
+let chromeIdleTimer = null;
+function setChromeHidden(hidden) { $('reader').classList.toggle('chrome-hidden', hidden); }
+function toggleChrome() { setChromeHidden(!$('reader').classList.contains('chrome-hidden')); }
+function scheduleChromeHide() {
+  clearTimeout(chromeIdleTimer);
+  chromeIdleTimer = setTimeout(() => {
+    // TOC/panel might still be open with no further mousemove to re-trigger us — keep
+    // retrying instead of giving up, so chrome still hides once they're closed.
+    if ($('toc').classList.contains('open') || $('panel').classList.contains('open')) { scheduleChromeHide(); return; }
+    setChromeHidden(true);
+  }, 1800);
+}
+function showChromeAndScheduleHide() {
+  setChromeHidden(false);
+  scheduleChromeHide();
+}
+
+/* Тап/свайп внутри контента книги (тач-устройства): свайп горизонтально —
+   перелистывание страницы вместо стрелок nav-prev/nav-next (те на тач спрятаны
+   через CSS .is-touch); обычный тап без движения — показать/спрятать топбар и
+   бар прогресса. Тап по хайлайту не считается — им владеет его собственный
+   клик-обработчик (rendition.annotations.add), не мешаем ему открыть заметку. */
+function bindTouchGestures(contents) {
+  if (!contents.document) return;
+  const doc = contents.document;
+  let startX = 0, startY = 0, startT = 0, startEl = null;
+  doc.addEventListener('touchstart', e => {
+    if (e.touches.length !== 1) return;
+    startX = e.touches[0].clientX; startY = e.touches[0].clientY; startT = Date.now();
+    startEl = doc.elementFromPoint(startX, startY);
+  }, { passive: true });
+  doc.addEventListener('touchend', e => {
+    const touch = e.changedTouches[0];
+    if (!touch || !startEl) return;
+    const dx = touch.clientX - startX, dy = touch.clientY - startY;
+    const dt = Date.now() - startT;
+    const sel = contents.window.getSelection();
+    if (sel && !sel.isCollapsed && sel.toString().trim()) return; // это выделение, не жест
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.6 && dt < 600) {
+      console.log('bindTouchGestures: swipe', dx < 0 ? 'left → next' : 'right → prev');
+      if (rendition) { if (dx < 0) rendition.next(); else rendition.prev(); }
+    } else if (Math.abs(dx) < 10 && Math.abs(dy) < 10 && dt < 500) {
+      if (startEl.closest && startEl.closest('.epubjs-hl')) return;
+      toggleChrome();
+    }
+  }, { passive: true });
 }
 
 /* ════════════════════════ Selection → panel ════════════════════════
