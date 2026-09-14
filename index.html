@@ -29,7 +29,12 @@
     --panel-w: 400px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; }
+  /* iOS Safari's address bar grows/shrinks on scroll, and 100% там считается от
+     самой БОЛЬШОЙ возможной высоты (как будто панель всегда спрятана) — из-за
+     этого translateY(100%) у bottombar не уводил его за реально видимый край
+     экрана. 100dvh отслеживает фактическую видимую область; для браузеров без
+     поддержки просто игнорируется, остаётся 100%. */
+  html, body { height: 100%; height: 100dvh; }
   body {
     font-family: var(--serif);
     background: var(--bg);
@@ -427,7 +432,7 @@
 <div id="library">
   <div class="lib-inner">
     <div class="lib-header">
-      <div class="wordmark">Reymont<span class="tail">.</span> <span class="app-ver">v3.26</span></div>
+      <div class="wordmark">Reymont<span class="tail">.</span> <span class="app-ver">v3.27</span></div>
       <div class="lib-actions">
       <button class="icon-btn" onclick="openSettings()" title="Settings" aria-label="Settings">
         <svg class="settings-mark" viewBox="0 0 24 24"><circle cx="6.5" cy="14" r="4.5"/><circle cx="17.5" cy="14" r="4.5"/><path d="M10.3,11 Q12,6 13.7,11"/><path d="M19.5,2.8 C20,4.6 20,4.6 23,5.5 C20,6.4 20,6.4 19.5,8.8 C19,6.4 19,6.4 16.3,5.5 C19,4.6 19,4.6 19.5,2.8 Z" fill="var(--accent)" stroke="none"/></svg>
@@ -584,7 +589,7 @@
 <!-- ════════ Settings modal ════════ -->
 <div id="overlay">
   <div class="modal">
-    <h2>Settings <span class="app-ver">v3.26</span></h2>
+    <h2>Settings <span class="app-ver">v3.27</span></h2>
     <div class="m-sub">The key is stored only in your browser and sent only to OpenAI.</div>
     <div id="account-field" class="field" style="display:none">
       <label>Account</label>
@@ -719,12 +724,12 @@ function copyDbg() {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
   else fallback();
 }
-console.log('Reymont v3.26 |', navigator.userAgent);
+console.log('Reymont v3.27 |', navigator.userAgent);
 </script>
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.26'; // поднимать при каждом деплое — и в двух статичных бейджах .app-ver в HTML
+const APP_VERSION = '3.27'; // поднимать при каждом деплое — и в двух статичных бейджах .app-ver в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
