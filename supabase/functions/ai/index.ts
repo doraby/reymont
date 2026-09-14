@@ -53,14 +53,6 @@ function err(message: string, status: number, cors: Record<string, string>) {
   return json({ error: { message } }, status, cors);
 }
 
-// Раньше сюда прикладывались 4 картины Малчевского как референс для /v1/images/edits —
-// но из-за них разные обложки одной книги выходили слишком похожи друг на друга,
-// несмотря на разный текстовый промпт. Теперь только текстовое описание стиля.
-const MALCZEWSKI_STYLE = "Style: Polish Symbolist oil painting in the manner of Jacek Malczewski (1854-1929) — " +
-  "visible painterly brushstrokes, muted earthy palette (ochre, umber, sage green, dull red) with sudden warm " +
-  "golden light, symbolist mood blending Polish peasant realism with allegorical or mythological figures where " +
-  "fitting, atmospheric countryside backgrounds, formal painterly composition.";
-
 type ImageResult = { b64?: string; error?: string; status?: number };
 
 async function callOpenAIImage(prompt: string): Promise<ImageResult> {
@@ -168,7 +160,7 @@ Deno.serve(async (req) => {
         `${chapter ? ` (from the chapter/section "${chapter}")` : ""}.\n` +
         `Depicted moment (the reader's highlighted text): "${text}"\n` +
         (para ? `Surrounding passage — a couple of paragraphs before and after the highlighted moment, for accurate scene, character and setting detail:\n"""${para}"""\n` : "") +
-        MALCZEWSKI_STYLE + ` No text, letters, signatures or watermarks in the image.`;
+        `No text, letters, signatures or watermarks in the image.`;
     } else {
       if (!title) return err("No title", 400, cors);
       const customPrompt = String(body.customPrompt ?? "").slice(0, 500).trim();
@@ -179,7 +171,7 @@ Deno.serve(async (req) => {
         : `Capture the overall mood, setting and themes of the book in a single evocative scene — the essence, not a specific plot spoiler.\n`;
       prompt = `Book cover illustration for the classic novel "${title}"${author ? " by " + author : ""}.\n` +
         sceneLine +
-        MALCZEWSKI_STYLE + ` Portrait orientation suited for a book cover.\n` +
+        `Portrait orientation suited for a book cover.\n` +
         `Render the title "${title}" as elegant, legible typography near the top of the cover` +
         (author ? `, and the author name "${author}" in smaller type near the bottom` : "") +
         `, in a style fitting a fin-de-siècle Polish edition (serif lettering, no modern fonts). ` +
