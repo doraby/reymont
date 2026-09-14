@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Reymont</title>
 <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PGcgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjM0QzOTI5IiBzdHJva2Utd2lkdGg9IjEuOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48Y2lyY2xlIGN4PSI2LjUiIGN5PSIxNCIgcj0iNC41Ii8+PGNpcmNsZSBjeD0iMTcuNSIgY3k9IjE0IiByPSI0LjUiLz48cGF0aCBkPSJNMTAuMywxMSBRMTIsNiAxMy43LDExIi8+PC9nPjxwYXRoIGQ9Ik0xOS41LDIuOCBDMjAsNC42IDIwLDQuNiAyMyw1LjUgQzIwLDYuNCAyMCw2LjQgMTkuNSw4LjggQzE5LDYuNCAxOSw2LjQgMTYuMyw1LjUgQzE5LDQuNiAxOSw0LjYgMTkuNSwyLjggWiIgZmlsbD0iI0MxNUYzQyIvPjwvc3ZnPg==">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#F0EEE5">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
@@ -676,7 +679,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.37</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.38</div>
   </div>
 </div>
 
@@ -774,12 +777,12 @@ function copyDbg() {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
   else fallback();
 }
-console.log('Reymont v3.37 |', navigator.userAgent);
+console.log('Reymont v3.38 |', navigator.userAgent);
 </script>
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.37'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.38'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
