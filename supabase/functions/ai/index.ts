@@ -64,12 +64,13 @@ const MALCZEWSKI_STYLE = "Style: Polish Symbolist oil painting in the manner of 
 type ImageResult = { b64?: string; error?: string; status?: number };
 
 async function callOpenAIImage(prompt: string): Promise<ImageResult> {
-  const form = new FormData();
-  form.append("model", "gpt-image-2");
-  form.append("prompt", prompt);
-  form.append("size", "1024x1536");
-  form.append("quality", "medium");
-  const r = await fetch("https://api.openai.com/v1/images/generations", { method: "POST", headers: { Authorization: `Bearer ${OPENAI_API_KEY}` }, body: form });
+  // /v1/images/generations (в отличие от /v1/images/edits) принимает только JSON,
+  // не multipart/form-data — тот формат был нужен только для загрузки файлов-референсов.
+  const r = await fetch("https://api.openai.com/v1/images/generations", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },
+    body: JSON.stringify({ model: "gpt-image-2", prompt, size: "1024x1536", quality: "medium" }),
+  });
   if (!r.ok) {
     const t = await r.text();
     return { error: "Image generation failed: " + t.slice(0, 400), status: r.status };
