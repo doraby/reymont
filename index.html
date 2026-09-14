@@ -223,7 +223,7 @@
   #toc.open { transform: none; box-shadow: var(--shadow); }
   .toc-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 14px 10px 16px; }
   .toc-title-label { font-size: 14.5px; font-weight: 600; color: var(--accent); padding: 7px 12px; }
-  #toc-list, #notes-list { overflow-y: auto; padding: 6px 10px 24px; }
+  #toc-list { overflow-y: auto; padding: 6px 10px 24px; }
   .note-item { padding: 11px 12px; border-radius: 10px; cursor: pointer; }
   .note-item:hover { background: var(--surface-2); }
   .ni-text { font-size: 14px; font-style: italic; line-height: 1.4; border-left: 2px solid var(--accent-soft); padding-left: 9px; }
@@ -341,7 +341,7 @@
     display: none; align-items: center; justify-content: center; z-index: 400;
   }
   #prompt-overlay.open { display: flex; }
-  #prompt-btn.active, #prompt-btn-toc.active { color: var(--accent); background: var(--accent-bg); }
+  #prompt-btn.active { color: var(--accent); background: var(--accent-bg); }
 
   /* ── Debug console ── */
   #dbg-fab {
@@ -437,7 +437,7 @@
 <div id="library">
   <div class="lib-inner">
     <div class="lib-header">
-      <div class="wordmark">Reymont<span class="tail">.</span> <span class="app-ver">v3.30</span></div>
+      <div class="wordmark">Reymont<span class="tail">.</span> <span class="app-ver">v3.31</span></div>
       <div class="lib-actions">
       <button class="icon-btn" onclick="openSettings()" title="Settings" aria-label="Settings">
         <svg class="settings-mark" viewBox="0 0 24 24"><circle cx="6.5" cy="14" r="4.5"/><circle cx="17.5" cy="14" r="4.5"/><path d="M10.3,11 Q12,6 13.7,11"/><path d="M19.5,2.8 C20,4.6 20,4.6 23,5.5 C20,6.4 20,6.4 19.5,8.8 C19,6.4 19,6.4 16.3,5.5 C19,4.6 19,4.6 19.5,2.8 Z" fill="var(--accent)" stroke="none"/></svg>
@@ -471,7 +471,7 @@
     <button class="icon-btn" onclick="backToLibrary()" title="Back to library" aria-label="Back to library">
       <svg viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
     </button>
-    <button class="icon-btn" onclick="openToc('notes')" title="Highlights" aria-label="Highlights">
+    <button class="icon-btn" onclick="openHighlightsPanel()" title="Highlights" aria-label="Highlights">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
     </button>
     <div id="tb-title"></div>
@@ -488,7 +488,7 @@
         <button id="nav-next" class="nav-arrow" aria-label="Next page">›</button>
         <div id="hint">Select a word or a phrase to get a translation</div>
       </div>
-      <div id="bottombar" onclick="openToc('toc')" title="Contents" role="button" aria-label="Contents">
+      <div id="bottombar" onclick="toggleToc(true)" title="Contents" role="button" aria-label="Contents">
         <span id="chapter-label"></span>
         <span id="progress-track"><i id="progress-fill"></i></span>
         <span id="percent-label"></span>
@@ -497,19 +497,13 @@
   </div>
 </div>
 
-<!-- ════════ TOC drawer ════════ -->
+<!-- ════════ TOC drawer (chapters only — highlights live in the right panel) ════════ -->
 <div id="toc">
   <div class="toc-head">
-    <div id="toc-title-label" class="toc-title-label">Highlights</div>
-    <div style="display:flex; gap:4px;">
-      <button id="prompt-btn-toc" class="icon-btn" onclick="openPromptModal()" title="Reading focus" aria-label="Reading focus">
-        <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-      </button>
-      <button class="icon-btn" onclick="toggleToc()" aria-label="Close">✕</button>
-    </div>
+    <div class="toc-title-label">Contents</div>
+    <button class="icon-btn" onclick="toggleToc()" aria-label="Close">✕</button>
   </div>
   <div id="toc-list"></div>
-  <div id="notes-list" style="display:none"></div>
 </div>
 
 <!-- ════════ Right panel ════════ -->
@@ -599,7 +593,7 @@
 <!-- ════════ Settings modal ════════ -->
 <div id="overlay">
   <div class="modal">
-    <h2>Settings <span class="app-ver">v3.30</span></h2>
+    <h2>Settings <span class="app-ver">v3.31</span></h2>
     <div class="m-sub">The key is stored only in your browser and sent only to OpenAI.</div>
     <div id="account-field" class="field" style="display:none">
       <label>Account</label>
@@ -734,12 +728,12 @@ function copyDbg() {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
   else fallback();
 }
-console.log('Reymont v3.30 |', navigator.userAgent);
+console.log('Reymont v3.31 |', navigator.userAgent);
 </script>
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.30'; // поднимать при каждом деплое — и в двух статичных бейджах .app-ver в HTML
+const APP_VERSION = '3.31'; // поднимать при каждом деплое — и в двух статичных бейджах .app-ver в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -1436,7 +1430,6 @@ async function openBook(id) {
 
   bookNotes.forEach(addHighlight);
   renderNotesList();
-  switchTab('toc');
 
   book.loaded.navigation.then(nav => buildToc(nav.toc));
   book.opened.then(() => book.locations.generate(800)).then(() => {
@@ -1704,6 +1697,7 @@ function getParagraphContext(sel, text) {
 function openPanel() { $('panel').classList.add('open'); document.body.classList.add('panel-open'); setTimeout(() => rendition && rendition.resize(), 320); }
 function closePanel() {
   hideSelFab();
+  panelShowingList = false;
   if (!$('panel').classList.contains('open')) return;
   $('panel').classList.remove('open');
   document.body.classList.remove('panel-open');
@@ -1737,6 +1731,7 @@ function startLookup(text, para, cfiRange) {
     renderNotesList();
   }
 
+  panelShowingList = false;
   const body = $('panel-body');
   const words = text.split(/\s+/).length;
   body.innerHTML = `
@@ -2194,6 +2189,7 @@ function refreshInlineIllustrations() {
 function showNote(id) {
   const note = bookNotes.find(n => n.id === id);
   if (!note) return;
+  panelShowingList = false;
   selGeneration++; // отменяем запросы текущего выделения
   if (translateAbort) translateAbort.abort();
   if (searchAbort) searchAbort.abort();
@@ -2234,37 +2230,33 @@ async function deleteNote(id) {
   }
 }
 
-function renderNotesList() {
-  const list = $('notes-list');
-  if (!list) return;
-  if (!bookNotes.length) {
-    list.innerHTML = '<div class="notes-empty">Select text in the book — highlights with translations will appear here.</div>';
-    return;
-  }
-  list.innerHTML = bookNotes.map(n => `
+/* Список хайлайтов живёт в правой панели (#panel), не в левом TOC-дровере —
+   это тот же контейнер, что показывает перевод конкретного хайлайта. */
+let panelShowingList = false; // true, пока в #panel открыт именно список, а не перевод
+function notesListHtml() {
+  if (!bookNotes.length) return '<div class="notes-empty">Select text in the book — highlights with translations will appear here.</div>';
+  return bookNotes.map(n => `
     <div class="note-item" data-id="${n.id}">
       <div class="ni-text">${esc(n.text.slice(0, 80))}${n.text.length > 80 ? '…' : ''}</div>
       ${n.translation ? `<div class="ni-trans">${esc(n.translation.split('\n')[0].slice(0, 90))}</div>` : ''}
     </div>`).join('');
-  list.querySelectorAll('.note-item').forEach(el => el.addEventListener('click', async () => {
+}
+function openHighlightsPanel() {
+  panelShowingList = true;
+  $('panel-body').innerHTML = notesListHtml();
+  $('panel-body').querySelectorAll('.note-item').forEach(el => el.addEventListener('click', async () => {
     const n = bookNotes.find(x => x.id === el.dataset.id);
     if (!n) return;
-    toggleToc(false);
     try { await rendition.display(n.cfiRange); } catch (e) { console.warn(e); }
     showNote(n.id);
   }));
+  openPanel();
 }
-
-function switchTab(tab) {
-  $('toc-title-label').textContent = tab === 'notes' ? 'Highlights' : 'Contents';
-  $('toc-list').style.display = tab === 'toc' ? '' : 'none';
-  $('notes-list').style.display = tab === 'notes' ? '' : 'none';
-}
-/* Топбар открывает хайлайты, клик по нижней панели — оглавление; больше нет
-   переключателя вкладок внутри самого дровера. */
-function openToc(tab) {
-  switchTab(tab);
-  toggleToc(true);
+/* Список меняется в фоне (синк, сохранённый перевод и т.п.) — если он сейчас
+   и правда открыт, перерисовываем; если открыт перевод конкретного хайлайта
+   или ничего — не трогаем панель. */
+function renderNotesList() {
+  if (panelShowingList) openHighlightsPanel();
 }
 
 /* Мини-markdown: параграфы, **bold**, [текст](url) */
@@ -2277,10 +2269,8 @@ function mdLite(src) {
 
 /* ════════════════════════ Reading focus (per-book custom prompt) ════════════════════════ */
 function updatePromptBadge() {
-  ['prompt-btn', 'prompt-btn-toc'].forEach(id => {
-    const btn = $(id);
-    if (btn) btn.classList.toggle('active', !!currentPrompt);
-  });
+  const btn = $('prompt-btn');
+  if (btn) btn.classList.toggle('active', !!currentPrompt);
 }
 function openPromptModal() {
   $('in-prompt').value = currentPrompt;
