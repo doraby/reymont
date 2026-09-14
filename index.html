@@ -407,7 +407,7 @@
 <div id="library">
   <div class="lib-inner">
     <div class="lib-header">
-      <div class="wordmark">Reymont<span class="tail">.</span> <span class="app-ver">v3.22</span></div>
+      <div class="wordmark">Reymont<span class="tail">.</span> <span class="app-ver">v3.23</span></div>
       <div class="lib-actions">
       <button class="icon-btn" onclick="openSettings()" title="Settings" aria-label="Settings">
         <svg class="settings-mark" viewBox="0 0 24 24"><circle cx="6.5" cy="14" r="4.5"/><circle cx="17.5" cy="14" r="4.5"/><path d="M10.3,11 Q12,6 13.7,11"/><path d="M19.5,2.8 C20,4.6 20,4.6 23,5.5 C20,6.4 20,6.4 19.5,8.8 C19,6.4 19,6.4 16.3,5.5 C19,4.6 19,4.6 19.5,2.8 Z" fill="var(--accent)" stroke="none"/></svg>
@@ -564,7 +564,7 @@
 <!-- ════════ Settings modal ════════ -->
 <div id="overlay">
   <div class="modal">
-    <h2>Settings <span class="app-ver">v3.22</span></h2>
+    <h2>Settings <span class="app-ver">v3.23</span></h2>
     <div class="m-sub">The key is stored only in your browser and sent only to OpenAI.</div>
     <div id="account-field" class="field" style="display:none">
       <label>Account</label>
@@ -696,12 +696,12 @@ function copyDbg() {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
   else fallback();
 }
-console.log('Reymont v3.22 |', navigator.userAgent);
+console.log('Reymont v3.23 |', navigator.userAgent);
 </script>
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.22'; // поднимать при каждом деплое — и в двух статичных бейджах .app-ver в HTML
+const APP_VERSION = '3.23'; // поднимать при каждом деплое — и в двух статичных бейджах .app-ver в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -1592,38 +1592,31 @@ function showChromeAndScheduleHide() {
    через CSS .is-touch); обычный тап без движения — показать/спрятать топбар и
    бар прогресса. Тап по хайлайту не считается — им владеет его собственный
    клик-обработчик (rendition.annotations.add), не мешаем ему открыть заметку. */
+/* Свайп через touch/pointer события оказался ненадёжен на реальном iPhone (не
+   докатился ни в виде touchend, ни в виде Pointer Events — подтверждено логами
+   пользователя). Вместо жестов — простые тап-зоны по 'click': это то же
+   событие, на котором уже штатно работает тап по хайлайту, так что должно
+   долетать надёжнее. После реального выделения текста браузер click вообще не
+   генерирует (стандартное поведение для tap-после-drag), так что с выделением
+   это не конфликтует. */
 function bindTouchGestures(contents) {
   if (!contents.document) return;
   const doc = contents.document;
   console.log('bindTouchGestures: registered');
-
-  // Тап — через 'click', а не touchend: на реальном iPhone (подтверждено логом
-  // пользователя) touchend внутри iframe вообще не долетает до JS, а click,
-  // который браузер сам синтезирует из тапа, там же работает штатно.
   doc.addEventListener('click', e => {
     const sel = contents.window.getSelection();
     if (sel && !sel.isCollapsed && sel.toString().trim()) return; // это выделение, не тап
     if (e.target && e.target.closest && e.target.closest('.epubjs-hl')) return; // хайлайт открывает свою заметку
-    console.log('bindTouchGestures: tap (click) — toggling chrome');
-    toggleChrome();
-  });
-
-  // Свайп — через Pointer Events вместо Touch Events: по той же причине (сырые
-  // touch-события ненадёжны внутри iframe на iOS), а click не несёт координат
-  // движения, так что для свайпа он не подходит.
-  let startX = 0, startY = 0, startT = 0, tracking = false;
-  doc.addEventListener('pointerdown', e => {
-    if (e.pointerType !== 'touch') return;
-    startX = e.clientX; startY = e.clientY; startT = Date.now(); tracking = true;
-  });
-  doc.addEventListener('pointerup', e => {
-    if (!tracking) return;
-    tracking = false;
-    const dx = e.clientX - startX, dy = e.clientY - startY;
-    const dt = Date.now() - startT;
-    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.6 && dt < 600) {
-      console.log('bindTouchGestures: swipe (pointer)', dx < 0 ? 'left → next' : 'right → prev');
-      if (rendition) { if (dx < 0) rendition.next(); else rendition.prev(); }
+    const w = contents.window.innerWidth || doc.documentElement.clientWidth;
+    if (e.clientX < w * 0.3) {
+      console.log('bindTouchGestures: tap left third — prev page');
+      if (rendition) rendition.prev();
+    } else if (e.clientX > w * 0.7) {
+      console.log('bindTouchGestures: tap right third — next page');
+      if (rendition) rendition.next();
+    } else {
+      console.log('bindTouchGestures: tap middle — toggling chrome');
+      toggleChrome();
     }
   });
 }
