@@ -53,56 +53,23 @@ function err(message: string, status: number, cors: Record<string, string>) {
   return json({ error: { message } }, status, cors);
 }
 
-// Референс стиля — четыре конкретных файла на Wikimedia Commons, которые владелец сам
-// выбрал и прислал ссылками (не подбор по категории или поиску — эти проверены вручную).
-const REF_FILE_TITLES = [
-  "File:Jacek Malczewski - Portret Karola Potkańskiego 1906.jpg",
-  "File:Jacek Malczewski pejzaz z jarzebina.jpg",
-  "File:Jacek Malczewski - Koncert I 1905.jpg",
-  "File:Jacek Malczewski - Środkowa część tryptyku Za aniołem.jpg",
-];
-let cachedRefs: { blobs: Blob[]; titles: string[] } | null = null;
-async function getStyleReferenceImages(): Promise<{ blobs: Blob[]; titles: string[] }> {
-  if (cachedRefs) return cachedRefs;
-  const blobs: Blob[] = [];
-  const titles: string[] = [];
-  try {
-    const apiUrl = "https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*" +
-      "&titles=" + encodeURIComponent(REF_FILE_TITLES.join("|")) +
-      "&prop=imageinfo&iiprop=url&iiurlwidth=1024";
-    const res = await fetch(apiUrl);
-    const j = await res.json();
-    const pages = Object.values(j.query?.pages ?? {}) as Array<{ title?: string; imageinfo?: Array<{ thumburl?: string }> }>;
-    for (const p of pages) {
-      const thumburl = p.imageinfo?.[0]?.thumburl;
-      if (!thumburl) continue;
-      try {
-        const r = await fetch(thumburl);
-        if (r.ok) { blobs.push(await r.blob()); titles.push(p.title ?? thumburl); }
-      } catch (_e) { /* пропускаем недоступный конкретный файл */ }
-    }
-  } catch (_e) { /* Commons недоступен — сработает fallback без референсов */ }
-  cachedRefs = { blobs, titles };
-  return cachedRefs;
-}
-
+// Раньше сюда прикладывались 4 картины Малчевского как референс для /v1/images/edits —
+// но из-за них разные обложки одной книги выходили слишком похожи друг на друга,
+// несмотря на разный текстовый промпт. Теперь только текстовое описание стиля.
 const MALCZEWSKI_STYLE = "Style: Polish Symbolist oil painting in the manner of Jacek Malczewski (1854-1929) — " +
   "visible painterly brushstrokes, muted earthy palette (ochre, umber, sage green, dull red) with sudden warm " +
   "golden light, symbolist mood blending Polish peasant realism with allegorical or mythological figures where " +
-  "fitting, atmospheric countryside backgrounds, formal painterly composition. The attached reference images are " +
-  "genuine Malczewski paintings — match their exact technique, palette and mood closely.";
+  "fitting, atmospheric countryside backgrounds, formal painterly composition.";
 
-type ImageResult = { b64?: string; error?: string; status?: number; usedRefs?: string[] };
+type ImageResult = { b64?: string; error?: string; status?: number };
 
-async function callOpenAIImage(prompt: string, refBlobs: Blob[]): Promise<ImageResult> {
+async function callOpenAIImage(prompt: string): Promise<ImageResult> {
   const form = new FormData();
   form.append("model", "gpt-image-2");
   form.append("prompt", prompt);
   form.append("size", "1024x1536");
   form.append("quality", "medium");
-  refBlobs.forEach((blob, i) => form.append("image[]", blob, `ref${i}.jpg`));
-  const url = refBlobs.length ? "https://api.openai.com/v1/images/edits" : "https://api.openai.com/v1/images/generations";
-  const r = await fetch(url, { method: "POST", headers: { Authorization: `Bearer ${OPENAI_API_KEY}` }, body: form });
+  const r = await fetch("https://api.openai.com/v1/images/generations", { method: "POST", headers: { Authorization: `Bearer ${OPENAI_API_KEY}` }, body: form });
   if (!r.ok) {
     const t = await r.text();
     return { error: "Image generation failed: " + t.slice(0, 400), status: r.status };
@@ -115,17 +82,7 @@ async function callOpenAIImage(prompt: string, refBlobs: Blob[]): Promise<ImageR
 
 async function generateImage(prompt: string): Promise<ImageResult> {
   try {
-    const { blobs, titles } = await getStyleReferenceImages();
-    let result = await callOpenAIImage(prompt, blobs);
-    // Малчевский часто рисовал обнажённую натуру (фавны, музы) — если картинка-референс
-    // всё же зацепила safety-фильтр OpenAI, пробуем ещё раз тем же текстом, но без картинок.
-    if (result.error && blobs.length && /safety|sexual/i.test(result.error)) {
-      result = await callOpenAIImage(prompt, []);
-      if (!result.error) result.usedRefs = ["(none — safety fallback)"];
-    } else if (!result.error) {
-      result.usedRefs = titles;
-    }
-    return result;
+    return await callOpenAIImage(prompt);
   } catch (e) {
     return { error: "Illustration error: " + (e instanceof Error ? e.message : String(e)), status: 500 };
   }
@@ -255,7 +212,7 @@ Deno.serve(async (req) => {
       if (covErr) console.error("curated_covers upsert failed:", covErr.message);
     }
 
-    return json({ url: upload.url, usedRefs: result.usedRefs }, 200, cors);
+    return json({ url: upload.url }, 200, cors);
   }
 
   // Pro-подписчики (оплата через Stripe) без лимита; бесплатный тариф — 10 хайлайтов

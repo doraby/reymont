@@ -449,7 +449,7 @@
 <div id="library">
   <div class="lib-inner">
     <div class="lib-header">
-      <div class="wordmark">Reymont<span class="tail">.</span></div>
+      <div class="wordmark">reymont<span class="tail">.</span></div>
       <div class="lib-actions">
       <button class="icon-btn" onclick="openSettings()" title="Settings" aria-label="Settings">
         <svg class="settings-mark" viewBox="0 0 24 24"><circle cx="6.5" cy="14" r="4.5"/><circle cx="17.5" cy="14" r="4.5"/><path d="M10.3,11 Q12,6 13.7,11"/><path d="M19.5,2.8 C20,4.6 20,4.6 23,5.5 C20,6.4 20,6.4 19.5,8.8 C19,6.4 19,6.4 16.3,5.5 C19,4.6 19,4.6 19.5,2.8 Z" fill="var(--accent)" stroke="none"/></svg>
@@ -676,7 +676,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.36</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.37</div>
   </div>
 </div>
 
@@ -774,12 +774,12 @@ function copyDbg() {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
   else fallback();
 }
-console.log('Reymont v3.36 |', navigator.userAgent);
+console.log('Reymont v3.37 |', navigator.userAgent);
 </script>
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.36'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.37'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -2122,7 +2122,7 @@ async function requestIllustration(noteId) {
     console.log('requestIllustration: parsing response JSON…');
     const j = await res.json();
     if (!j.url) { console.error('requestIllustration: response had no url field:', JSON.stringify(j).slice(0, 300)); throw new Error('No image returned'); }
-    console.log('illustration: url =', j.url, '| style refs used —', JSON.stringify(j.usedRefs || []));
+    console.log('illustration: url =', j.url);
     saveNotePart(note, 'illusUrl', j.url);
     if (zone) { zone.innerHTML = illusZoneInner(note); console.log('requestIllustration: zone updated ✓'); }
     else console.warn('requestIllustration: image generated but #illus-zone was gone — not shown, but saved to the highlight');
@@ -2155,7 +2155,7 @@ async function generateCover(bookId, btn, customPrompt) {
     console.log('generateCover: parsing response JSON…');
     const j = await res.json();
     if (!j.url) { console.error('generateCover: response had no url field:', JSON.stringify(j).slice(0, 300)); throw new Error('No image returned'); }
-    console.log('cover: url =', j.url, '| style refs used —', JSON.stringify(j.usedRefs || []));
+    console.log('cover: url =', j.url);
     rec.cover = j.url;
     await dbPut('books', rec);
     await renderLibrary();
