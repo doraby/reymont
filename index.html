@@ -187,7 +187,9 @@
   .is-touch .nav-arrow:active { color: var(--accent-soft) !important; }
 
   #bottombar {
-    position: absolute; bottom: 0; left: 0; right: 0; height: var(--bottombar-h);
+    /* Safari on iOS can overlay its own bottom toolbar on top of web content —
+       sit above it (env(safe-area-inset-bottom)) instead of getting covered. */
+    position: absolute; bottom: env(safe-area-inset-bottom, 0px); left: 0; right: 0; height: var(--bottombar-h);
     display: flex; align-items: center; gap: 14px; cursor: pointer;
     padding: 0 20px; font-size: 12px; color: var(--muted);
     background: var(--surface); border-top: 1px solid var(--border);
@@ -432,7 +434,7 @@
 <div id="library">
   <div class="lib-inner">
     <div class="lib-header">
-      <div class="wordmark">Reymont<span class="tail">.</span> <span class="app-ver">v3.27</span></div>
+      <div class="wordmark">Reymont<span class="tail">.</span> <span class="app-ver">v3.28</span></div>
       <div class="lib-actions">
       <button class="icon-btn" onclick="openSettings()" title="Settings" aria-label="Settings">
         <svg class="settings-mark" viewBox="0 0 24 24"><circle cx="6.5" cy="14" r="4.5"/><circle cx="17.5" cy="14" r="4.5"/><path d="M10.3,11 Q12,6 13.7,11"/><path d="M19.5,2.8 C20,4.6 20,4.6 23,5.5 C20,6.4 20,6.4 19.5,8.8 C19,6.4 19,6.4 16.3,5.5 C19,4.6 19,4.6 19.5,2.8 Z" fill="var(--accent)" stroke="none"/></svg>
@@ -589,7 +591,7 @@
 <!-- ════════ Settings modal ════════ -->
 <div id="overlay">
   <div class="modal">
-    <h2>Settings <span class="app-ver">v3.27</span></h2>
+    <h2>Settings <span class="app-ver">v3.28</span></h2>
     <div class="m-sub">The key is stored only in your browser and sent only to OpenAI.</div>
     <div id="account-field" class="field" style="display:none">
       <label>Account</label>
@@ -724,12 +726,12 @@ function copyDbg() {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
   else fallback();
 }
-console.log('Reymont v3.27 |', navigator.userAgent);
+console.log('Reymont v3.28 |', navigator.userAgent);
 </script>
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.27'; // поднимать при каждом деплое — и в двух статичных бейджах .app-ver в HTML
+const APP_VERSION = '3.28'; // поднимать при каждом деплое — и в двух статичных бейджах .app-ver в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
