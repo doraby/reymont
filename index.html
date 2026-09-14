@@ -407,7 +407,7 @@
 <div id="library">
   <div class="lib-inner">
     <div class="lib-header">
-      <div class="wordmark">Reymont<span class="tail">.</span> <span class="app-ver">v3.20</span></div>
+      <div class="wordmark">Reymont<span class="tail">.</span> <span class="app-ver">v3.21</span></div>
       <div class="lib-actions">
       <button class="icon-btn" onclick="openSettings()" title="Settings" aria-label="Settings">
         <svg class="settings-mark" viewBox="0 0 24 24"><circle cx="6.5" cy="14" r="4.5"/><circle cx="17.5" cy="14" r="4.5"/><path d="M10.3,11 Q12,6 13.7,11"/><path d="M19.5,2.8 C20,4.6 20,4.6 23,5.5 C20,6.4 20,6.4 19.5,8.8 C19,6.4 19,6.4 16.3,5.5 C19,4.6 19,4.6 19.5,2.8 Z" fill="var(--accent)" stroke="none"/></svg>
@@ -442,11 +442,6 @@
       <svg viewBox="0 0 24 24"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h10"/></svg>
     </button>
     <div id="tb-title"></div>
-    <button class="icon-btn" style="font-size:13px" onclick="changeFontSize(-1)" title="Smaller text">A−</button>
-    <button class="icon-btn" style="font-size:17px" onclick="changeFontSize(1)" title="Larger text">A+</button>
-    <button id="prompt-btn" class="icon-btn" onclick="openPromptModal()" title="Reading focus" aria-label="Reading focus">
-      <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-    </button>
     <button class="icon-btn" onclick="openSettings()" title="Settings" aria-label="Settings">
       <svg class="settings-mark" viewBox="0 0 24 24"><circle cx="6.5" cy="14" r="4.5"/><circle cx="17.5" cy="14" r="4.5"/><path d="M10.3,11 Q12,6 13.7,11"/><path d="M19.5,2.8 C20,4.6 20,4.6 23,5.5 C20,6.4 20,6.4 19.5,8.8 C19,6.4 19,6.4 16.3,5.5 C19,4.6 19,4.6 19.5,2.8 Z" fill="var(--accent)" stroke="none"/></svg>
     </button>
@@ -485,6 +480,9 @@
 <!-- ════════ Right panel ════════ -->
 <div id="panel">
   <div class="panel-head">
+    <button id="prompt-btn" class="icon-btn" onclick="openPromptModal()" title="Reading focus" aria-label="Reading focus">
+      <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+    </button>
     <button class="icon-btn" onclick="closePanel()" aria-label="Close">✕</button>
   </div>
   <div id="panel-body"></div>
@@ -566,7 +564,7 @@
 <!-- ════════ Settings modal ════════ -->
 <div id="overlay">
   <div class="modal">
-    <h2>Settings <span class="app-ver">v3.20</span></h2>
+    <h2>Settings <span class="app-ver">v3.21</span></h2>
     <div class="m-sub">The key is stored only in your browser and sent only to OpenAI.</div>
     <div id="account-field" class="field" style="display:none">
       <label>Account</label>
@@ -698,12 +696,12 @@ function copyDbg() {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
   else fallback();
 }
-console.log('Reymont v3.20 |', navigator.userAgent);
+console.log('Reymont v3.21 |', navigator.userAgent);
 </script>
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.20'; // поднимать при каждом деплое — и в двух статичных бейджах .app-ver в HTML
+const APP_VERSION = '3.21'; // поднимать при каждом деплое — и в двух статичных бейджах .app-ver в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -1488,12 +1486,6 @@ function toggleToc(force) {
   const el = $('toc');
   const open = force !== undefined ? force : !el.classList.contains('open');
   el.classList.toggle('open', open);
-}
-
-function changeFontSize(delta) {
-  fontSize = Math.min(30, Math.max(13, fontSize + delta));
-  localStorage.setItem(LS.fontSize, fontSize);
-  if (rendition) rendition.themes.fontSize(fontSize + 'px');
 }
 
 function readerKeys(e) {
