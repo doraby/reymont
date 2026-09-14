@@ -61,6 +61,7 @@
     background: var(--surface); cursor: pointer; font-size: 14.5px;
     transition: border-color .15s, background .15s, transform .05s;
   }
+  .btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
   .btn:hover { border-color: var(--accent-soft); }
   .btn:active { transform: scale(0.98); }
   .btn.primary { background: var(--accent-soft); border-color: var(--accent-soft); color: #fff; }
@@ -127,6 +128,7 @@
   .book-card:hover .book-illus { opacity: 1; }
   .book-illus:hover { background: rgba(193,95,60,.9); }
   .book-illus.busy { opacity: 1; pointer-events: none; }
+  .book-illus svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   .book-curated .book-cover { background: linear-gradient(160deg, #8C9A6E, #5E6B45); }
   .book-add-hint { font-size: 11.5px; color: var(--accent); margin-top: 4px; font-weight: 600; }
   .book-curated.pending { pointer-events: none; opacity: .6; }
@@ -342,14 +344,21 @@
   }
   #prompt-overlay.open { display: flex; }
   #prompt-btn.active { color: var(--accent); background: var(--accent-bg); }
+  #cover-prompt-overlay {
+    position: fixed; inset: 0; background: rgba(61,57,41,.35); backdrop-filter: blur(2px);
+    display: none; align-items: center; justify-content: center; z-index: 400;
+  }
+  #cover-prompt-overlay.open { display: flex; }
 
   /* ── Debug console ── */
   #dbg-fab {
     position: fixed; right: 14px; bottom: 14px; z-index: 300;
     width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--border);
-    background: var(--surface); cursor: pointer; font-size: 17px; opacity: .5; transition: opacity .15s;
+    background: var(--surface); cursor: pointer; color: var(--muted); opacity: .5; transition: opacity .15s;
+    display: flex; align-items: center; justify-content: center;
   }
   #dbg-fab:hover { opacity: 1; }
+  #dbg-fab svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   #dbg {
     position: fixed; left: 0; right: 0; bottom: 0; height: 46vh; z-index: 290;
     background: #2A2620; color: #E8E3D6; display: none; flex-direction: column;
@@ -410,10 +419,12 @@
   }
   .sel-fab-group.show { transform: translateX(-50%); opacity: 1; }
   .sel-fab {
+    display: inline-flex; align-items: center; gap: 7px;
     background: var(--accent-soft); color: #fff; border: none; padding: 13px 24px; border-radius: 100px;
     font-size: 14.5px; font-weight: 600; cursor: pointer;
     box-shadow: 0 8px 24px rgba(61,57,41,.28);
   }
+  .sel-fab svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
   .sel-fab:active { background: var(--accent); }
   .sel-fab-close {
     width: 40px; height: 40px; flex: none; border-radius: 50%; border: none; cursor: pointer;
@@ -437,7 +448,7 @@
 <div id="library">
   <div class="lib-inner">
     <div class="lib-header">
-      <div class="wordmark">Reymont<span class="tail">.</span> <span class="app-ver">v3.32</span></div>
+      <div class="wordmark">Reymont<span class="tail">.</span> <span class="app-ver">v3.33</span></div>
       <div class="lib-actions">
       <button class="icon-btn" onclick="openSettings()" title="Settings" aria-label="Settings">
         <svg class="settings-mark" viewBox="0 0 24 24"><circle cx="6.5" cy="14" r="4.5"/><circle cx="17.5" cy="14" r="4.5"/><path d="M10.3,11 Q12,6 13.7,11"/><path d="M19.5,2.8 C20,4.6 20,4.6 23,5.5 C20,6.4 20,6.4 19.5,8.8 C19,6.4 19,6.4 16.3,5.5 C19,4.6 19,4.6 19.5,2.8 Z" fill="var(--accent)" stroke="none"/></svg>
@@ -590,10 +601,26 @@
   </div>
 </div>
 
+<!-- ════════ Cover prompt modal ════════ -->
+<div id="cover-prompt-overlay">
+  <div class="modal">
+    <h2>Cover illustration</h2>
+    <div class="m-sub">Describe the scene or mood you want — the same book otherwise tends to generate a very similar cover each time.</div>
+    <div class="field">
+      <label for="in-cover-prompt">Prompt</label>
+      <textarea id="in-cover-prompt" rows="4" placeholder="E.g. A stormy dusk over the fields, seen from behind a lone figure walking home."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeCoverPromptModal()">Cancel</button>
+      <button class="btn primary" onclick="submitCoverPrompt()">Generate</button>
+    </div>
+  </div>
+</div>
+
 <!-- ════════ Settings modal ════════ -->
 <div id="overlay">
   <div class="modal">
-    <h2>Settings <span class="app-ver">v3.32</span></h2>
+    <h2>Settings <span class="app-ver">v3.33</span></h2>
     <div class="m-sub">The key is stored only in your browser and sent only to OpenAI.</div>
     <div id="account-field" class="field" style="display:none">
       <label>Account</label>
@@ -654,12 +681,17 @@
 <div id="toast"></div>
 
 <div id="sel-fab-group" class="sel-fab-group" hidden>
-  <button id="sel-fab" class="sel-fab">✨ Translate & explain</button>
+  <button id="sel-fab" class="sel-fab">
+    <svg viewBox="0 0 24 24"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.287 1.288L3 12l5.8 1.9a2 2 0 0 1 1.288 1.287L12 21l1.9-5.8a2 2 0 0 1 1.287-1.288L21 12l-5.8-1.9a2 2 0 0 1-1.288-1.287Z"/></svg>
+    Translate & explain
+  </button>
   <button id="sel-fab-close" class="sel-fab-close" aria-label="Dismiss selection">✕</button>
 </div>
 
 <!-- ════════ Debug console ════════ -->
-<button id="dbg-fab" onclick="toggleDbg()" title="Debug console">🐞</button>
+<button id="dbg-fab" onclick="toggleDbg()" title="Debug console">
+  <svg viewBox="0 0 24 24"><path d="m8 2 1.88 1.88"/><path d="M14.12 3.88 16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"/><path d="M12 20v-9"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5"/><path d="M6 13H2"/><path d="M3 21c0-2.1 1.7-3.9 3.8-4"/><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4"/><path d="M22 13h-4"/><path d="M17.2 17c2.1.1 3.8 1.9 3.8 4"/></svg>
+</button>
 <div id="dbg">
   <div class="dbg-head">
     <b>Debug console</b>
@@ -728,14 +760,21 @@ function copyDbg() {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
   else fallback();
 }
-console.log('Reymont v3.32 |', navigator.userAgent);
+console.log('Reymont v3.33 |', navigator.userAgent);
 </script>
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.32'; // поднимать при каждом деплое — и в двух статичных бейджах .app-ver в HTML
+const APP_VERSION = '3.33'; // поднимать при каждом деплое — и в двух статичных бейджах .app-ver в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
+
+/* ════════════════════════ Icons (Lucide, inlined — no runtime dependency) ════════════════════════ */
+const ICON_PALETTE = '<svg viewBox="0 0 24 24"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor" stroke="none"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor" stroke="none"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor" stroke="none"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor" stroke="none"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>';
+const ICON_SPINNER = '<span class="spinner" style="margin:0"></span>';
+const ICON_SEARCH = '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>';
+const ICON_REFRESH = '<svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>';
+const ICON_TRASH = '<svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>';
 
 /* ════════════════════════ Cloud sync (Supabase) ════════════════════════
    Авторизация по magic-ссылке + облачное хранение хайлайтов.
@@ -1101,7 +1140,7 @@ async function renderLibrary() {
       <div class="book-cover">${curatedCoverOverrides[cb.id]
         ? `<img src="${esc(curatedCoverOverrides[cb.id])}" alt="">`
         : `<div class="gen-title">${esc(cb.title)}</div>`}
-        ${sbUser ? `<button class="book-illus" title="Generate AI cover">🎨</button>` : ''}
+        ${sbUser ? `<button class="book-illus" title="Generate AI cover">${ICON_PALETTE}</button>` : ''}
       </div>
       <div class="book-meta">
         <div class="book-title">${esc(cb.title)}</div>
@@ -1112,7 +1151,7 @@ async function renderLibrary() {
     const curIllusBtn = card.querySelector('.book-illus');
     if (curIllusBtn) curIllusBtn.addEventListener('click', e => {
       e.stopPropagation();
-      generateCuratedCover(cb, curIllusBtn);
+      openCoverPromptModal({ type: 'curated', curated: cb, btn: curIllusBtn });
     });
     grid.appendChild(card);
   }
@@ -1144,7 +1183,7 @@ async function renderLibrary() {
       <div class="book-cover">${b.cover
         ? `<img src="${b.cover}" alt="">`
         : `<div class="gen-title">${esc(b.title)}</div>`}
-        ${sbUser ? `<button class="book-illus" title="Generate AI cover">🎨</button>` : ''}
+        ${sbUser ? `<button class="book-illus" title="Generate AI cover">${ICON_PALETTE}</button>` : ''}
       </div>
       <button class="book-del" title="Delete">✕</button>
       <div class="book-meta">
@@ -1168,7 +1207,7 @@ async function renderLibrary() {
       renderLibrary();
     });
     const illusBtn = card.querySelector('.book-illus');
-    if (illusBtn) illusBtn.addEventListener('click', e => { e.stopPropagation(); generateCover(b.id, illusBtn); });
+    if (illusBtn) illusBtn.addEventListener('click', e => { e.stopPropagation(); openCoverPromptModal({ type: 'book', bookId: b.id, btn: illusBtn }); });
     grid.appendChild(card);
   }
 }
@@ -1232,7 +1271,9 @@ async function normalizeEpubData(data, depth) {
 function libError(msg) {
   const el = $('lib-error');
   el.innerHTML = esc(msg) +
-    ' <button class="btn" style="margin-top:10px;display:block" onclick="toggleDbg(true)">🐞 Show debug log</button>';
+    ' <button class="btn" style="margin-top:10px" onclick="toggleDbg(true)">' +
+    '<svg viewBox="0 0 24 24"><path d="m8 2 1.88 1.88"/><path d="M14.12 3.88 16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"/><path d="M12 20v-9"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5"/><path d="M6 13H2"/><path d="M3 21c0-2.1 1.7-3.9 3.8-4"/><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4"/><path d="M22 13h-4"/><path d="M17.2 17c2.1.1 3.8 1.9 3.8 4"/></svg>' +
+    'Show debug log</button>';
   el.style.display = 'block';
 }
 
@@ -1314,22 +1355,44 @@ async function downloadCloudBook(remote, cardEl) {
   }
 }
 
-async function generateCuratedCover(curated, btn) {
-  btn.classList.add('busy'); btn.textContent = '⏳';
+async function generateCuratedCover(curated, btn, customPrompt) {
+  btn.classList.add('busy'); btn.innerHTML = ICON_SPINNER;
   try {
     let rec = await dbGet('books', curated.id);
     if (!rec) {
       toast('Adding “' + curated.title + '”…');
       await fetchAndSaveCuratedBook(curated);
     }
-    await generateCover(curated.id, btn); // saves the new cover on the book record and re-renders
+    await generateCover(curated.id, btn, customPrompt); // saves the new cover on the book record and re-renders
     rec = await dbGet('books', curated.id);
     if (rec && rec.cover) curatedCoverOverrides[curated.id] = rec.cover; // server also shared it via curated_covers, for every other reader
   } catch (err) {
     console.error('generateCuratedCover:', err);
     libError(`Couldn’t add “${curated.title}”. ${err && err.message || err}`);
-    btn.classList.remove('busy'); btn.textContent = '🎨';
+    btn.classList.remove('busy'); btn.innerHTML = ICON_PALETTE;
   }
+}
+
+/* Модалка с промптом для обложки — открывается по клику на 🎨-кнопку (и на своей
+   книге, и на каталожной), чтобы не получать каждый раз одну и ту же картинку. */
+let pendingCoverGen = null;
+function openCoverPromptModal(payload) {
+  pendingCoverGen = payload;
+  $('in-cover-prompt').value = '';
+  $('cover-prompt-overlay').classList.add('open');
+}
+function closeCoverPromptModal() {
+  $('cover-prompt-overlay').classList.remove('open');
+  pendingCoverGen = null;
+}
+function submitCoverPrompt() {
+  const prompt = $('in-cover-prompt').value.trim().slice(0, 500);
+  const p = pendingCoverGen;
+  $('cover-prompt-overlay').classList.remove('open');
+  pendingCoverGen = null;
+  if (!p) return;
+  if (p.type === 'curated') generateCuratedCover(p.curated, p.btn, prompt);
+  else generateCover(p.bookId, p.btn, prompt);
 }
 
 async function importFile(file) {
@@ -1761,7 +1824,7 @@ function startLookup(text, para, cfiRange) {
     runContext(text, gen, para, note);
   } else {
     zone.innerHTML = `<div class="p-section-title">From the web</div>
-      <button class="btn" id="ctx-btn">🔍 Search the web</button>`;
+      <button class="btn" id="ctx-btn">${ICON_SEARCH}Search the web</button>`;
     $('ctx-btn').addEventListener('click', () => runContext(text, gen, para, note));
   }
 }
@@ -2002,9 +2065,9 @@ function illusZoneInner(note) {
   if (!note) return '';
   if (note.illusUrl) {
     return `<div class="illus-card"><img src="${note.illusUrl}" alt=""></div>
-      <button class="btn" onclick="requestIllustration('${note.id}')">↻ Regenerate illustration</button>`;
+      <button class="btn" onclick="requestIllustration('${note.id}')">${ICON_REFRESH}Regenerate illustration</button>`;
   }
-  return `<button class="btn" onclick="requestIllustration('${note.id}')">🎨 Illustrate this scene</button>`;
+  return `<button class="btn" onclick="requestIllustration('${note.id}')">${ICON_PALETTE}Illustrate this scene</button>`;
 }
 function illusSectionHtml(note) {
   if (!note) return '';
@@ -2051,22 +2114,22 @@ async function requestIllustration(noteId) {
     else console.warn('requestIllustration: image generated but #illus-zone was gone — not shown, but saved to the highlight');
     refreshInlineIllustrations();
   } catch (err) {
-    if (err.name === 'AbortError') { console.warn('requestIllustration: aborted/timed out'); if (zone) zone.innerHTML = `<div class="p-error">Timed out — try again.<br><button class="btn" onclick="requestIllustration('${noteId}')">↻ Retry</button></div>`; return; }
+    if (err.name === 'AbortError') { console.warn('requestIllustration: aborted/timed out'); if (zone) zone.innerHTML = `<div class="p-error">Timed out — try again.<br><button class="btn" onclick="requestIllustration('${noteId}')">${ICON_REFRESH}Retry</button></div>`; return; }
     console.error('requestIllustration: failed —', err.name + ':', err.message);
     if (zone) zone.innerHTML = `<div class="p-error">Illustration failed: ${esc(err.message)}</div>`;
   }
 }
 
 /* Обложка книги — тот же пайплайн, без выделенного текста, только название/автор */
-async function generateCover(bookId, btn) {
-  console.log('generateCover: start, bookId =', bookId);
+async function generateCover(bookId, btn, customPrompt) {
+  console.log('generateCover: start, bookId =', bookId, '| customPrompt =', JSON.stringify(customPrompt || ''));
   if (!sbUser) { console.warn('generateCover: not signed in'); toast('Sign in to generate covers'); return; }
   const rec = await dbGet('books', bookId);
   if (!rec) { console.warn('generateCover: book not found'); return; }
-  if (btn) { btn.classList.add('busy'); btn.textContent = '⏳'; }
+  if (btn) { btn.classList.add('busy'); btn.innerHTML = ICON_SPINNER; }
   try {
     console.log('generateCover: calling aiProxy for', rec.title);
-    const res = await aiProxy({ action: 'illustrate_cover', title: rec.title, author: rec.author, bookId }, undefined, 120000);
+    const res = await aiProxy({ action: 'illustrate_cover', title: rec.title, author: rec.author, bookId, customPrompt: customPrompt || '' }, undefined, 120000);
     if (res.status === 403) { console.warn('generateCover: 403 — not invited'); toast('Only the Reymont team can set covers for built-in library books'); return; }
     if (res.status === 402) { console.warn('generateCover: 402 — quota reached'); toast('You’ve used all 3 free illustrations'); return; }
     if (!res.ok) {
@@ -2088,7 +2151,7 @@ async function generateCover(bookId, btn) {
     console.error('generateCover: failed —', err.name + ':', err.message);
     toast('Cover generation failed: ' + (err.message || err));
   } finally {
-    if (btn) { btn.classList.remove('busy'); btn.textContent = '🎨'; }
+    if (btn) { btn.classList.remove('busy'); btn.innerHTML = ICON_PALETTE; }
   }
 }
 
@@ -2209,8 +2272,8 @@ function showNote(id) {
     </div>
     ${illusSectionHtml(note)}
     <div class="note-actions">
-      <button class="btn" onclick="refreshNote('${note.id}')">↻ Ask again</button>
-      <button class="btn" onclick="deleteNote('${note.id}')">🗑 Delete highlight</button>
+      <button class="btn" onclick="refreshNote('${note.id}')">${ICON_REFRESH}Ask again</button>
+      <button class="btn" onclick="deleteNote('${note.id}')">${ICON_TRASH}Delete highlight</button>
     </div>`;
   openPanel();
 }

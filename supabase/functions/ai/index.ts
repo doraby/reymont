@@ -213,8 +213,14 @@ Deno.serve(async (req) => {
         MALCZEWSKI_STYLE + ` No text, letters, signatures or watermarks in the image.`;
     } else {
       if (!title) return err("No title", 400, cors);
+      const customPrompt = String(body.customPrompt ?? "").slice(0, 500).trim();
+      // Без явного промпта одно и то же название/автор каждый раз давали очень похожую
+      // картинку — теперь читатель сам описывает сцену, вместо фиксированной формулировки.
+      const sceneLine = customPrompt
+        ? `Depicted scene: ${customPrompt}\n`
+        : `Capture the overall mood, setting and themes of the book in a single evocative scene — the essence, not a specific plot spoiler.\n`;
       prompt = `Book cover illustration for the classic novel "${title}"${author ? " by " + author : ""}.\n` +
-        `Capture the overall mood, setting and themes of the book in a single evocative scene — the essence, not a specific plot spoiler.\n` +
+        sceneLine +
         MALCZEWSKI_STYLE + ` Portrait orientation suited for a book cover.\n` +
         `Render the title "${title}" as elegant, legible typography near the top of the cover` +
         (author ? `, and the author name "${author}" in smaller type near the bottom` : "") +
