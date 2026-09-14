@@ -407,7 +407,7 @@
 <div id="library">
   <div class="lib-inner">
     <div class="lib-header">
-      <div class="wordmark">Reymont<span class="tail">.</span> <span class="app-ver">v3.21</span></div>
+      <div class="wordmark">Reymont<span class="tail">.</span> <span class="app-ver">v3.22</span></div>
       <div class="lib-actions">
       <button class="icon-btn" onclick="openSettings()" title="Settings" aria-label="Settings">
         <svg class="settings-mark" viewBox="0 0 24 24"><circle cx="6.5" cy="14" r="4.5"/><circle cx="17.5" cy="14" r="4.5"/><path d="M10.3,11 Q12,6 13.7,11"/><path d="M19.5,2.8 C20,4.6 20,4.6 23,5.5 C20,6.4 20,6.4 19.5,8.8 C19,6.4 19,6.4 16.3,5.5 C19,4.6 19,4.6 19.5,2.8 Z" fill="var(--accent)" stroke="none"/></svg>
@@ -564,7 +564,7 @@
 <!-- ════════ Settings modal ════════ -->
 <div id="overlay">
   <div class="modal">
-    <h2>Settings <span class="app-ver">v3.21</span></h2>
+    <h2>Settings <span class="app-ver">v3.22</span></h2>
     <div class="m-sub">The key is stored only in your browser and sent only to OpenAI.</div>
     <div id="account-field" class="field" style="display:none">
       <label>Account</label>
@@ -696,12 +696,12 @@ function copyDbg() {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
   else fallback();
 }
-console.log('Reymont v3.21 |', navigator.userAgent);
+console.log('Reymont v3.22 |', navigator.userAgent);
 </script>
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.21'; // поднимать при каждом деплое — и в двух статичных бейджах .app-ver в HTML
+const APP_VERSION = '3.22'; // поднимать при каждом деплое — и в двух статичных бейджах .app-ver в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -1595,27 +1595,37 @@ function showChromeAndScheduleHide() {
 function bindTouchGestures(contents) {
   if (!contents.document) return;
   const doc = contents.document;
-  let startX = 0, startY = 0, startT = 0, startEl = null;
-  doc.addEventListener('touchstart', e => {
-    if (e.touches.length !== 1) return;
-    startX = e.touches[0].clientX; startY = e.touches[0].clientY; startT = Date.now();
-    startEl = doc.elementFromPoint(startX, startY);
-  }, { passive: true });
-  doc.addEventListener('touchend', e => {
-    const touch = e.changedTouches[0];
-    if (!touch || !startEl) return;
-    const dx = touch.clientX - startX, dy = touch.clientY - startY;
-    const dt = Date.now() - startT;
+  console.log('bindTouchGestures: registered');
+
+  // Тап — через 'click', а не touchend: на реальном iPhone (подтверждено логом
+  // пользователя) touchend внутри iframe вообще не долетает до JS, а click,
+  // который браузер сам синтезирует из тапа, там же работает штатно.
+  doc.addEventListener('click', e => {
     const sel = contents.window.getSelection();
-    if (sel && !sel.isCollapsed && sel.toString().trim()) return; // это выделение, не жест
+    if (sel && !sel.isCollapsed && sel.toString().trim()) return; // это выделение, не тап
+    if (e.target && e.target.closest && e.target.closest('.epubjs-hl')) return; // хайлайт открывает свою заметку
+    console.log('bindTouchGestures: tap (click) — toggling chrome');
+    toggleChrome();
+  });
+
+  // Свайп — через Pointer Events вместо Touch Events: по той же причине (сырые
+  // touch-события ненадёжны внутри iframe на iOS), а click не несёт координат
+  // движения, так что для свайпа он не подходит.
+  let startX = 0, startY = 0, startT = 0, tracking = false;
+  doc.addEventListener('pointerdown', e => {
+    if (e.pointerType !== 'touch') return;
+    startX = e.clientX; startY = e.clientY; startT = Date.now(); tracking = true;
+  });
+  doc.addEventListener('pointerup', e => {
+    if (!tracking) return;
+    tracking = false;
+    const dx = e.clientX - startX, dy = e.clientY - startY;
+    const dt = Date.now() - startT;
     if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.6 && dt < 600) {
-      console.log('bindTouchGestures: swipe', dx < 0 ? 'left → next' : 'right → prev');
+      console.log('bindTouchGestures: swipe (pointer)', dx < 0 ? 'left → next' : 'right → prev');
       if (rendition) { if (dx < 0) rendition.next(); else rendition.prev(); }
-    } else if (Math.abs(dx) < 10 && Math.abs(dy) < 10 && dt < 500) {
-      if (startEl.closest && startEl.closest('.epubjs-hl')) return;
-      toggleChrome();
     }
-  }, { passive: true });
+  });
 }
 
 /* ════════════════════════ Selection → panel ════════════════════════
