@@ -7,7 +7,7 @@ const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 const CORS_ORIGINS = ["https://reymont.app", "https://www.reymont.app", "https://doraby.github.io"];
 const ILLUSTRATIONS_BUCKET = "illustrations";
 // Держим в синхроне со списком CURATED_BOOKS в index.html.
-const CURATED_BOOK_IDS = new Set(["curated-chlopi"]);
+const CURATED_BOOK_IDS = new Set(["curated-chlopi", "curated-propaganda", "curated-crystallizing"]);
 // Бесплатный лимит AI-иллюстраций/обложек на книги читателя (не на каталог — там куратор без лимита).
 const IMAGE_QUOTA_LIMIT = 3;
 
