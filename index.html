@@ -249,6 +249,11 @@
   .note-item { padding: 11px 12px; border-radius: 10px; cursor: pointer; }
   .note-item:hover { background: var(--surface-2); }
   .ni-text { font-size: 14px; font-style: italic; line-height: 1.4; border-left: 2px solid var(--accent-soft); padding-left: 9px; }
+  .ni-demo-badge {
+    display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+    font-style: normal; color: #8A6D0A; background: rgba(212,160,23,.16); border-radius: 5px;
+    padding: 2px 6px; margin-right: 6px; vertical-align: 1px;
+  }
   .ni-trans { font-size: 12.5px; color: var(--muted); margin-top: 4px; padding-left: 11px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .notes-empty { color: var(--muted); font-style: italic; font-size: 13.5px; padding: 14px 16px; line-height: 1.5; }
@@ -494,7 +499,7 @@
       <div class="wordmark">reymont<span class="tail">.</span></div>
       <div class="lib-actions">
       <button class="icon-btn" onclick="openSettings()" title="Settings" aria-label="Settings">
-        <svg class="settings-mark" viewBox="0 0 250 121"><path d="M123.267 6.44824C136.552 6.44826 149.143 7.59548 158.55 11.25C163.299 13.0946 167.497 15.6755 170.522 19.3154C172.584 21.7963 174.004 24.6574 174.721 27.874C183.789 25.2102 194.053 25.083 204.223 27.8135C202.663 30.1502 200.689 32.183 198.401 33.8096C190.258 32.0173 182.206 32.4827 175.15 34.7803C174.306 41.6878 168.766 47.1374 161.992 50.9131L158.928 45.417C156.176 48.6861 154.117 52.5034 152.962 56.7686C148.041 74.9426 161.403 94.3749 182.808 100.171C204.213 105.967 225.555 95.9316 230.476 77.7578C231.621 73.5297 231.775 69.2334 231.07 65.0566C231.357 64.7234 231.645 64.3924 231.934 64.0645C234.52 61.1293 237.843 58.8605 241.625 57.5371C247.61 69.5313 248.422 83.0728 242.62 94.8379C232.043 116.284 203.487 123.888 177.989 112.314L173.952 120.501C143.1 105.286 127.328 70.9385 141.058 43.0967L149.732 47.374C153.583 40.2739 159.473 34.7888 166.564 31.1289C166.267 28.5634 165.33 26.5182 163.911 24.8105C162.109 22.642 159.321 20.7721 155.438 19.2637C147.583 16.2122 136.325 15.0449 123.267 15.0449C110.36 15.0449 99.0817 16.6963 91.1989 19.9932C84.2396 22.904 80.737 26.6719 80.0124 31.1328C87.3834 34.939 93.4865 40.7174 97.2888 48.2324C97.1795 47.9987 97.0683 47.7643 96.9538 47.5322L105.949 43.0967C119.679 70.9386 103.907 105.286 73.0554 120.501L68.9372 112.15C43.4807 123.96 14.5754 116.385 3.94893 94.8379C-6.87016 72.8993 5.30556 44.7847 31.1442 32.042C44.7662 25.3243 59.4665 24.2197 71.9069 27.8916C73.8631 20.4332 80.1387 15.301 87.8815 12.0625C97.2618 8.13923 109.833 6.44825 123.267 6.44824ZM71.3815 34.7686C63.6906 32.2723 54.8202 31.9508 45.9392 34.3555C24.5343 40.1515 11.1716 59.5838 16.0925 77.7578C21.0138 95.9317 42.3556 105.967 63.7604 100.171C85.1651 94.3748 98.5279 74.9424 93.6071 56.7686C92.4493 52.4928 90.3825 48.6671 87.6198 45.3926L84.5427 50.9131C77.7651 47.1352 72.2212 41.6817 71.3815 34.7686ZM220.942 26.2051C222.323 34.6616 229.073 41.4902 237.382 43.583L250 46.7617L236.222 50.2314C228.513 52.1734 222.506 58.213 220.604 65.9326L217.141 79.9893L213.679 65.9326C211.778 58.2129 205.77 52.1733 198.06 50.2314L184.284 46.7617L196.902 43.583C205.211 41.4902 211.961 34.6616 213.342 26.2051C214.721 17.757 217.136 0.0359375 217.141 0L220.942 26.2051Z" fill="currentColor"/></svg>
+        <svg class="settings-mark" viewBox="0 0 250 121"><path d="M123.267 6.44824C136.552 6.44826 149.143 7.59548 158.55 11.25C163.299 13.0946 167.497 15.6755 170.522 19.3154C172.584 21.7963 174.004 24.6574 174.721 27.874C183.789 25.2102 194.053 25.083 204.223 27.8135C202.663 30.1502 200.689 32.183 198.401 33.8096C190.258 32.0173 182.206 32.4827 175.15 34.7803C174.306 41.6878 168.766 47.1374 161.992 50.9131L158.928 45.417C156.176 48.6861 154.117 52.5034 152.962 56.7686C148.041 74.9426 161.403 94.3749 182.808 100.171C204.213 105.967 225.555 95.9316 230.476 77.7578C231.621 73.5297 231.775 69.2334 231.07 65.0566C231.357 64.7234 231.645 64.3924 231.934 64.0645C234.52 61.1293 237.843 58.8605 241.625 57.5371C247.61 69.5313 248.422 83.0728 242.62 94.8379C232.043 116.284 203.497 123.888 177.989 112.314L173.952 120.501C143.1 105.286 127.328 70.9385 141.058 43.0967L149.732 47.374C153.583 40.2739 159.473 34.7888 166.564 31.1289C166.267 28.5634 165.33 26.5182 163.911 24.8105C162.109 22.642 159.321 20.7721 155.438 19.2637C147.583 16.2122 136.325 15.0449 123.267 15.0449C110.36 15.0449 99.0817 16.6963 91.1989 19.9932C84.2396 22.904 80.737 26.6719 80.0124 31.1328C87.3834 34.939 93.4965 40.7174 97.2888 48.2324C97.1795 47.9987 97.0683 47.7643 96.9538 47.5322L105.949 43.0967C119.679 70.9386 103.907 105.286 73.0554 120.501L68.9372 112.15C43.4907 123.96 14.5754 116.385 3.94893 94.8379C-6.87016 72.8993 5.30556 44.7847 31.1442 32.042C44.7662 25.3243 59.4665 24.2197 71.9069 27.8916C73.8631 20.4332 80.1387 15.301 87.8815 12.0625C97.2618 8.13923 109.833 6.44825 123.267 6.44824ZM71.3815 34.7686C63.6906 32.2723 54.8202 31.9508 45.9392 34.3555C24.5343 40.1515 11.1716 59.5838 16.0925 77.7578C21.0138 95.9317 42.3556 105.967 63.7604 100.171C85.1651 94.3748 98.5279 74.9424 93.6071 56.7686C92.4493 52.4928 90.3825 48.6671 87.6198 45.3926L84.5427 50.9131C77.7651 47.1352 72.2212 41.6817 71.3815 34.7686ZM220.942 26.2051C222.323 34.6616 229.073 41.4902 237.382 43.583L250 46.7617L236.222 50.2314C228.513 52.1734 222.506 58.213 220.604 65.9326L217.141 79.9893L213.679 65.9326C211.778 58.2129 205.77 52.1733 198.06 50.2314L184.284 46.7617L196.902 43.583C205.211 41.4902 211.961 34.6616 213.342 26.2051C214.721 17.757 217.136 0.0359375 217.141 0L220.942 26.2051Z" fill="currentColor"/></svg>
       </button>
       </div>
     </div>
@@ -530,7 +535,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
     </button>
     <button class="icon-btn" onclick="openSettings()" title="Settings" aria-label="Settings">
-      <svg class="settings-mark" viewBox="0 0 250 121"><path d="M123.267 6.44824C136.552 6.44826 149.143 7.59548 158.55 11.25C163.299 13.0946 167.497 15.6755 170.522 19.3154C172.584 21.7963 174.004 24.6574 174.721 27.874C183.789 25.2102 194.053 25.083 204.223 27.8135C202.663 30.1502 200.689 32.183 198.401 33.8096C190.258 32.0173 182.206 32.4827 175.15 34.7803C174.306 41.6878 168.766 47.1374 161.992 50.9131L158.928 45.417C156.176 48.6861 154.117 52.5034 152.962 56.7686C148.041 74.9426 161.403 94.3749 182.808 100.171C204.213 105.967 225.555 95.9316 230.476 77.7578C231.621 73.5297 231.775 69.2334 231.07 65.0566C231.357 64.7234 231.645 64.3924 231.934 64.0645C234.52 61.1293 237.843 58.8605 241.625 57.5371C247.61 69.5313 248.422 83.0728 242.62 94.8379C232.043 116.284 203.487 123.888 177.989 112.314L173.952 120.501C143.1 105.286 127.328 70.9385 141.058 43.0967L149.732 47.374C153.583 40.2739 159.473 34.7888 166.564 31.1289C166.267 28.5634 165.33 26.5182 163.911 24.8105C162.109 22.642 159.321 20.7721 155.438 19.2637C147.583 16.2122 136.325 15.0449 123.267 15.0449C110.36 15.0449 99.0817 16.6963 91.1989 19.9932C84.2396 22.904 80.737 26.6719 80.0124 31.1328C87.3834 34.939 93.4865 40.7174 97.2888 48.2324C97.1795 47.9987 97.0683 47.7643 96.9538 47.5322L105.949 43.0967C119.679 70.9386 103.907 105.286 73.0554 120.501L68.9372 112.15C43.4807 123.96 14.5754 116.385 3.94893 94.8379C-6.87016 72.8993 5.30556 44.7847 31.1442 32.042C44.7662 25.3243 59.4665 24.2197 71.9069 27.8916C73.8631 20.4332 80.1387 15.301 87.8815 12.0625C97.2618 8.13923 109.833 6.44825 123.267 6.44824ZM71.3815 34.7686C63.6906 32.2723 54.8202 31.9508 45.9392 34.3555C24.5343 40.1515 11.1716 59.5838 16.0925 77.7578C21.0138 95.9317 42.3556 105.967 63.7604 100.171C85.1651 94.3748 98.5279 74.9424 93.6071 56.7686C92.4493 52.4928 90.3825 48.6671 87.6198 45.3926L84.5427 50.9131C77.7651 47.1352 72.2212 41.6817 71.3815 34.7686ZM220.942 26.2051C222.323 34.6616 229.073 41.4902 237.382 43.583L250 46.7617L236.222 50.2314C228.513 52.1734 222.506 58.213 220.604 65.9326L217.141 79.9893L213.679 65.9326C211.778 58.2129 205.77 52.1733 198.06 50.2314L184.284 46.7617L196.902 43.583C205.211 41.4902 211.961 34.6616 213.342 26.2051C214.721 17.757 217.136 0.0359375 217.141 0L220.942 26.2051Z" fill="currentColor"/></svg>
+      <svg class="settings-mark" viewBox="0 0 250 121"><path d="M123.267 6.44824C136.552 6.44826 149.143 7.59548 158.55 11.25C163.299 13.0946 167.497 15.6755 170.522 19.3154C172.584 21.7963 174.004 24.6574 174.721 27.874C183.789 25.2102 194.053 25.083 204.223 27.8135C202.663 30.1502 200.689 32.183 198.401 33.8096C190.258 32.0173 182.206 32.4827 175.15 34.7803C174.306 41.6878 168.766 47.1374 161.992 50.9131L158.928 45.417C156.176 48.6861 154.117 52.5034 152.962 56.7686C148.041 74.9426 161.403 94.3749 182.808 100.171C204.213 105.967 225.555 95.9316 230.476 77.7578C231.621 73.5297 231.775 69.2334 231.07 65.0566C231.357 64.7234 231.645 64.3924 231.934 64.0645C234.52 61.1293 237.843 58.8605 241.625 57.5371C247.61 69.5313 248.422 83.0728 242.62 94.8379C232.043 116.284 203.497 123.888 177.989 112.314L173.952 120.501C143.1 105.286 127.328 70.9385 141.058 43.0967L149.732 47.374C153.583 40.2739 159.473 34.7888 166.564 31.1289C166.267 28.5634 165.33 26.5182 163.911 24.8105C162.109 22.642 159.321 20.7721 155.438 19.2637C147.583 16.2122 136.325 15.0449 123.267 15.0449C110.36 15.0449 99.0817 16.6963 91.1989 19.9932C84.2396 22.904 80.737 26.6719 80.0124 31.1328C87.3834 34.939 93.4965 40.7174 97.2888 48.2324C97.1795 47.9987 97.0683 47.7643 96.9538 47.5322L105.949 43.0967C119.679 70.9386 103.907 105.286 73.0554 120.501L68.9372 112.15C43.4907 123.96 14.5754 116.385 3.94893 94.8379C-6.87016 72.8993 5.30556 44.7847 31.1442 32.042C44.7662 25.3243 59.4665 24.2197 71.9069 27.8916C73.8631 20.4332 80.1387 15.301 87.8815 12.0625C97.2618 8.13923 109.833 6.44825 123.267 6.44824ZM71.3815 34.7686C63.6906 32.2723 54.8202 31.9508 45.9392 34.3555C24.5343 40.1515 11.1716 59.5838 16.0925 77.7578C21.0138 95.9317 42.3556 105.967 63.7604 100.171C85.1651 94.3748 98.5279 74.9424 93.6071 56.7686C92.4493 52.4928 90.3825 48.6671 87.6198 45.3926L84.5427 50.9131C77.7651 47.1352 72.2212 41.6817 71.3815 34.7686ZM220.942 26.2051C222.323 34.6616 229.073 41.4902 237.382 43.583L250 46.7617L236.222 50.2314C228.513 52.1734 222.506 58.213 220.604 65.9326L217.141 79.9893L213.679 65.9326C211.778 58.2129 205.77 52.1733 198.06 50.2314L184.284 46.7617L196.902 43.583C205.211 41.4902 211.961 34.6616 213.342 26.2051C214.721 17.757 217.136 0.0359375 217.141 0L220.942 26.2051Z" fill="currentColor"/></svg>
     </button>
   </div>
 
@@ -719,7 +724,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.48</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.49</div>
   </div>
 </div>
 
@@ -817,12 +822,12 @@ function copyDbg() {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
   else fallback();
 }
-console.log('Reymont v3.48 |', navigator.userAgent);
+console.log('Reymont v3.49 |', navigator.userAgent);
 </script>
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.48'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.49'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -2174,13 +2179,15 @@ async function webSearch(text, gen, para, note) {
 function illusZoneInner(note) {
   if (!note) return '';
   if (note.illusUrl) {
-    return `<div class="illus-card"><img src="${note.illusUrl}" alt=""></div>
-      <button class="btn" onclick="requestIllustration('${note.id}')">${ICON_REFRESH}Regenerate illustration</button>`;
+    return `<div class="illus-card"><img src="${note.illusUrl}" alt=""></div>` +
+      (note.demo ? '' : `<button class="btn" onclick="requestIllustration('${note.id}')">${ICON_REFRESH}Regenerate illustration</button>`);
   }
+  if (note.demo) return ''; // демо без картинки — не даём анониму запускать генерацию за чужой счёт
   return `<button class="btn" onclick="requestIllustration('${note.id}')">${ICON_PALETTE}Illustrate this scene</button>`;
 }
 function illusSectionHtml(note) {
   if (!note) return '';
+  if (note.demo && !note.illusUrl) return '';
   return `<div class="p-section-title">Illustration</div><div id="illus-zone">${illusZoneInner(note)}</div>`;
 }
 async function requestIllustration(noteId) {
@@ -2268,15 +2275,33 @@ async function generateCover(bookId, btn, customPrompt) {
 /* ════════════════════════ Highlights (сохранённые выделения) ════════════════════════ */
 let bookNotes = []; // заметки открытой книги, новые сверху
 
+/* Демо-хайлайты — обычные строки в облачной таблице highlights, оставленные владельцем
+   (ILLUSTRATOR_EMAIL) на книгах из каталога, но читаемые публично отдельной RLS-policy
+   (см. supabase/demo_highlights_policy.sql) — незалогиненный посетитель видит готовый
+   перевод/разбор/иллюстрацию без единого AI-вызова, это и есть "аха-момент" до sign up. */
+async function loadDemoHighlights(bookId) {
+  if (!sb || !isCuratedId(bookId)) return [];
+  try {
+    const { data, error } = await sb.from('highlights').select('*').eq('book_id', bookId);
+    if (error) throw error;
+    return (data || []).map(r => Object.assign(rowToNote(r), { demo: true }));
+  } catch (e) { console.warn('loadDemoHighlights:', e.message || e); return []; }
+}
 async function loadNotes(bookId) {
   bookNotes = (await dbAll('notes')).filter(n => n.bookId === bookId).sort((a, b) => b.created - a.created);
+  if (isCuratedId(bookId)) {
+    const demo = await loadDemoHighlights(bookId);
+    const ownIds = new Set(bookNotes.map(n => n.id));
+    for (const d of demo) if (!ownIds.has(d.id)) bookNotes.push(d);
+  }
 }
 function addHighlight(note) {
   if (!rendition) return;
   console.log('addHighlight: attaching', note.id, 'at', note.cfiRange);
   try {
+    const fill = note.demo ? '#D4A017' : '#D97757';
     rendition.annotations.add('highlight', note.cfiRange, {}, () => { console.log('addHighlight: epub.js own mark-click fired for', note.id); showNote(note.id); }, 'hl',
-      { 'fill': '#D97757', 'fill-opacity': '0.20', 'mix-blend-mode': 'multiply' });
+      { 'fill': fill, 'fill-opacity': '0.22', 'mix-blend-mode': 'multiply' });
     console.log('addHighlight: annotations.add returned ok for', note.id);
   } catch (e) { console.warn('highlight failed to attach:', e); }
 }
@@ -2373,7 +2398,7 @@ function showNote(id) {
   const hasCtx = note.wikiHtml || note.webHtml || note.imgHtml;
   $('panel-body').innerHTML = `
     <div class="sel-quote">${esc(note.text)}</div>
-    <div class="note-meta">saved ${new Date(note.created).toLocaleDateString()} · shown from cache</div>
+    <div class="note-meta">${note.demo ? 'preview highlight · picked by the Reymont team' : 'saved ' + new Date(note.created).toLocaleDateString() + ' · shown from cache'}</div>
     <div class="p-section-title">Translation · ${esc(note.lang || '')}</div>
     <div id="trans-out">${esc(note.translation || '') || '<i>no translation</i>'}</div>
     <div id="ctx-zone">
@@ -2383,19 +2408,19 @@ function showNote(id) {
       <div id="img-slot">${note.imgHtml || ''}</div>
     </div>
     ${illusSectionHtml(note)}
-    <div class="note-actions">
+    ${note.demo ? '' : `<div class="note-actions">
       <button class="btn" onclick="refreshNote('${note.id}')">${ICON_REFRESH}Ask again</button>
       <button class="btn" onclick="deleteNote('${note.id}')">${ICON_TRASH}Delete highlight</button>
-    </div>`;
+    </div>`}`;
   openPanel();
 }
 function refreshNote(id) {
   const n = bookNotes.find(x => x.id === id);
-  if (n) startLookup(n.text, n.para, n.cfiRange);
+  if (n && !n.demo) startLookup(n.text, n.para, n.cfiRange);
 }
 async function deleteNote(id) {
   const i = bookNotes.findIndex(x => x.id === id);
-  if (i < 0) return;
+  if (i < 0 || bookNotes[i].demo) return;
   removeHighlight(bookNotes[i]);
   await dbDelete('notes', id);
   cloudDeleteNote(id);
@@ -2414,7 +2439,7 @@ function notesListHtml() {
   if (!bookNotes.length) return '<div class="notes-empty">Select text in the book — highlights with translations will appear here.</div>';
   return bookNotes.map(n => `
     <div class="note-item" data-id="${n.id}">
-      <div class="ni-text">${esc(n.text.slice(0, 80))}${n.text.length > 80 ? '…' : ''}</div>
+      <div class="ni-text">${n.demo ? '<span class="ni-demo-badge">Preview</span> ' : ''}${esc(n.text.slice(0, 80))}${n.text.length > 80 ? '…' : ''}</div>
       ${n.translation ? `<div class="ni-trans">${esc(n.translation.split('\n')[0].slice(0, 90))}</div>` : ''}
     </div>`).join('');
 }
