@@ -130,6 +130,9 @@ Deno.serve(async (req) => {
   // Для книг из каталога (CURATED_BOOK_IDS) — только владелец, результат общий для всех.
   // Для книг, которые читатель добавил сам, — доступно любому вошедшему пользователю.
   if (body.action === "illustrate" || body.action === "illustrate_cover") {
+    // Картинки стоят дороже текста — анонимной сессии (см. ниже) их не даём вообще,
+    // только настоящий e-mail-аккаунт.
+    if (user.is_anonymous) return err("Sign in with email to generate illustrations", 403, cors);
     const isCurated = CURATED_BOOK_IDS.has(String(body.bookId ?? ""));
     if (isCurated) {
       const ILLUSTRATOR_EMAIL = (Deno.env.get("ILLUSTRATOR_EMAIL") ?? "").toLowerCase();
@@ -208,11 +211,22 @@ Deno.serve(async (req) => {
     return json({ url: upload.url }, 200, cors);
   }
 
-  // Pro-подписчики (оплата через Stripe) без лимита; бесплатный тариф — 10 хайлайтов
-  const { data: pro } = await supa.from("pro_users").select("user_id").eq("user_id", user.id).maybeSingle();
-  if (!pro) {
+  // Анонимная Supabase-сессия (Authentication → Sign In / Providers → Allow anonymous
+  // sign-ins) — ровно один бесплатный перевод/поиск без e-mail, дальше sign up. Хайлайт
+  // клиент сохраняет ДО этого вызова, поэтому >1 (не >=1) — иначе блокировали бы и самую
+  // первую попытку, которую и должны разрешать.
+  if (user.is_anonymous) {
     const { count, error: cntErr } = await supa.from("highlights").select("*", { count: "exact", head: true });
-    if (!cntErr && (count ?? 0) > 10) return err("Free limit reached", 402, cors);
+    if (!cntErr && (count ?? 0) > 1) {
+      return err("You've used your free preview — sign in with email to keep translating", 403, cors);
+    }
+  } else {
+    // Pro-подписчики (оплата через Stripe) без лимита; бесплатный тариф — 10 хайлайтов
+    const { data: pro } = await supa.from("pro_users").select("user_id").eq("user_id", user.id).maybeSingle();
+    if (!pro) {
+      const { count, error: cntErr } = await supa.from("highlights").select("*", { count: "exact", head: true });
+      if (!cntErr && (count ?? 0) > 10) return err("Free limit reached", 402, cors);
+    }
   }
 
   const text = String(body.text ?? "").slice(0, 3000);
