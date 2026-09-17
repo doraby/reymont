@@ -216,7 +216,10 @@ Deno.serve(async (req) => {
   // клиент сохраняет ДО этого вызова, поэтому >1 (не >=1) — иначе блокировали бы и самую
   // первую попытку, которую и должны разрешать.
   if (user.is_anonymous) {
-    const { count, error: cntErr } = await supa.from("highlights").select("*", { count: "exact", head: true });
+    // .eq("user_id", ...) обязателен: без него запрос считает ВСЕ строки, видимые по
+    // RLS — а после публичной read-policy для демо-хайлайтов на страницах каталога это
+    // ещё и хайлайты владельца, так что аноним упирался бы в лимит на первой же попытке.
+    const { count, error: cntErr } = await supa.from("highlights").select("*", { count: "exact", head: true }).eq("user_id", user.id);
     if (!cntErr && (count ?? 0) > 1) {
       return err("You've used your free preview — sign in with email to keep translating", 403, cors);
     }
@@ -224,7 +227,7 @@ Deno.serve(async (req) => {
     // Pro-подписчики (оплата через Stripe) без лимита; бесплатный тариф — 10 хайлайтов
     const { data: pro } = await supa.from("pro_users").select("user_id").eq("user_id", user.id).maybeSingle();
     if (!pro) {
-      const { count, error: cntErr } = await supa.from("highlights").select("*", { count: "exact", head: true });
+      const { count, error: cntErr } = await supa.from("highlights").select("*", { count: "exact", head: true }).eq("user_id", user.id);
       if (!cntErr && (count ?? 0) > 10) return err("Free limit reached", 402, cors);
     }
   }
