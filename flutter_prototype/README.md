@@ -46,14 +46,41 @@ interactions genuinely work, not just that the code compiles.
 
 ## Running it
 
+### On the web (quickest, but still inside a browser)
+
 ```
 cd flutter_prototype
 flutter pub get
 flutter run -d chrome     # or: flutter build web && serve build/web
 ```
 
-Requires the Flutter SDK (this was built and tested against stable 3.35.5).
-No Android/iOS toolchain needed for the web target used here.
+Good for a quick look, but it's still a page in a browser tab — browser
+chrome (address bar, its own swipe-back/pull-to-refresh gestures) can get in
+the way, which is exactly the category of problem a native app avoids. Open
+the built `build/web` on an actual phone's browser (same network) to feel
+the real touch gestures; a desktop mouse click-drag selects text instead of
+paging, since Flutter treats mouse and touch input differently.
+
+### As a real iOS app (the actual test — requires a Mac)
+
+The `ios/` platform folder here was generated with `flutter create
+--platforms=ios`, Flutter's own official scaffolding — unlike `../ios/`
+(the SwiftUI attempt, hand-written without Xcode access), this one is a
+real, tool-generated Xcode project.
+
+1. On a Mac: install [Xcode](https://apps.apple.com/app/xcode/id497799835)
+   and [CocoaPods](https://cocoapods.org) (`sudo gem install cocoapods`, or
+   `brew install cocoapods`).
+2. Install the [Flutter SDK](https://docs.flutter.dev/get-started/install/macos).
+3. `cd flutter_prototype && flutter pub get`
+4. Plug in an iPhone (or use a Simulator) and run `flutter devices` to
+   confirm it's detected.
+5. `flutter run -d <device-id>` — this builds the real `.app`, installs it,
+   and launches it. First run also does `pod install` automatically.
+
+This is the one that actually answers the original question: no browser
+chrome at all, gestures go straight to the app, installed like any other
+app on the phone.
 
 ## Design tokens
 
