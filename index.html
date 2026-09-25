@@ -219,25 +219,15 @@
      конкретным меткам возвращаем auto — иначе клик по ним не долетит даже сюда. */
   svg g.hl, svg g.hl rect { pointer-events: auto; cursor: pointer; }
 
-  /* Кнопки перелистывания — оверлеем над самым низом текста, не толкая сам контент
-     (как и #bottombar/#chrome-toggle-btn — тот же приём). pointer-events:none на
-     обёртке + auto на самих кнопках, чтобы пустое место между ними не перехватывало
-     тапы/выделение текста под собой. */
-  #bottom-nav {
-    position: absolute; left: 0; right: 0;
-    bottom: calc(var(--bottombar-h) + env(safe-area-inset-bottom, 0px) + 14px);
-    display: flex; justify-content: space-between; padding: 0 16px;
-    z-index: 6; pointer-events: none;
-  }
-  #reader.chrome-hidden #bottom-nav { bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); }
+  /* Кнопки перелистывания — невидимые полноразмерные (по высоте) зоны тапа у краёв,
+     лежат поверх текста, не занимая места в раскладке (та же idea, что и раньше у
+     #bottombar/#chrome-toggle-btn). Никакого кружка/тени — просто тап в любом месте
+     у края экрана. */
   .nav-btn {
-    pointer-events: auto; width: 44px; height: 44px; flex: none; border-radius: 50%; border: none;
-    cursor: pointer; background: var(--surface); color: var(--muted); font-size: 20px;
-    box-shadow: 0 4px 14px rgba(61,57,41,.18); transition: color .15s, background .15s;
-    display: flex; align-items: center; justify-content: center; touch-action: manipulation;
+    position: absolute; top: 0; bottom: 0; width: 64px; border: none; background: transparent;
+    cursor: pointer; z-index: 5; touch-action: manipulation;
   }
-  .nav-btn:hover { color: var(--accent-soft); background: var(--surface-2); }
-  .nav-btn:active { color: var(--accent-soft); }
+  #nav-prev { left: 0; } #nav-next { right: 0; }
 
   #bottombar {
     /* Safari on iOS can overlay its own bottom toolbar on top of web content —
@@ -584,11 +574,9 @@
     <div id="reading-col">
       <div id="viewer-wrap">
         <div id="viewer"></div>
+        <button id="nav-prev" class="nav-btn" aria-label="Previous page"></button>
+        <button id="nav-next" class="nav-btn" aria-label="Next page"></button>
         <div id="hint">Select a word or a phrase to get a translation</div>
-      </div>
-      <div id="bottom-nav">
-        <button id="nav-prev" class="nav-btn" aria-label="Previous page">‹</button>
-        <button id="nav-next" class="nav-btn" aria-label="Next page">›</button>
       </div>
       <div id="bottombar" onclick="toggleToc(true)" title="Contents" role="button" aria-label="Contents">
         <span id="chapter-label"></span>
@@ -767,7 +755,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.60</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.61</div>
   </div>
 </div>
 
@@ -865,12 +853,12 @@ function copyDbg() {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
   else fallback();
 }
-console.log('Reymont v3.60 |', navigator.userAgent);
+console.log('Reymont v3.61 |', navigator.userAgent);
 </script>
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.60'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.61'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
