@@ -224,7 +224,7 @@
      по :active — палец коснулся экрана, увидел стрелку, убрал — она пропала. Никакого
      кружка/тени, сама стрелка визуально по центру экрана (flex+align-items:center). */
   .nav-btn {
-    position: absolute; top: 0; bottom: 0; width: 64px; border: none; background: transparent;
+    position: absolute; top: 0; bottom: 0; width: 44px; border: none; background: transparent;
     cursor: pointer; z-index: 5; touch-action: manipulation;
     display: flex; align-items: center; justify-content: center;
     font-size: 30px; color: transparent; transition: color .15s;
@@ -760,7 +760,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.63</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.64</div>
   </div>
 </div>
 
@@ -855,12 +855,12 @@ function copyDbg() {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
   else fallback();
 }
-console.log('Reymont v3.63 |', navigator.userAgent);
+console.log('Reymont v3.64 |', navigator.userAgent);
 </script>
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.63'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.64'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
