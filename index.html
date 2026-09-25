@@ -230,7 +230,10 @@
     font-size: 30px; color: transparent; transition: color .15s;
   }
   #nav-prev { left: 0; } #nav-next { right: 0; }
-  .nav-btn:active { color: var(--accent-soft); }
+  /* :active сам по себе на iOS Safari ненадёжен для простого тапа (тот же класс
+     проблем, что и с touch-событиями внутри iframe — WebKit часто просто не входит
+     в :active без явного touch-листенера). .pressed переключаем сами через JS. */
+  .nav-btn:active, .nav-btn.pressed { color: var(--accent-soft); }
   html:not(.is-touch) #viewer-wrap:hover .nav-btn { color: var(--border); }
   html:not(.is-touch) .nav-btn:hover { color: var(--accent-soft) !important; }
 
@@ -763,7 +766,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.65</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.66</div>
   </div>
 </div>
 
@@ -858,12 +861,12 @@ function copyDbg() {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
   else fallback();
 }
-console.log('Reymont v3.65 |', navigator.userAgent);
+console.log('Reymont v3.66 |', navigator.userAgent);
 </script>
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.65'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.66'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -1730,6 +1733,18 @@ document.addEventListener('keyup', e => {
 });
 $('nav-prev').addEventListener('click', () => rendition && rendition.prev());
 $('nav-next').addEventListener('click', () => rendition && rendition.next());
+/* :active на iOS Safari часто просто не срабатывает для лёгкого тапа — переключаем
+   видимость стрелки вручную по touch/mouse событиям, а не полагаемся на псевдокласс. */
+[$('nav-prev'), $('nav-next')].forEach(btn => {
+  const press = () => btn.classList.add('pressed');
+  const release = () => btn.classList.remove('pressed');
+  btn.addEventListener('touchstart', press, { passive: true });
+  btn.addEventListener('touchend', release, { passive: true });
+  btn.addEventListener('touchcancel', release, { passive: true });
+  btn.addEventListener('mousedown', press);
+  btn.addEventListener('mouseup', release);
+  btn.addEventListener('mouseleave', release);
+});
 window.addEventListener('resize', () => { if (rendition) try { rendition.resize(); } catch (e) {} });
 if (!IS_TOUCH) $('reader').addEventListener('mousemove', showChromeAndScheduleHide);
 $('sel-fab').addEventListener('click', () => {
