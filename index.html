@@ -736,7 +736,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.57</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.58</div>
   </div>
 </div>
 
@@ -834,12 +834,12 @@ function copyDbg() {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
   else fallback();
 }
-console.log('Reymont v3.57 |', navigator.userAgent);
+console.log('Reymont v3.58 |', navigator.userAgent);
 </script>
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.57'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.58'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -1112,7 +1112,7 @@ const settings = {
 const WIKI_LANGS = { Russian: 'ru', English: 'en', Ukrainian: 'uk', Spanish: 'es', German: 'de', French: 'fr', Italian: 'it', Portuguese: 'pt', Polish: 'pl', Chinese: 'zh', Japanese: 'ja' };
 
 let book = null, rendition = null, currentBookId = null, currentMeta = {}, currentPrompt = '';
-let fontSize = parseInt(localStorage.getItem(LS.fontSize) || '18', 10);
+let fontSize = parseInt(localStorage.getItem(LS.fontSize) || '20', 10);
 let selGeneration = 0;          // race guard for async lookups
 let translateAbort = null, searchAbort = null, illustrateAbort = null;
 let hintShown = false;
