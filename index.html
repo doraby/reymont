@@ -755,17 +755,14 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.61</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.62</div>
   </div>
 </div>
 
 <div id="toast"></div>
 
 <div id="sel-fab-group" class="sel-fab-group" hidden>
-  <button id="sel-fab" class="sel-fab">
-    <svg viewBox="0 0 24 24"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.287 1.288L3 12l5.8 1.9a2 2 0 0 1 1.288 1.287L12 21l1.9-5.8a2 2 0 0 1 1.287-1.288L21 12l-5.8-1.9a2 2 0 0 1-1.288-1.287Z"/></svg>
-    Translate & explain
-  </button>
+  <button id="sel-fab" class="sel-fab">Explain</button>
   <button id="sel-fab-close" class="sel-fab-close" aria-label="Dismiss selection">✕</button>
 </div>
 
@@ -853,12 +850,12 @@ function copyDbg() {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
   else fallback();
 }
-console.log('Reymont v3.61 |', navigator.userAgent);
+console.log('Reymont v3.62 |', navigator.userAgent);
 </script>
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.61'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.62'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
