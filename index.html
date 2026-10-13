@@ -181,13 +181,14 @@
   /* Тап-зоны и клики внутри контента ненадёжны на iOS — отдельная кнопка вне iframe,
      на неё это не распространяется. Единственный способ показать/спрятать топбар и
      нижнюю панель на тач-устройствах. */
+  /* Теперь единственный способ показать/спрятать меню на любом устройстве — не только
+     тач: ховер на десктопе раньше сам открывал/закрывал топбар, что мешало читать. */
   #chrome-toggle-btn {
-    display: none; position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); right: 12px;
+    display: flex; position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); right: 12px;
     width: 38px; height: 38px; border-radius: 50%; border: none; cursor: pointer;
     background: var(--surface); color: var(--muted); box-shadow: 0 4px 14px rgba(61,57,41,.18);
     z-index: 220; align-items: center; justify-content: center;
   }
-  .is-touch #chrome-toggle-btn { display: flex; }
   #chrome-toggle-btn svg { transition: transform .2s; }
   #reader.chrome-hidden #chrome-toggle-btn svg { transform: rotate(180deg); }
 
@@ -766,7 +767,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.66</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.67</div>
   </div>
 </div>
 
@@ -861,12 +862,12 @@ function copyDbg() {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
   else fallback();
 }
-console.log('Reymont v3.66 |', navigator.userAgent);
+console.log('Reymont v3.67 |', navigator.userAgent);
 </script>
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.66'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.67'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -1621,7 +1622,6 @@ async function openBook(id) {
     // Georgia — приемлемый фолбэк из той же font-family цепочки, без риска сети.
     injectIllustrations(contents);
     bindTouchSelectionFallback(contents);
-    if (!IS_TOUCH) contents.document.addEventListener('mousemove', showChromeAndScheduleHide, { passive: true });
   });
 
   await loadNotes(id); // до display(), чтобы картинки уже были на месте при первом рендере
@@ -1649,8 +1649,7 @@ async function openBook(id) {
   rendition.on('keyup', readerKeys);
   startSelectionPoll();
 
-  setChromeHidden(IS_TOUCH); // мобилка: спрятано сразу, показываем только по кнопке в углу
-  if (!IS_TOUCH) scheduleChromeHide();
+  setChromeHidden(IS_TOUCH); // мобилка: спрятано сразу; десктоп: видно, прячется только кнопкой
 
   if (!hintShown) {
     hintShown = true;
@@ -1707,7 +1706,6 @@ function markTocActive(href) {
 
 function backToLibrary() {
   stopSelectionPoll();
-  clearTimeout(chromeIdleTimer);
   closePanel();
   toggleToc(false);
   $('reader').classList.remove('open');
@@ -1746,7 +1744,6 @@ $('nav-next').addEventListener('click', () => rendition && rendition.next());
   btn.addEventListener('mouseleave', release);
 });
 window.addEventListener('resize', () => { if (rendition) try { rendition.resize(); } catch (e) {} });
-if (!IS_TOUCH) $('reader').addEventListener('mousemove', showChromeAndScheduleHide);
 $('sel-fab').addEventListener('click', () => {
   if (!pendingSelection) return;
   const { text, para, cfiRange } = pendingSelection;
@@ -1846,12 +1843,10 @@ function stopSelectionPoll() {
 }
 
 /* ═══════════ Immersive reading — hide topbar/bottombar while reading ═══════════
-   Desktop: any mouse movement over the reader reveals them, auto-hide after a
-   pause. Touch: content-area gestures (tap zones, swipe, click) all turned out
-   unreliable across real iOS Safari, epub.js's iframe and cross-frame event
-   delivery — none of them are worth trusting. #chrome-toggle-btn is a real
-   button living outside the iframe, so it doesn't depend on any of that. */
-let chromeIdleTimer = null;
+   Только по кнопке #chrome-toggle-btn, на любом устройстве — раньше на десктопе
+   ещё и ховер мышью над текстом сам показывал/прятал меню, что мешало читать.
+   #chrome-toggle-btn — реальная кнопка снаружи iframe, не зависит от ненадёжных
+   touch-событий внутри контента на iOS Safari. */
 function setChromeHidden(hidden) { $('reader').classList.toggle('chrome-hidden', hidden); }
 function toggleChrome() {
   // Живёт снаружи iframe с фиксированной позицией в углу — там же обычно и своя
@@ -1863,19 +1858,6 @@ function toggleChrome() {
     return;
   }
   setChromeHidden(!$('reader').classList.contains('chrome-hidden'));
-}
-function scheduleChromeHide() {
-  clearTimeout(chromeIdleTimer);
-  chromeIdleTimer = setTimeout(() => {
-    // TOC/panel might still be open with no further mousemove to re-trigger us — keep
-    // retrying instead of giving up, so chrome still hides once they're closed.
-    if ($('toc').classList.contains('open') || $('panel').classList.contains('open')) { scheduleChromeHide(); return; }
-    setChromeHidden(true);
-  }, 1800);
-}
-function showChromeAndScheduleHide() {
-  setChromeHidden(false);
-  scheduleChromeHide();
 }
 
 /* ════════════════════════ Selection → panel ════════════════════════
