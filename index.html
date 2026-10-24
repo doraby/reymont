@@ -1095,6 +1095,50 @@ async function syncBooksList() {
     for (const b of local) if (!rmap.has(b.id)) cloudUploadBook(b);
   } catch (e) { console.warn('syncBooksList:', e.message || e); }
 }
+/* ═══════════ Последняя прочитанная страница (таблица reading_state, одна строка на пользователя) ═══════════
+   Локально — LS.last, в облаке (только для вошедших) — чтобы продолжить с любого устройства. */
+function readLastLocal() {
+  try { return JSON.parse(localStorage.getItem(LS.last)) || null; } catch (e) { return null; }
+}
+let lastPosTimer = null;
+function saveLastPosition(bookId, cfi) {
+  const state = { bookId, cfi, t: Date.now() };
+  localStorage.setItem(LS.last, JSON.stringify(state));
+  if (!sb || !isRealUser()) return;
+  clearTimeout(lastPosTimer); // листание — частое, в облако пишем только когда остановились
+  lastPosTimer = setTimeout(async () => {
+    try {
+      const { error } = await sb.from('reading_state').upsert(
+        { user_id: sbUser.id, book_id: state.bookId, cfi: state.cfi, updated: state.t });
+      if (error) throw error;
+    } catch (e) { console.warn('saveLastPosition:', e.message || e); }
+  }, 1500);
+}
+async function resumeLastBook(state) {
+  if (!state || currentBookId || !(await dbGet('books', state.bookId))) return;
+  try { await openBook(state.bookId); }
+  catch (err) {
+    console.error('resumeLastBook:', err);
+    $('reader').classList.remove('open');
+    $('library').style.display = 'block';
+  }
+}
+async function syncLastPosition() {
+  if (!sb || !isRealUser()) return;
+  try {
+    const { data: r, error } = await sb.from('reading_state').select('book_id,cfi,updated')
+      .eq('user_id', sbUser.id).maybeSingle();
+    if (error) throw error;
+    const local = readLastLocal();
+    if (!r) { if (local) saveLastPosition(local.bookId, local.cfi); return; }
+    if (local && local.t >= Number(r.updated)) return;
+    const state = { bookId: r.book_id, cfi: r.cfi, t: Number(r.updated) };
+    localStorage.setItem(LS.last, JSON.stringify(state));
+    localStorage.setItem(LS.pos(state.bookId), state.cfi);
+    await resumeLastBook(state); // no-op, если книга уже открыта или ещё не скачана на это устройство
+  } catch (e) { console.warn('syncLastPosition:', e.message || e); }
+}
+
 async function fullSync() {
   if (!sb || !sbUser) return;
   try {
@@ -1122,6 +1166,7 @@ async function fullSync() {
   } catch (e) { console.warn('sync:', e.message || e); }
   await syncBooksList();
   if ($('library') && $('library').style.display !== 'none') renderLibrary();
+  await syncLastPosition();
 }
 
 const LS = {
@@ -1130,6 +1175,7 @@ const LS = {
   search: 'reader.searchMode',
   fontSize: 'reader.fontSize',
   pos: id => 'reader.pos.' + id,
+  last: 'reader.last', // {bookId, cfi, t} — последняя читаемая книга и место
   focusOnboarded: 'reader.focusOnboarded',
 };
 const settings = {
@@ -1642,6 +1688,7 @@ async function openBook(id) {
 
   rendition.on('relocated', loc => {
     localStorage.setItem(LS.pos(id), loc.start.cfi);
+    saveLastPosition(id, loc.start.cfi);
     updateProgress(loc);
     hideSelFab();
   });
@@ -2649,6 +2696,7 @@ document.addEventListener('drop', e => {
 
 /* ════════════════════════ Init ════════════════════════ */
 renderLibrary();
+resumeLastBook(readLastLocal());
 initCloud();
 </script>
 </body>
