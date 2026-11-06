@@ -190,6 +190,16 @@
     z-index: 220; align-items: center; justify-content: center;
   }
   #chrome-toggle-btn svg { transition: transform .2s; }
+  /* Диаграмма страницы — только для Premium, рядом с кнопкой меню; под открытой панелью прячем. */
+  #diagram-btn {
+    display: none; position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); right: 58px;
+    width: 38px; height: 38px; border-radius: 50%; border: none; cursor: pointer;
+    background: var(--surface); color: var(--muted); box-shadow: 0 4px 14px rgba(61,57,41,.18);
+    z-index: 220; align-items: center; justify-content: center;
+  }
+  #reader.open #diagram-btn.pro { display: flex; }
+  #diagram-btn.busy { pointer-events: none; opacity: .6; }
+  body.panel-open #diagram-btn { display: none !important; }
   #reader.chrome-hidden #chrome-toggle-btn svg { transform: rotate(180deg); }
 
   /* Кнопки размера шрифта — справа под топбаром, видны только когда открыто меню
@@ -565,6 +575,9 @@
   <button id="chrome-toggle-btn" onclick="toggleChrome()" title="Show/hide menu" aria-label="Show/hide menu">
     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
   </button>
+  <button id="diagram-btn" onclick="makeDiagram()" title="Diagram of this page (Premium)" aria-label="Diagram of this page">
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="5" rx="1"/><rect x="3" y="16" width="6" height="5" rx="1"/><rect x="15" y="16" width="6" height="5" rx="1"/><path d="M12 8v4M6 16v-4h12v4"/></svg>
+  </button>
   <div id="topbar">
     <button class="icon-btn" onclick="backToLibrary()" title="Back to library" aria-label="Back to library">
       <svg viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
@@ -768,7 +781,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.69</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.70</div>
   </div>
 </div>
 
@@ -868,7 +881,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.69'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.70'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -919,6 +932,8 @@ async function initCloud() {
     sbUser = session ? session.user : null;
     if (!sbUser) cloudBooksList = []; // не показывать чужие/прошлые «облачные» книги после выхода
     updateAuthUi();
+    if ((sbUser && sbUser.id) !== was) proCheckedAt = 0; // токен-рефреш не должен перепроверять статус
+    refreshPro();
     if (sbUser && sbUser.id !== was) fullSync();
   });
   updateAuthUi();
@@ -1198,6 +1213,7 @@ const LS = {
   pos: id => 'reader.pos.' + id,
   last: 'reader.last', // {bookId, cfi, t} — последняя читаемая книга и место
   focusOnboarded: 'reader.focusOnboarded',
+  diagrams: id => 'reader.diagrams.' + id, // [{cfi, svg}] — нарисованные диаграммы страниц книги
   hintDone: 'reader.hintDone', // читатель уже сделал первую подсветку — подсказка больше не нужна
 };
 const settings = {
@@ -1689,9 +1705,11 @@ async function openBook(id) {
     // рендер главы на много секунд (видели зависание rendition.display() на телефоне).
     // Georgia — приемлемый фолбэк из той же font-family цепочки, без риска сети.
     injectIllustrations(contents);
+    injectDiagrams(contents);
     bindTouchSelectionFallback(contents);
   });
 
+  refreshPro();
   await loadNotes(id); // до display(), чтобы картинки уже были на месте при первом рендере
   const savedCfi = localStorage.getItem(LS.pos(id));
   console.log('openBook: rendering page…');
@@ -2477,6 +2495,131 @@ function addHighlight(note) {
 function removeHighlight(note) {
   if (!rendition) return;
   try { rendition.annotations.remove(note.cfiRange, 'highlight'); } catch (e) {}
+}
+
+
+/* ═══════════ Диаграмма страницы (Premium) ═══════════
+   Кнопка рядом с кнопкой меню: текст текущей страницы → Mermaid-код от ИИ → SVG под текстом.
+   Защита от зацикливания: только по клику; пока идёт запрос — повторные клики игнорируются;
+   ни ретраев, ни самовосстановления при ошибке; вставка в страницу сама ничего не запускает
+   (relocated не вызывает генерацию), а хук контента лишь вставляет уже сохранённый SVG. */
+const MERMAID_SRC = 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js';
+const MAX_DIAGRAMS_PER_BOOK = 20;
+let isPro = false, proCheckedAt = 0, diagramBusy = false, mermaidP = null;
+
+async function refreshPro() {
+  const btn = $('diagram-btn');
+  if (!sb || !isRealUser()) { isPro = false; btn.classList.remove('pro'); return; }
+  if (Date.now() - proCheckedAt < 5 * 60 * 1000) return; // не чаще раза в 5 минут
+  proCheckedAt = Date.now();
+  try {
+    const res = await aiProxy({ action: 'me' }, null, 10000);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    isPro = !!(await res.json()).pro;
+  } catch (e) { console.warn('refreshPro:', e.message || e); isPro = false; }
+  btn.classList.toggle('pro', isPro);
+}
+function loadMermaid() {
+  if (window.mermaid) return Promise.resolve(window.mermaid);
+  if (mermaidP) return mermaidP;
+  mermaidP = new Promise((res, rej) => {
+    const el = document.createElement('script');
+    el.src = MERMAID_SRC;
+    el.onload = () => {
+      window.mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'neutral',
+        fontFamily: "'Lora', Georgia, serif" });
+      res(window.mermaid);
+    };
+    el.onerror = () => { mermaidP = null; el.remove(); rej(new Error('could not load the diagram library')); };
+    document.head.appendChild(el);
+  });
+  return mermaidP;
+}
+const BLOCK_SEL = 'p, li, blockquote, dd, dt, td, h1, h2, h3, h4, div';
+function blockAtCfi(contents, cfi) {
+  if (contents.cfiBase && !cfi.includes(contents.cfiBase + '!')) return null; // CFI из другой главы
+  try {
+    const range = new ePub.CFI(cfi).toRange(contents.document);
+    if (!range) return null;
+    const n = range.endContainer;
+    const anchor = n.nodeType === 1 ? n : n.parentElement;
+    return anchor && anchor.closest(BLOCK_SEL);
+  } catch (e) { return null; }
+}
+/* Текст видимой страницы (между началом и концом текущей локации). */
+function currentPageText() {
+  const loc = rendition.currentLocation();
+  const contents = rendition.getContents()[0];
+  if (!loc || !loc.start || !loc.end || !contents) return '';
+  const doc = contents.document;
+  try {
+    const a = new ePub.CFI(loc.start.cfi).toRange(doc), b = new ePub.CFI(loc.end.cfi).toRange(doc);
+    const r = doc.createRange();
+    r.setStart(a.startContainer, a.startOffset);
+    r.setEnd(b.endContainer, b.endOffset);
+    return r.toString().replace(/\s+/g, ' ').trim();
+  } catch (e) { console.warn('currentPageText:', e); return ''; }
+}
+function placeDiagram(contents, d) {
+  const doc = contents.document;
+  const old = doc.querySelector(`[data-reymont-diagram="${CSS.escape(d.cfi)}"]`);
+  if (old) old.remove();
+  const block = blockAtCfi(contents, d.cfi);
+  if (!block) return false;
+  const wrap = doc.createElement('div');
+  wrap.setAttribute('data-reymont-diagram', d.cfi);
+  wrap.style.cssText = 'margin:22px auto;max-width:100%;padding:12px;border-radius:10px;background:#FAF9F5;'
+    + 'box-shadow:0 4px 16px rgba(61,57,41,.14);overflow:hidden;text-align:center;'
+    + 'break-inside:avoid;-webkit-column-break-inside:avoid;page-break-inside:avoid;';
+  wrap.innerHTML = d.svg;
+  const svg = wrap.querySelector('svg');
+  if (svg) { svg.style.maxWidth = '100%'; svg.style.height = 'auto'; }
+  block.insertAdjacentElement('afterend', wrap);
+  return true;
+}
+function loadDiagrams(bookId) {
+  try { return JSON.parse(localStorage.getItem(LS.diagrams(bookId))) || []; } catch (e) { return []; }
+}
+function injectDiagrams(contents) {
+  if (!contents || !contents.document || !currentBookId) return;
+  for (const d of loadDiagrams(currentBookId)) {
+    if (contents.document.querySelector(`[data-reymont-diagram="${CSS.escape(d.cfi)}"]`)) continue;
+    placeDiagram(contents, d);
+  }
+}
+async function makeDiagram() {
+  if (diagramBusy || !rendition || !currentBookId) return; // повторный клик во время запроса — игнор
+  const btn = $('diagram-btn');
+  const bookId = currentBookId;
+  const loc = rendition.currentLocation();
+  const text = currentPageText().slice(0, 4000);
+  if (!loc || !loc.end || text.length < 80) { toast('Not enough text on this page for a diagram'); return; }
+  diagramBusy = true; btn.classList.add('busy');
+  toast('Drawing a diagram…');
+  try {
+    const res = await aiProxy({ action: 'diagram', text, lang: settings.lang,
+      title: currentMeta.title || '', author: currentMeta.author || '' }, null, 45000);
+    if (res.status === 403) { isPro = false; btn.classList.remove('pro'); showPaywall(); return; }
+    if (!res.ok) { let m = 'HTTP ' + res.status; try { m = (await res.json()).error.message; } catch (e) {} throw new Error(m); }
+    const { code } = await res.json();
+    const mermaid = await loadMermaid();
+    const { svg } = await mermaid.render('rm-diagram-' + Date.now(), code); // при кривом синтаксисе бросит — ловим ниже, без повторов
+    if (currentBookId !== bookId) return; // пока рисовалось, открыли другую книгу
+    const d = { cfi: loc.end.cfi, svg };
+    const list = loadDiagrams(bookId).filter(x => x.cfi !== d.cfi);
+    list.push(d);
+    try { localStorage.setItem(LS.diagrams(bookId), JSON.stringify(list.slice(-MAX_DIAGRAMS_PER_BOOK))); }
+    catch (e) { console.warn('diagram not saved (storage full):', e.message); }
+    const contents = rendition.getContents()[0];
+    if (!contents || !placeDiagram(contents, d)) toast('Could not place the diagram on this page');
+    else toast('Diagram added under the text ✓');
+  } catch (e) {
+    console.warn('makeDiagram:', e);
+    toast('Could not draw the diagram: ' + (e.message || e).toString().slice(0, 120));
+  } finally {
+    diagramBusy = false; btn.classList.remove('busy');
+    document.querySelectorAll('[id^="drm-diagram-"],[id^="rm-diagram-"]').forEach(n => { if (n.tagName !== 'svg') n.remove(); });
+  }
 }
 
 /* Расширенный контекст для иллюстрации: пара абзацев до и после выделения плюс название

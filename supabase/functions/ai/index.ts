@@ -128,6 +128,41 @@ Deno.serve(async (req) => {
     return json({ ok: true }, 200, cors);
   }
 
+  // Premium-статус для клиента: показывает кнопку диаграмм только подписчикам.
+  if (body.action === "me" || body.action === "diagram") {
+    const { data: pro } = await supa.from("pro_users").select("user_id").eq("user_id", user.id).maybeSingle();
+    if (body.action === "me") return json({ pro: !!pro }, 200, cors);
+    if (!pro) return err("Diagrams are a Premium feature", 403, cors);
+
+    // Один запрос — одна диаграмма: без стрима, без ретраев и без цепочек вызовов.
+    const pageText = String(body.text ?? "").slice(0, 4000);
+    const title = String(body.title ?? "").slice(0, 200);
+    const author = String(body.author ?? "").slice(0, 200);
+    const lang = String(body.lang ?? "English").slice(0, 30);
+    if (!pageText.trim()) return err("No text", 400, cors);
+    const sys = `You turn a passage from a book into ONE Mermaid diagram that helps the reader visualise it. ` +
+      `Pick the form that fits the passage best: the staging of a scene (who stands where, places, objects — flowchart with subgraphs), ` +
+      `the interaction between characters (flowchart or sequenceDiagram: who does or says what to whom), or the sequence of events (timeline or sequenceDiagram). ` +
+      `Rules: output ONLY valid Mermaid code — no markdown fences, no comments, no explanations. ` +
+      `At most 12 nodes. Write every label in ${lang}, always inside double quotes, without HTML, without parentheses or quotes inside labels. ` +
+      `Use only what the passage actually says; do not invent facts. Do not use click, link or style directives.`;
+    const userMsg = `Book: "${title}"${author ? " by " + author : ""}\n<passage>${pageText}</passage>`;
+    const r = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },
+      body: JSON.stringify({
+        model: "gpt-4o-mini", temperature: 0.2, max_tokens: 900,
+        messages: [{ role: "system", content: sys }, { role: "user", content: userMsg }],
+      }),
+    });
+    if (!r.ok) return err("Diagram generation failed: " + (await r.text()).slice(0, 300), 502, cors);
+    const j = await r.json();
+    let code = String(j.choices?.[0]?.message?.content ?? "").trim();
+    code = code.replace(/^```(?:mermaid)?\s*/i, "").replace(/```\s*$/, "").trim();
+    if (!code) return err("Empty diagram", 502, cors);
+    return json({ code }, 200, cors);
+  }
+
   // AI-иллюстрации и обложки — вне общей квоты (проверяем до неё).
   // Для книг из каталога (CURATED_BOOK_IDS) — только владелец, результат общий для всех.
   // Для книг, которые читатель добавил сам, — доступно любому вошедшему пользователю.
