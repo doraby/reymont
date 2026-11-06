@@ -8,5 +8,6 @@ create table if not exists public.reading_state (
 
 alter table public.reading_state enable row level security;
 
+drop policy if exists "own reading_state" on public.reading_state;
 create policy "own reading_state" on public.reading_state
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
