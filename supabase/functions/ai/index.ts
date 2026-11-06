@@ -129,7 +129,7 @@ Deno.serve(async (req) => {
   }
 
   // Premium-статус для клиента: показывает кнопку диаграмм только подписчикам.
-  if (body.action === "me" || body.action === "diagram") {
+  if (body.action === "me" || body.action === "diagram" || body.action === "diagram_html") {
     const { data: pro } = await supa.from("pro_users").select("user_id").eq("user_id", user.id).maybeSingle();
     if (body.action === "me") return json({ pro: !!pro }, 200, cors);
     if (!pro) return err("Diagrams are a Premium feature", 403, cors);
@@ -140,13 +140,39 @@ Deno.serve(async (req) => {
     const author = String(body.author ?? "").slice(0, 200);
     const lang = String(body.lang ?? "English").slice(0, 30);
     if (!pageText.trim()) return err("No text", 400, cors);
+    const userMsg = `Book: "${title}"${author ? " by " + author : ""}\n<passage>${pageText}</passage>`;
+    if (body.action === "diagram_html") {
+      // Интерактивная версия: один самодостаточный HTML-документ. Клиент запускает его в
+      // изолированной рамке (sandbox без allow-same-origin + CSP без сети), поэтому внешних
+      // ресурсов в нём быть не должно.
+      const sysHtml = `You turn a passage from a book into ONE interactive visualisation, as a single complete self-contained HTML document. ` +
+        `Choose the form that fits: the staging of a scene (a map or layout of places, characters and objects), the web of interactions between characters, or a timeline of events. ` +
+        `Make it interactive with plain vanilla JavaScript: clicking or hovering a character, place or event shows a short detail taken from the passage. ` +
+        `Rules: output ONLY the HTML document, starting with <!doctype html> — no markdown fences, no explanations. ` +
+        `Everything inline: CSS in <style>, JS in <script>. No external files, fonts, libraries, images or network requests. ` +
+        `Responsive width (works from 320px up), page background #FAF9F5, text #3D3929, accent #C15F3C, serif font stack (Georgia). ` +
+        `Write all visible text in ${lang}. Use only what the passage actually says; do not invent facts. Keep it under 150 lines.`;
+      const rh = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },
+        body: JSON.stringify({
+          model: "gpt-4o-mini", temperature: 0.4, max_tokens: 4000,
+          messages: [{ role: "system", content: sysHtml }, { role: "user", content: userMsg }],
+        }),
+      });
+      if (!rh.ok) return err("Interactive diagram failed: " + (await rh.text()).slice(0, 300), 502, cors);
+      const jh = await rh.json();
+      let html = String(jh.choices?.[0]?.message?.content ?? "").trim();
+      html = html.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/, "").trim().slice(0, 60000);
+      if (!/<html|<!doctype/i.test(html)) return err("Empty interactive diagram", 502, cors);
+      return json({ html }, 200, cors);
+    }
     const sys = `You turn a passage from a book into ONE Mermaid diagram that helps the reader visualise it. ` +
       `Pick the form that fits the passage best: the staging of a scene (who stands where, places, objects — flowchart with subgraphs), ` +
       `the interaction between characters (flowchart or sequenceDiagram: who does or says what to whom), or the sequence of events (timeline or sequenceDiagram). ` +
       `Rules: output ONLY valid Mermaid code — no markdown fences, no comments, no explanations. ` +
       `At most 12 nodes. Write every label in ${lang}, always inside double quotes, without HTML, without parentheses or quotes inside labels. ` +
       `Use only what the passage actually says; do not invent facts. Do not use click, link or style directives.`;
-    const userMsg = `Book: "${title}"${author ? " by " + author : ""}\n<passage>${pageText}</passage>`;
     const r = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },

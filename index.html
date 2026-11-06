@@ -200,6 +200,13 @@
   #reader.open #diagram-btn.pro { display: flex; }
   #diagram-btn.busy { pointer-events: none; opacity: .6; }
   body.panel-open #diagram-btn { display: none !important; }
+  #interactive-overlay {
+    display: none; position: fixed; inset: 0; z-index: 500; background: rgba(61,57,41,.55);
+    padding: calc(12px + env(safe-area-inset-top, 0px)) 12px 12px; flex-direction: column;
+  }
+  #interactive-overlay.open { display: flex; }
+  #interactive-overlay .io-bar { display: flex; justify-content: flex-end; padding-bottom: 8px; }
+  #interactive-frame { flex: 1; width: 100%; border: 0; border-radius: 12px; background: #FAF9F5; }
   #reader.chrome-hidden #chrome-toggle-btn svg { transform: rotate(180deg); }
 
   /* Кнопки размера шрифта — справа под топбаром, видны только когда открыто меню
@@ -632,6 +639,12 @@
   <div id="panel-body"></div>
 </div>
 
+<!-- ════════ Interactive diagram (sandboxed) ════════ -->
+<div id="interactive-overlay">
+  <div class="io-bar"><button class="btn" onclick="closeInteractive()">✕ Close</button></div>
+  <iframe id="interactive-frame" title="Interactive diagram"></iframe>
+</div>
+
 <!-- ════════ Auth modal ════════ -->
 <div id="auth-overlay">
   <div class="modal">
@@ -781,7 +794,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.70</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.71</div>
   </div>
 </div>
 
@@ -881,7 +894,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.70'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.71'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -2574,6 +2587,13 @@ function placeDiagram(contents, d) {
   wrap.innerHTML = d.svg;
   const svg = wrap.querySelector('svg');
   if (svg) { svg.style.maxWidth = '100%'; svg.style.height = 'auto'; }
+  // В iframe книги скрипты выключены — инлайн-обработчик не сработает, поэтому слушатель вешаем отсюда.
+  const open = doc.createElement('button');
+  open.textContent = '✦ Open interactive';
+  open.style.cssText = 'display:block;margin:10px auto 0;padding:7px 16px;border:1px solid #C15F3C;border-radius:100px;'
+    + 'background:transparent;color:#C15F3C;font:600 13px Georgia,serif;cursor:pointer;';
+  open.addEventListener('click', e => { e.preventDefault(); openInteractive(d); });
+  wrap.appendChild(open);
   block.insertAdjacentElement('afterend', wrap);
   return true;
 }
@@ -2586,6 +2606,48 @@ function injectDiagrams(contents) {
     if (contents.document.querySelector(`[data-reymont-diagram="${CSS.escape(d.cfi)}"]`)) continue;
     placeDiagram(contents, d);
   }
+}
+
+/* Интерактивная версия: полноценный HTML от ИИ в изолированной рамке поверх чтения. Внутри
+   книги скрипты выключены (и во вложенных окнах тоже), поэтому показываем отдельным окном.
+   sandbox="allow-scripts" без allow-same-origin — у документа «пустое» происхождение: ни
+   cookie, ни localStorage, ни доступа к сайту; CSP в документе режет сеть и внешние ресурсы. */
+const INTERACTIVE_CSP = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:">`;
+const interactiveCache = new Map(); // cfi → html, только на время сессии
+let interactiveBusy = false;
+function withCsp(html) {
+  if (/<head[^>]*>/i.test(html)) return html.replace(/<head[^>]*>/i, m => m + INTERACTIVE_CSP);
+  if (/<html[^>]*>/i.test(html)) return html.replace(/<html[^>]*>/i, m => m + '<head>' + INTERACTIVE_CSP + '</head>');
+  return '<!doctype html><html><head>' + INTERACTIVE_CSP + '<meta charset="utf-8"></head><body>' + html + '</body></html>';
+}
+function showInteractive(html) {
+  const frame = $('interactive-frame');
+  frame.setAttribute('sandbox', 'allow-scripts');
+  frame.srcdoc = withCsp(html);
+  $('interactive-overlay').classList.add('open');
+}
+function closeInteractive() {
+  $('interactive-overlay').classList.remove('open');
+  $('interactive-frame').srcdoc = ''; // остановить скрипты
+}
+async function openInteractive(d) {
+  if (interactiveBusy) return; // один запрос за раз, без автоповторов
+  if (interactiveCache.has(d.cfi)) { showInteractive(interactiveCache.get(d.cfi)); return; }
+  if (!d.text) { toast('Redraw this diagram once to enable the interactive view'); return; }
+  interactiveBusy = true;
+  toast('Building the interactive view…');
+  try {
+    const res = await aiProxy({ action: 'diagram_html', text: d.text, lang: settings.lang,
+      title: currentMeta.title || '', author: currentMeta.author || '' }, null, 60000);
+    if (res.status === 403) { isPro = false; $('diagram-btn').classList.remove('pro'); showPaywall(); return; }
+    if (!res.ok) { let m = 'HTTP ' + res.status; try { m = (await res.json()).error.message; } catch (e) {} throw new Error(m); }
+    const { html } = await res.json();
+    interactiveCache.set(d.cfi, html);
+    showInteractive(html);
+  } catch (e) {
+    console.warn('openInteractive:', e);
+    toast('Could not build the interactive view: ' + (e.message || e).toString().slice(0, 120));
+  } finally { interactiveBusy = false; }
 }
 async function makeDiagram() {
   if (diagramBusy || !rendition || !currentBookId) return; // повторный клик во время запроса — игнор
@@ -2605,7 +2667,7 @@ async function makeDiagram() {
     const mermaid = await loadMermaid();
     const { svg } = await mermaid.render('rm-diagram-' + Date.now(), code); // при кривом синтаксисе бросит — ловим ниже, без повторов
     if (currentBookId !== bookId) return; // пока рисовалось, открыли другую книгу
-    const d = { cfi: loc.end.cfi, svg };
+    const d = { cfi: loc.end.cfi, svg, text: text.slice(0, 2500) };
     const list = loadDiagrams(bookId).filter(x => x.cfi !== d.cfi);
     list.push(d);
     try { localStorage.setItem(LS.diagrams(bookId), JSON.stringify(list.slice(-MAX_DIAGRAMS_PER_BOOK))); }
