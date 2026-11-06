@@ -255,7 +255,7 @@
   #percent-label { flex: none; min-width: 34px; text-align: right; font-variant-numeric: tabular-nums; }
 
   #hint {
-    position: absolute; left: 50%; bottom: 56px; transform: translateX(-50%);
+    position: absolute; left: 50%; top: 16px; transform: translateX(-50%); width: max-content; max-width: calc(100% - 32px); text-align: center;
     background: var(--text); color: var(--bg); font-size: 13px; font-style: italic;
     padding: 8px 18px; border-radius: 100px; opacity: 0.92; z-index: 6;
     pointer-events: none; transition: opacity .4s;
@@ -588,7 +588,7 @@
         <div id="viewer"></div>
         <button id="nav-prev" class="nav-btn" aria-label="Previous page">‹</button>
         <button id="nav-next" class="nav-btn" aria-label="Next page">›</button>
-        <div id="hint">Select a word or a phrase to get a translation</div>
+        <div id="hint">Select any word — get a translation, an explanation and an illustration</div>
       </div>
       <div id="bottombar" onclick="toggleToc(true)" title="Contents" role="button" aria-label="Contents">
         <span id="chapter-label"></span>
@@ -647,7 +647,7 @@
 <div id="pay-overlay">
   <div class="modal">
     <h2>Reymont Premium</h2>
-    <div class="m-sub">You've used all 10 free highlights. Keep reading with Premium:</div>
+    <div class="m-sub">You’ve used all 10 free highlights. Keep going with Premium:</div>
     <div id="pay-offer">
       <div class="pay-price">$10<span>/month</span></div>
       <ul class="pay-list">
@@ -655,11 +655,12 @@
         <li>🖍 Unlimited highlights with AI translation and web context</li>
         <li>☁️ Sync across all your devices</li>
       </ul>
+      <div class="pay-fine" id="pay-manual">Payment isn’t automated yet: tap “Request Premium” and we’ll email you a payment link.</div>
       <div class="pay-fine">Cancel anytime. Refunds: one per customer, for the most recent
         payment only — see <a href="/terms.html#refunds" target="_blank">Terms</a>.</div>
       <div class="modal-actions">
         <button class="btn" onclick="closePaywall()">Not now</button>
-        <button class="btn primary" id="pay-request" onclick="requestUpgrade()">Request access</button>
+        <button class="btn primary" id="pay-request" onclick="requestUpgrade()">Request Premium</button>
         <button class="btn primary" id="pay-stripe" style="display:none" onclick="openStripeCheckout()">Upgrade — $10/month</button>
       </div>
     </div>
@@ -1007,6 +1008,7 @@ function showPaywall() {
   const stripeReady = !STRIPE_PAYMENT_LINK.startsWith('__');
   $('pay-stripe').style.display = stripeReady ? '' : 'none';
   $('pay-request').style.display = stripeReady ? 'none' : '';
+  $('pay-manual').style.display = stripeReady ? 'none' : '';
   $('pay-overlay').classList.add('open');
 }
 function openStripeCheckout() {
@@ -1123,6 +1125,25 @@ async function resumeLastBook(state) {
     $('library').style.display = 'block';
   }
 }
+/* Старт без экрана выбора: последняя читаемая книга, а при первом визите — первая книга
+   каталога (public domain), сразу в режиме чтения и без регистрации. Полка остаётся за
+   кнопкой «назад» в читалке; на неудачу показываем её же. */
+async function startReading() {
+  const showShelf = () => { $('library').style.display = 'block'; };
+  try {
+    const last = readLastLocal();
+    if (last && await dbGet('books', last.bookId)) { await openBook(last.bookId); return; }
+    const cb = CURATED_BOOKS[0];
+    if (!cb) return showShelf();
+    if (!(await dbGet('books', cb.id))) await fetchAndSaveCuratedBook(cb);
+    await openBook(cb.id);
+  } catch (err) {
+    console.error('startReading:', err);
+    $('reader').classList.remove('open');
+    showShelf();
+    libError(`Couldn’t open the book: ${err && err.message || err}`);
+  }
+}
 async function syncLastPosition() {
   if (!sb || !isRealUser()) return;
   try {
@@ -1177,6 +1198,7 @@ const LS = {
   pos: id => 'reader.pos.' + id,
   last: 'reader.last', // {bookId, cfi, t} — последняя читаемая книга и место
   focusOnboarded: 'reader.focusOnboarded',
+  hintDone: 'reader.hintDone', // читатель уже сделал первую подсветку — подсказка больше не нужна
 };
 const settings = {
   get key() { return localStorage.getItem(LS.key) || ''; },
@@ -1698,10 +1720,10 @@ async function openBook(id) {
 
   setChromeHidden(true); // меню свёрнуто сразу на любом устройстве, показываем только кнопкой
 
-  if (!hintShown) {
+  if (!hintShown && !localStorage.getItem(LS.hintDone)) {
     hintShown = true;
     $('hint').classList.remove('hide');
-    setTimeout(() => $('hint').classList.add('hide'), 6000);
+    setTimeout(() => $('hint').classList.add('hide'), 10000);
   }
 }
 
@@ -1988,7 +2010,7 @@ function closePanel() {
   setTimeout(() => rendition && rendition.resize(), 320);
 }
 
-/* 'new' — ещё не пробовал; 'usedFree' — уже потратил свой один бесплатный анонимный запрос. */
+/* 'new' — ещё не пробовал; 'usedFree' — потратил бесплатные анонимные запросы (лимит ANON_FREE_HIGHLIGHTS в ai/index.ts). */
 function signupPromoHtml(reason) {
   if (!cloudConfigured()) return `
     <div class="signup-promo">
@@ -1998,7 +2020,7 @@ function signupPromoHtml(reason) {
       <button class="btn primary" onclick="openSettings()">Open settings</button>
     </div>`;
   const p = reason === 'usedFree'
-    ? `That was your one free preview. Sign in to keep translating, interpreting and illustrating anything you select — free, and synced across your devices.`
+    ? `You’ve used your 5 free highlights. Sign in to keep translating, interpreting and illustrating anything you select — free, and synced across your devices.`
     : `Sign in to get an instant translation, interpretation, and illustration for anything you select — free, and synced across your devices.`;
   return `
     <div class="signup-promo">
@@ -2011,6 +2033,8 @@ function signupPromoHtml(reason) {
 }
 
 async function startLookup(text, para, cfiRange) {
+  localStorage.setItem(LS.hintDone, '1');
+  $('hint').classList.add('hide');
   para = para || '';
   selGeneration++;
   const gen = selGeneration;
@@ -2037,7 +2061,7 @@ async function startLookup(text, para, cfiRange) {
 
   panelShowingList = false;
 
-  // Неавторизованному читателю без своего ключа даём один бесплатный запрос через
+  // Неавторизованному читателю без своего ключа даём несколько бесплатных запросов через
   // анонимную Supabase-сессию (см. ensureAnonSession) — сервер сам блокирует второй
   // запрос с этой же анонимной сессии (см. ai/index.ts, user.is_anonymous). Если
   // анонимный вход недоступен/выключен в проекте — как и раньше, сразу sign up.
@@ -2695,8 +2719,9 @@ document.addEventListener('drop', e => {
 });
 
 /* ════════════════════════ Init ════════════════════════ */
+$('library').style.display = 'none'; // не мигать полкой, пока открывается книга
 renderLibrary();
-resumeLastBook(readLastLocal());
+startReading();
 initCloud();
 </script>
 </body>

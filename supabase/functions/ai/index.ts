@@ -10,6 +10,8 @@ const ILLUSTRATIONS_BUCKET = "illustrations";
 const CURATED_BOOK_IDS = new Set(["curated-chlopi", "curated-propaganda", "curated-crystallizing"]);
 // Бесплатный лимит AI-иллюстраций/обложек на книги читателя (не на каталог — там куратор без лимита).
 const IMAGE_QUOTA_LIMIT = 3;
+// Сколько хайлайтов с AI можно сделать без входа по e-mail (держим в синхроне с текстом в index.html).
+const ANON_FREE_HIGHLIGHTS = 5;
 
 // Отдельный клиент с service-role ключом — только для загрузки картинок в Storage,
 // в обход RLS/Storage policies (доступ к этому action и так ограничен одним email).
@@ -212,16 +214,16 @@ Deno.serve(async (req) => {
   }
 
   // Анонимная Supabase-сессия (Authentication → Sign In / Providers → Allow anonymous
-  // sign-ins) — ровно один бесплатный перевод/поиск без e-mail, дальше sign up. Хайлайт
-  // клиент сохраняет ДО этого вызова, поэтому >1 (не >=1) — иначе блокировали бы и самую
-  // первую попытку, которую и должны разрешать.
+  // sign-ins) — ANON_FREE_HIGHLIGHTS бесплатных переводов/поисков без e-mail, дальше sign up.
+  // Хайлайт клиент сохраняет ДО этого вызова, поэтому > (не >=) — иначе блокировали бы и
+  // последнюю разрешённую попытку.
   if (user.is_anonymous) {
     // .eq("user_id", ...) обязателен: без него запрос считает ВСЕ строки, видимые по
     // RLS — а после публичной read-policy для демо-хайлайтов на страницах каталога это
     // ещё и хайлайты владельца, так что аноним упирался бы в лимит на первой же попытке.
     const { count, error: cntErr } = await supa.from("highlights").select("*", { count: "exact", head: true }).eq("user_id", user.id);
-    if (!cntErr && (count ?? 0) > 1) {
-      return err("You've used your free preview — sign in with email to keep translating", 403, cors);
+    if (!cntErr && (count ?? 0) > ANON_FREE_HIGHLIGHTS) {
+      return err("You've used your free highlights — sign in with email to keep translating", 403, cors);
     }
   } else {
     // Pro-подписчики (оплата через Stripe) без лимита; бесплатный тариф — 10 хайлайтов
