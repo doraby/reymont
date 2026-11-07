@@ -798,7 +798,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.72</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.73</div>
   </div>
 </div>
 
@@ -898,7 +898,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.72'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.73'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -2193,7 +2193,7 @@ async function translate(text, gen, words, para, note) {
         signal: translateAbort.signal,
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + settings.key },
         body: JSON.stringify({
-          model: 'gpt-4o-mini', stream: true, temperature: 0.3,
+          model: 'gpt-5.6-nano', stream: true, reasoning_effort: 'low',
           messages: [{ role: 'system', content: sys }, { role: 'user', content: userMsg }],
         }),
       });
@@ -2332,7 +2332,7 @@ async function webSearch(text, gen, para, note) {
     method: 'POST',
     signal: searchAbort.signal,
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + settings.key },
-    body: JSON.stringify({ model: 'gpt-4o-mini', tools: [{ type: toolType }], input: prompt }),
+    body: JSON.stringify({ model: 'gpt-5.6-nano', reasoning: { effort: 'low' }, tools: [{ type: toolType }], input: prompt }),
   });
   try {
     let res;

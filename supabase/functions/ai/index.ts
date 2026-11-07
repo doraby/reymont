@@ -10,6 +10,9 @@ const ILLUSTRATIONS_BUCKET = "illustrations";
 const CURATED_BOOK_IDS = new Set(["curated-chlopi", "curated-propaganda", "curated-crystallizing"]);
 // Бесплатный лимит AI-иллюстраций/обложек на книги читателя (не на каталог — там куратор без лимита).
 const IMAGE_QUOTA_LIMIT = 3;
+// Модель для перевода, веб-поиска и схем Mermaid (секрет TEXT_MODEL в Supabase перекрывает). Линейка gpt-5:
+// без temperature, лимит ответа — max_completion_tokens (в него входят и токены рассуждений).
+const TEXT_MODEL = Deno.env.get("TEXT_MODEL") ?? "gpt-5.6-nano";
 // Сколько хайлайтов с AI можно сделать без входа по e-mail (держим в синхроне с текстом в index.html).
 const ANON_FREE_HIGHLIGHTS = 5;
 
@@ -193,7 +196,7 @@ Deno.serve(async (req) => {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },
       body: JSON.stringify({
-        model: "gpt-4o-mini", temperature: 0.2, max_tokens: 900,
+        model: TEXT_MODEL, reasoning_effort: "low", max_completion_tokens: 3000,
         messages: [{ role: "system", content: sys }, { role: "user", content: userMsg }],
       }),
     });
@@ -333,7 +336,7 @@ Deno.serve(async (req) => {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },
       body: JSON.stringify({
-        model: "gpt-4o-mini", stream: true, temperature: 0.3,
+        model: TEXT_MODEL, stream: true, reasoning_effort: "low",
         messages: [{ role: "system", content: sys }, { role: "user", content: userMsg }],
       }),
     });
@@ -351,7 +354,7 @@ Deno.serve(async (req) => {
     const call = (tool: string) => fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },
-      body: JSON.stringify({ model: "gpt-4o-mini", tools: [{ type: tool }], input: prompt }),
+      body: JSON.stringify({ model: TEXT_MODEL, reasoning: { effort: "low" }, tools: [{ type: tool }], input: prompt }),
     });
     let r = await call("web_search");
     if (r.status === 400) r = await call("web_search_preview");
