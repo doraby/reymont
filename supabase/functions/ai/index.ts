@@ -145,25 +145,52 @@ Deno.serve(async (req) => {
       // Интерактивная версия: один самодостаточный HTML-документ. Клиент запускает его в
       // изолированной рамке (sandbox без allow-same-origin + CSP без сети), поэтому внешних
       // ресурсов в нём быть не должно.
-      const sysHtml = `You turn a passage from a book into ONE interactive visualisation, as a single complete self-contained HTML document. ` +
-        `Choose the form that fits: the staging of a scene (a map or layout of places, characters and objects), the web of interactions between characters, or a timeline of events. ` +
-        `Make it interactive with plain vanilla JavaScript: clicking or hovering a character, place or event shows a short detail taken from the passage. ` +
-        `Rules: output ONLY the HTML document, starting with <!doctype html> — no markdown fences, no explanations. ` +
-        `Everything inline: CSS in <style>, JS in <script>. No external files, fonts, libraries, images or network requests. ` +
-        `Responsive width (works from 320px up), page background #FAF9F5, text #3D3929, accent #C15F3C, serif font stack (Georgia). ` +
-        `Write all visible text in ${lang}. Use only what the passage actually says; do not invent facts. Keep it under 150 lines.`;
-      const rh = await fetch("https://api.openai.com/v1/chat/completions", {
+      const sysHtml = `You are a senior front-end designer. Turn the passage from a book into ONE polished, interactive single-file HTML "explorable" for the reader. ` +
+        `Build it with inline SVG + CSS + vanilla JavaScript. Choose the views the passage genuinely supports and offer them as tabs (omit the ones it does not support): ` +
+        `(1) "Scene" — an SVG stage: places as soft shapes, characters as coloured discs with initials placed where the text puts them, objects as small SVG icons, with a subtle idle animation; ` +
+        `(2) "Relations" — a graph: characters as nodes, edges labelled with the action or feeling, hovering a character highlights its connections; ` +
+        `(3) "Timeline" — the events on a rail with Play / Step controls that animate progress and highlight the matching quote. ` +
+        `Clicking any element opens a detail card (bottom sheet) with: who or what it is, what it does in this passage, and a SHORT verbatim quote (max 15 words, original language). ` +
+        `Design: smooth CSS transitions, visible hover/focus states, touch targets of at least 40px, rounded 12px cards, soft shadows. ` +
+        `Palette: background #FAF9F5, ink #3D3929, accent #C15F3C plus 3–4 harmonious muted colours for characters; Georgia for headings, system-ui for UI. It must look refined, never like a default form. ` +
+        `Layout works from 320px to 900px wide and fills the height (html, body { height: 100% }), no horizontal scroll. ` +
+        `Hard rules: output ONLY the complete HTML document starting with <!doctype html> — no markdown fences, no commentary. ` +
+        `Fully self-contained: inline <style> and <script>; no external files, fonts, CDNs, images, network requests or localStorage. ` +
+        `All visible text in ${lang} (quotes stay in the original language). Use only facts from the passage; never invent. At most about 350 lines. The JavaScript must be free of syntax errors.`;
+      const htmlModel = Deno.env.get("INTERACTIVE_MODEL") ?? "gpt-5-codex";
+      const clean = (t: string) => t.trim().replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/, "").trim().slice(0, 80000);
+      let html = "";
+      // Основной путь — Responses API (там живут codex-модели). Если ключ не имеет доступа к
+      // модели или она не принимает параметры, ОДИН раз откатываемся на gpt-4.1 — не цикл.
+      const rr = await fetch("https://api.openai.com/v1/responses", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },
         body: JSON.stringify({
-          model: "gpt-4o-mini", temperature: 0.4, max_tokens: 4000,
-          messages: [{ role: "system", content: sysHtml }, { role: "user", content: userMsg }],
+          model: htmlModel, instructions: sysHtml, input: userMsg, max_output_tokens: 12000,
+          ...(/^(gpt-5|o\d)/.test(htmlModel) ? { reasoning: { effort: "low" } } : {}),
         }),
       });
-      if (!rh.ok) return err("Interactive diagram failed: " + (await rh.text()).slice(0, 300), 502, cors);
-      const jh = await rh.json();
-      let html = String(jh.choices?.[0]?.message?.content ?? "").trim();
-      html = html.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/, "").trim().slice(0, 60000);
+      if (rr.ok) {
+        const jr = await rr.json();
+        const parts: string[] = [];
+        for (const item of jr.output ?? []) {
+          if (item.type === "message") for (const c of item.content ?? []) if (c.type === "output_text") parts.push(c.text);
+        }
+        html = clean(parts.join(""));
+      } else {
+        console.error("diagram_html primary model failed:", htmlModel, rr.status, (await rr.text()).slice(0, 300));
+        const rh = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },
+          body: JSON.stringify({
+            model: "gpt-4.1", temperature: 0.5, max_tokens: 6000,
+            messages: [{ role: "system", content: sysHtml }, { role: "user", content: userMsg }],
+          }),
+        });
+        if (!rh.ok) return err("Interactive diagram failed: " + (await rh.text()).slice(0, 300), 502, cors);
+        const jh = await rh.json();
+        html = clean(String(jh.choices?.[0]?.message?.content ?? ""));
+      }
       if (!/<html|<!doctype/i.test(html)) return err("Empty interactive diagram", 502, cors);
       return json({ html }, 200, cors);
     }
