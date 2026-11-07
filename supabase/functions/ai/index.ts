@@ -157,11 +157,10 @@ Deno.serve(async (req) => {
         `Hard rules: output ONLY the complete HTML document starting with <!doctype html> — no markdown fences, no commentary. ` +
         `Fully self-contained: inline <style> and <script>; no external files, fonts, CDNs, images, network requests or localStorage. ` +
         `All visible text in ${lang} (quotes stay in the original language). Use only facts from the passage; never invent. At most about 350 lines. The JavaScript must be free of syntax errors.`;
-      const htmlModel = Deno.env.get("INTERACTIVE_MODEL") ?? "gpt-5-codex";
+      const htmlModel = Deno.env.get("INTERACTIVE_MODEL") ?? "gpt-5.6-mini";
       const clean = (t: string) => t.trim().replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/, "").trim().slice(0, 80000);
-      let html = "";
-      // Основной путь — Responses API (там живут codex-модели). Если ключ не имеет доступа к
-      // модели или она не принимает параметры, ОДИН раз откатываемся на gpt-4.1 — не цикл.
+      // Без тихих откатов на более слабую модель: если id модели неверный или недоступен ключу,
+      // клиент увидит настоящую ошибку OpenAI, а не молча получит худший результат.
       const rr = await fetch("https://api.openai.com/v1/responses", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },
@@ -170,27 +169,17 @@ Deno.serve(async (req) => {
           ...(/^(gpt-5|o\d)/.test(htmlModel) ? { reasoning: { effort: "low" } } : {}),
         }),
       });
-      if (rr.ok) {
-        const jr = await rr.json();
-        const parts: string[] = [];
-        for (const item of jr.output ?? []) {
-          if (item.type === "message") for (const c of item.content ?? []) if (c.type === "output_text") parts.push(c.text);
-        }
-        html = clean(parts.join(""));
-      } else {
-        console.error("diagram_html primary model failed:", htmlModel, rr.status, (await rr.text()).slice(0, 300));
-        const rh = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },
-          body: JSON.stringify({
-            model: "gpt-4.1", temperature: 0.5, max_tokens: 6000,
-            messages: [{ role: "system", content: sysHtml }, { role: "user", content: userMsg }],
-          }),
-        });
-        if (!rh.ok) return err("Interactive diagram failed: " + (await rh.text()).slice(0, 300), 502, cors);
-        const jh = await rh.json();
-        html = clean(String(jh.choices?.[0]?.message?.content ?? ""));
+      if (!rr.ok) {
+        const t = (await rr.text()).slice(0, 300);
+        console.error("diagram_html failed:", htmlModel, rr.status, t);
+        return err(`Interactive diagram failed (model ${htmlModel}): ${t}`, 502, cors);
       }
+      const jr = await rr.json();
+      const parts: string[] = [];
+      for (const item of jr.output ?? []) {
+        if (item.type === "message") for (const c of item.content ?? []) if (c.type === "output_text") parts.push(c.text);
+      }
+      const html = clean(parts.join(""));
       if (!/<html|<!doctype/i.test(html)) return err("Empty interactive diagram", 502, cors);
       return json({ html }, 200, cors);
     }
