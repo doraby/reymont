@@ -190,8 +190,47 @@ Deno.serve(async (req) => {
       const inputFinal = improve
         ? `${userMsgHtml}\n<reader_feedback>${feedback || "(no comment — improve the visualisation in general)"}</reader_feedback>\n<current_html>${currentHtml}</current_html>`
         : userMsgHtml;
-      const htmlModel = Deno.env.get("INTERACTIVE_MODEL") ?? "gpt-5.6-luna";
       const clean = (t: string) => t.trim().replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/, "").trim().slice(0, 80000);
+
+      // Провайдер интерактива: секрет INTERACTIVE_PROVIDER ("openai" по умолчанию | "anthropic"); клиент
+      // может переопределить полем provider (выбор в настройках), чтобы сравнить модели на одной странице.
+      const provider = ["openai", "anthropic"].includes(String(body.provider))
+        ? String(body.provider)
+        : (Deno.env.get("INTERACTIVE_PROVIDER") ?? "openai");
+      if (provider === "anthropic") {
+        const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
+        if (!ANTHROPIC_API_KEY) return err("ANTHROPIC_API_KEY secret is not set in Supabase", 500, cors);
+        const claudeModel = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-opus-5-5";
+        try {
+          const { default: Anthropic } = await import("npm:@anthropic-ai/sdk");
+          const claude = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
+          // Стрим + finalMessage: ответ длинный, обычный запрос упёрся бы в HTTP-таймауты.
+          // Мышление у Opus 5.5 всегда включено (параметр thinking не передаём), глубина — через effort.
+          // Серверные fallbacks включены по умолчанию (при отказе классификаторов запрос идёт на запасную модель);
+          // отключить: секрет ANTHROPIC_FALLBACKS=off.
+          const useFallbacks = (Deno.env.get("ANTHROPIC_FALLBACKS") ?? "on") !== "off";
+          const stream = claude.beta.messages.stream({
+            model: claudeModel,
+            max_tokens: 16000,
+            output_config: { effort: "medium" },
+            system: sysFinal,
+            messages: [{ role: "user", content: inputFinal }],
+            ...(useFallbacks ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" } : {}),
+          });
+          const msg = await stream.finalMessage();
+          if (msg.stop_reason === "refusal") return err("Claude declined this request (" + (msg.stop_details?.category ?? "refusal") + ")", 502, cors);
+          if (msg.stop_reason === "max_tokens") return err("Claude's answer was cut off — try again", 502, cors);
+          const html = clean(msg.content.filter((b: { type: string }) => b.type === "text").map((b: { text: string }) => b.text).join(""));
+          if (!/<html|<!doctype/i.test(html)) return err("Empty interactive diagram", 502, cors);
+          console.log(`[interactive] ${body.action} ok: provider=anthropic model=${msg.model ?? claudeModel} html=${html.length} chars` + (improve ? ` feedback=${JSON.stringify(feedback)} unchanged=${html === currentHtml.trim()}` : ""));
+          return json({ html, model: msg.model ?? claudeModel, provider: "anthropic" }, 200, cors);
+        } catch (e) {
+          const m = e instanceof Error ? e.message : String(e);
+          console.error(`[anthropic] ${body.action} FAILED: model=${claudeModel} key=…${ANTHROPIC_API_KEY.slice(-4)} error=${m.slice(0, 500)}`);
+          return err(`Interactive diagram failed (Claude ${claudeModel}): ${m.slice(0, 300)}`, 502, cors);
+        }
+      }
+      const htmlModel = Deno.env.get("INTERACTIVE_MODEL") ?? "gpt-5.6-luna";
       // Без тихих откатов на более слабую модель: если id модели неверный или недоступен ключу,
       // клиент увидит настоящую ошибку OpenAI, а не молча получит худший результат.
       const rr = await fetch("https://api.openai.com/v1/responses", {
@@ -215,7 +254,7 @@ Deno.serve(async (req) => {
       const html = clean(parts.join(""));
       if (!/<html|<!doctype/i.test(html)) return err("Empty interactive diagram", 502, cors);
       console.log(`[interactive] ${body.action} ok: model=${htmlModel} html=${html.length} chars` + (improve ? ` feedback=${JSON.stringify(feedback)} unchanged=${html === currentHtml.trim()}` : ""));
-      return json({ html, model: htmlModel }, 200, cors);
+      return json({ html, model: htmlModel, provider: "openai" }, 200, cors);
     }
     const sys = `You turn a passage from a book into ONE Mermaid diagram that helps the reader visualise it. ` +
       `Pick the form that fits the passage best: the staging of a scene (who stands where, places, objects — flowchart with subgraphs), ` +
