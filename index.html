@@ -217,9 +217,11 @@
   /* Панель с интерактивом шире обычной (на мобильном и так во всю ширину) */
   body.panel-wide { --panel-w: min(780px, 62vw); }
   #panel-body.io { padding: 0; display: flex; flex-direction: column; overflow: hidden; }
-  .io-tools { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  #io-dislike-btn { display: none; font-size: 18px; line-height: 1; }
+  #panel.io-view #io-dislike-btn { display: inline-flex; }
+  .io-tools { flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 10px;
     padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--surface); }
-  .io-tools span { color: var(--muted); font-size: 13.5px; font-style: italic; }
+  .io-notice { flex: none; padding: 10px 16px; font-size: 13.5px; background: #FFF4DC; color: #7A5B14; border-bottom: 1px solid #EBD9A8; }
   .io-tools .btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 13.5px; }
   #interactive-frame { flex: 1; width: 100%; border: 0; background: #FAF9F5; }
   .io-loading { margin: auto; padding: 24px 28px; max-width: 360px; text-align: center; }
@@ -657,8 +659,9 @@
 <!-- ════════ Right panel ════════ -->
 <div id="panel">
   <div class="panel-head">
+    <button id="io-dislike-btn" class="icon-btn" onclick="openFeedback()" title="Don’t like it — tell the AI what to improve" aria-label="Don’t like it">👎</button>
     <button id="prompt-btn" class="icon-btn" onclick="openPromptModal()" title="Reading focus" aria-label="Reading focus">
-      <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
     </button>
     <button id="panel-close-btn" class="icon-btn" onclick="closePanel()" aria-label="Close">✕</button>
   </div>
@@ -842,7 +845,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.76</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.77</div>
   </div>
 </div>
 
@@ -919,10 +922,15 @@ function handleVersionTap() {
   versionTapTimer = setTimeout(function () { versionTapCount = 0; }, 1500);
   if (versionTapCount >= 5) {
     versionTapCount = 0;
-    var fab = document.getElementById('dbg-fab');
-    if (fab) fab.style.display = 'flex';
+    showDbgFab();
+    try { localStorage.setItem('reader.debug', '1'); } catch (e) {} // после 5 тапов кнопка остаётся и после перезагрузки
   }
 }
+function showDbgFab() {
+  var fab = document.getElementById('dbg-fab');
+  if (fab) fab.style.display = 'flex';
+}
+try { if (localStorage.getItem('reader.debug')) showDbgFab(); } catch (e) {}
 function copyDbg() {
   var text = 'Reymont debug ' + new Date().toISOString() + '\n' + navigator.userAgent + '\n\n'
     + dlog.map(function (l) { return l.t + ' [' + l.level + '] ' + l.msg; }).join('\n');
@@ -942,7 +950,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.76'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.77'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -2083,6 +2091,7 @@ function setPanelBody(html, isPromo) {
   const body = $('panel-body');
   body.classList.toggle('promo', !!isPromo);
   body.classList.remove('io');
+  $('panel').classList.remove('io-view');
   panelOwner = null; // любое другое содержимое отменяет «владение» панелью интерактивом
   body.innerHTML = html;
   body.scrollTop = 0;
@@ -2590,6 +2599,7 @@ async function refreshPro() {
   } catch (e) { console.warn('refreshPro:', e.message || e); isPro = false; }
   btn.classList.toggle('pro', isPro);
   $('interactive-btn').classList.toggle('pro', isPro);
+  if (isPro) showDbgFab(); // подписчикам (новые функции) кнопка отладки видна сразу
 }
 function loadMermaid() {
   if (window.mermaid) return Promise.resolve(window.mermaid);
@@ -2838,14 +2848,12 @@ window.addEventListener('message', e => {
   const contents = rendition && rendition.getContents()[0];
   if (contents) placeInteractiveLabel(contents, rec); // кнопку в тексте заменяет превью
 });
-function showInteractiveInPanel(rec) {
+function showInteractiveInPanel(rec, notice) {
   currentInteractive = rec;
-  setPanelBody(`<div class="io-tools"><span>Interactive view</span>
-      <button class="btn" onclick="openFeedback()" title="Tell the AI what to improve">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.7a2 2 0 0 0-2 1.7l-1.4 9a2 2 0 0 0 2 2.3z"/><path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg>
-        Don’t like it</button></div>
+  setPanelBody(`${notice ? `<div class="io-notice">${esc(notice)}</div>` : ''}
     <iframe id="interactive-frame" sandbox="allow-scripts" title="Interactive view"></iframe>`, false);
   $('panel-body').classList.add('io');
+  $('panel').classList.add('io-view'); // показывает 👎 в шапке панели
   $('interactive-frame').srcdoc = withCsp(rec.snap ? rec.html : withSnapshotScript(rec.html));
   panelOwner = 'io-view';
   openPanel(true);
@@ -2904,23 +2912,31 @@ async function buildInteractive(action, cfi, text, prevRec, feedback) {
   try {
     const payload = { action, text, lang: settings.lang, title: currentMeta.title || '', author: currentMeta.author || '' };
     if (improving) { payload.html = prevRec.html; payload.feedback = feedback; }
+    console.log(`[interactive] ${action} → page ${text.length} chars` + (improving ? `, current code ${prevRec.html.length} chars, feedback ${JSON.stringify(feedback)}` : ''));
     const res = await aiProxy(payload, null, 120000);
     if (res.status === 403) { isPro = false; $('diagram-btn').classList.remove('pro'); $('interactive-btn').classList.remove('pro'); closePanel(); showPaywall(); return; }
-    if (!res.ok) { let m = 'HTTP ' + res.status; try { m = (await res.json()).error.message; } catch (e) {} throw new Error(m); }
-    const { html } = await res.json();
+    if (!res.ok) {
+      let m = 'HTTP ' + res.status; try { m = (await res.json()).error.message; } catch (e) {}
+      console.error(`[interactive] ${action} failed: HTTP ${res.status} — ${m}`);
+      if (/unknown action/i.test(m)) m = 'The server doesn’t know this action yet — update the “ai” function in Supabase (Edge Functions → ai → Deploy updates).';
+      throw new Error(m);
+    }
+    const { html, model } = await res.json();
+    const same = improving && html.trim() === prevRec.html.trim();
+    console.log(`[interactive] ${action} ← model=${model || '?'}, new code ${html.length} chars` + (improving ? `, identical to previous: ${same}` : ''));
     const rec = { cfi, html, text: text.slice(0, 2000), t: Date.now() }; // snap появится после первого показа
     saveInteractive(bookId, rec);
     if (currentBookId === bookId) {
       const contents = rendition.getContents()[0];
       if (contents) placeInteractiveLabel(contents, rec);
     }
-    if (panelOwner === token) showInteractiveInPanel(rec);
+    if (panelOwner === token) showInteractiveInPanel(rec, same ? 'The AI returned the same code — try describing the problem more specifically.' : '');
     else toast('Interactive view is ready — open it from the page');
   } catch (e) {
     console.warn('buildInteractive:', e);
     const msg = (improving ? 'Could not improve the interactive view: ' : 'Could not build the interactive view: ') + (e.message || e).toString().slice(0, 140);
     if (panelOwner === token) {
-      if (prevRec) showInteractiveInPanel(prevRec); // не теряем прежний вид
+      if (prevRec) showInteractiveInPanel(prevRec, msg); // не теряем прежний вид, ошибку оставляем в панели
       else { setPanelBody(`<div class="p-error" style="margin:24px 22px">${esc(msg)}</div>`, false); panelOwner = null; }
     }
     toast(msg);

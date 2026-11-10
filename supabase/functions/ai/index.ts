@@ -167,6 +167,8 @@ Deno.serve(async (req) => {
         `Design: smooth CSS transitions, visible hover/focus states, touch targets of at least 40px, rounded 12px cards, soft shadows. ` +
         `Palette: background #FAF9F5, ink #3D3929, accent #C15F3C plus 3–4 harmonious muted colours for characters; Georgia for headings, system-ui for UI. It must look refined, never like a default form. ` +
         `Layout works from 320px to 900px wide and fills the height (html, body { height: 100% }), no horizontal scroll. ` +
+        `Do NOT repeat the book title or the author anywhere in the document, especially in the heading — the reader already knows which book this is. ` +
+        `Never add a generic heading such as "Interactive view"; start straight with the content, and if a heading helps, make it a short phrase (max 5 words) about this particular moment of the passage. ` +
         `Hard rules: output ONLY the complete HTML document starting with <!doctype html> — no markdown fences, no commentary. ` +
         `Fully self-contained: inline <style> and <script>; no external files, fonts, CDNs, images, network requests or localStorage. ` +
         `All visible text in ${lang} (quotes stay in the original language). Use only facts from the passage; never invent. At most about 350 lines. The JavaScript must be free of syntax errors.`;
@@ -208,7 +210,8 @@ Deno.serve(async (req) => {
       }
       const html = clean(parts.join(""));
       if (!/<html|<!doctype/i.test(html)) return err("Empty interactive diagram", 502, cors);
-      return json({ html }, 200, cors);
+      console.log(`[interactive] ${body.action} ok: model=${htmlModel} html=${html.length} chars` + (improve ? ` feedback=${JSON.stringify(feedback)} unchanged=${html === currentHtml.trim()}` : ""));
+      return json({ html, model: htmlModel }, 200, cors);
     }
     const sys = `You turn a passage from a book into ONE Mermaid diagram that helps the reader visualise it. ` +
       `Pick the form that fits the passage best: the staging of a scene (who stands where, places, objects — flowchart with subgraphs), ` +
