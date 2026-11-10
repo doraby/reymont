@@ -843,20 +843,11 @@
       </select>
       <div class="note">Search is performed by an OpenAI model with the web search tool, plus a Wikipedia card with a picture.</div>
     </div>
-    <div class="field">
-      <label for="in-io-provider">Interactive view (Premium) is built by</label>
-      <select id="in-io-provider">
-        <option value="">Default</option>
-        <option value="openai">OpenAI</option>
-        <option value="anthropic">Claude</option>
-      </select>
-      <div class="note">Try both on the same page and compare. “Default” uses the server’s choice.</div>
-    </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.79</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.80</div>
   </div>
 </div>
 
@@ -961,7 +952,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.79'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.80'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -1295,14 +1286,12 @@ const LS = {
   focusOnboarded: 'reader.focusOnboarded',
   interactives: id => 'reader.interactives.' + id, // [{cfi, html}] — интерактивные виды страниц
   diagrams: id => 'reader.diagrams.' + id, // [{cfi, svg}] — нарисованные диаграммы страниц книги
-  ioProvider: 'reader.ioProvider', // какая модель строит интерактив: '' (по умолчанию сервера) | 'openai' | 'anthropic'
   hintDone: 'reader.hintDone', // читатель уже сделал первую подсветку — подсказка больше не нужна
 };
 const settings = {
   get key() { return localStorage.getItem(LS.key) || ''; },
   get lang() { return localStorage.getItem(LS.lang) || 'Russian'; },
   get search() { return localStorage.getItem(LS.search) || 'auto'; },
-  get ioProvider() { return localStorage.getItem(LS.ioProvider) || ''; }, // '' = как задано на сервере
 };
 const WIKI_LANGS = { Russian: 'ru', English: 'en', Ukrainian: 'uk', Spanish: 'es', German: 'de', French: 'fr', Italian: 'it', Portuguese: 'pt', Polish: 'pl', Chinese: 'zh', Japanese: 'ja' };
 
@@ -2926,7 +2915,6 @@ async function buildInteractive(action, cfi, text, prevRec, feedback) {
     const payload = { action, text, lang: settings.lang, title: currentMeta.title || '', author: currentMeta.author || '' };
     if (improving) { payload.html = prevRec.html; payload.feedback = feedback; }
     console.log(`[interactive] ${action} → page ${text.length} chars` + (improving ? `, current code ${prevRec.html.length} chars, feedback ${JSON.stringify(feedback)}` : ''));
-    if (settings.ioProvider) payload.provider = settings.ioProvider;
     const res = await aiProxy(payload, null, 170000); // Claude с длинным ответом может думать дольше минуты
     if (res.status === 403) { isPro = false; $('diagram-btn').classList.remove('pro'); $('interactive-btn').classList.remove('pro'); closePanel(); showPaywall(); return; }
     if (!res.ok) {
@@ -3196,7 +3184,6 @@ function openSettings(openSignIn) {
   $('in-key').value = settings.key;
   $('in-lang').value = settings.lang;
   $('in-search').value = settings.search;
-  $('in-io-provider').value = settings.ioProvider;
   $('overlay').classList.add('open');
   if (openSignIn) authClick();
 }
@@ -3205,7 +3192,6 @@ function saveSettings() {
   localStorage.setItem(LS.key, $('in-key').value.trim());
   localStorage.setItem(LS.lang, $('in-lang').value);
   localStorage.setItem(LS.search, $('in-search').value);
-  localStorage.setItem(LS.ioProvider, $('in-io-provider').value);
   closeSettings();
   toast('Settings saved');
 }

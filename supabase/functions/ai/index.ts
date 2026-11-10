@@ -192,11 +192,11 @@ Deno.serve(async (req) => {
         : userMsgHtml;
       const clean = (t: string) => t.trim().replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/, "").trim().slice(0, 80000);
 
-      // Провайдер интерактива: секрет INTERACTIVE_PROVIDER ("openai" по умолчанию | "anthropic"); клиент
-      // может переопределить полем provider (выбор в настройках), чтобы сравнить модели на одной странице.
+      // Провайдер интерактива: секрет INTERACTIVE_PROVIDER ("anthropic" по умолчанию | "openai" — прежний путь
+      // через OpenAI остаётся в коде и включается этим секретом); запрос может переопределить полем provider.
       const provider = ["openai", "anthropic"].includes(String(body.provider))
         ? String(body.provider)
-        : (Deno.env.get("INTERACTIVE_PROVIDER") ?? "openai");
+        : (Deno.env.get("INTERACTIVE_PROVIDER") ?? "anthropic");
       if (provider === "anthropic") {
         const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
         if (!ANTHROPIC_API_KEY) return err("ANTHROPIC_API_KEY secret is not set in Supabase", 500, cors);
