@@ -217,7 +217,7 @@
   /* Панель с интерактивом шире обычной (на мобильном и так во всю ширину) */
   body.panel-wide { --panel-w: min(780px, 62vw); }
   #panel-body.io { padding: 0; display: flex; flex-direction: column; overflow: hidden; }
-  #io-dislike-btn { display: none; font-size: 18px; line-height: 1; }
+  #io-dislike-btn { display: none; }
   #panel.io-view #io-dislike-btn { display: inline-flex; }
   .io-tools { flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 10px;
     padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--surface); }
@@ -659,7 +659,9 @@
 <!-- ════════ Right panel ════════ -->
 <div id="panel">
   <div class="panel-head">
-    <button id="io-dislike-btn" class="icon-btn" onclick="openFeedback()" title="Don’t like it — tell the AI what to improve" aria-label="Don’t like it">👎</button>
+    <button id="io-dislike-btn" class="icon-btn" onclick="openFeedback()" title="Don’t like it — tell the AI what to improve" aria-label="Don’t like it">
+      <svg viewBox="0 0 24 24"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.7a2 2 0 0 0-2 1.7l-1.4 9a2 2 0 0 0 2 2.3z"/><path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg>
+    </button>
     <button id="prompt-btn" class="icon-btn" onclick="openPromptModal()" title="Reading focus" aria-label="Reading focus">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
     </button>
@@ -845,7 +847,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.77</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.78</div>
   </div>
 </div>
 
@@ -950,7 +952,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.77'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.78'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
