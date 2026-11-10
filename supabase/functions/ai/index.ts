@@ -155,6 +155,8 @@ Deno.serve(async (req) => {
     if (!pageText.trim()) return err("No text", 400, cors);
     const userMsg = `Book: "${title}"${author ? " by " + author : ""}\n<passage>${pageText}</passage>`;
     if (body.action === "diagram_html" || body.action === "diagram_html_improve") {
+      // Название книги модели не передаём: стоит его назвать — и оно оказывается в заголовке.
+      const userMsgHtml = `<passage>${pageText}</passage>`;
       // Интерактивная версия: один самодостаточный HTML-документ. Клиент запускает его в
       // изолированной рамке (sandbox без allow-same-origin + CSP без сети), поэтому внешних
       // ресурсов в нём быть не должно.
@@ -167,8 +169,9 @@ Deno.serve(async (req) => {
         `Design: smooth CSS transitions, visible hover/focus states, touch targets of at least 40px, rounded 12px cards, soft shadows. ` +
         `Palette: background #FAF9F5, ink #3D3929, accent #C15F3C plus 3–4 harmonious muted colours for characters; Georgia for headings, system-ui for UI. It must look refined, never like a default form. ` +
         `Layout works from 320px to 900px wide and fills the height (html, body { height: 100% }), no horizontal scroll. ` +
-        `Do NOT repeat the book title or the author anywhere in the document, especially in the heading — the reader already knows which book this is. ` +
-        `Never add a generic heading such as "Interactive view"; start straight with the content, and if a heading helps, make it a short phrase (max 5 words) about this particular moment of the passage. ` +
+        `NO HEADER BLOCK AT ALL: the document must not contain a title, kicker/eyebrow, subtitle or caption that names the book, the author, the chapter or describes the passage ` +
+        `(never anything like "Book title · Evening scene" or "A fragment of a conversation about…") — the reader already knows the book and the page. ` +
+        `Start straight with the interactive content itself (the tabs and the visualisation). Labels inside the visualisation (characters, places, events) are fine. ` +
         `Hard rules: output ONLY the complete HTML document starting with <!doctype html> — no markdown fences, no commentary. ` +
         `Fully self-contained: inline <style> and <script>; no external files, fonts, CDNs, images, network requests or localStorage. ` +
         `All visible text in ${lang} (quotes stay in the original language). Use only facts from the passage; never invent. At most about 350 lines. The JavaScript must be free of syntax errors.`;
@@ -180,12 +183,13 @@ Deno.serve(async (req) => {
       if (improve && !currentHtml) return err("No interactive code to improve", 400, cors);
       const sysFinal = improve
         ? sysHtml + ` You are given the CURRENT version of the document and the reader's feedback on it. ` +
+          `If the current document has a title, kicker, subtitle or any text naming the book or describing the passage, REMOVE it. ` +
           `Return an improved COMPLETE document that fixes what the reader disliked (if the feedback is empty, fix the most obvious weaknesses: ` +
           `emptiness, unreadable text, broken interactions, weak layout). Keep what already works. The same hard rules apply.`
         : sysHtml;
       const inputFinal = improve
-        ? `${userMsg}\n<reader_feedback>${feedback || "(no comment — improve the visualisation in general)"}</reader_feedback>\n<current_html>${currentHtml}</current_html>`
-        : userMsg;
+        ? `${userMsgHtml}\n<reader_feedback>${feedback || "(no comment — improve the visualisation in general)"}</reader_feedback>\n<current_html>${currentHtml}</current_html>`
+        : userMsgHtml;
       const htmlModel = Deno.env.get("INTERACTIVE_MODEL") ?? "gpt-5.6-luna";
       const clean = (t: string) => t.trim().replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/, "").trim().slice(0, 80000);
       // Без тихих откатов на более слабую модель: если id модели неверный или недоступен ключу,
