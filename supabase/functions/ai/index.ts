@@ -160,21 +160,24 @@ Deno.serve(async (req) => {
       // Интерактивная версия: один самодостаточный HTML-документ. Клиент запускает его в
       // изолированной рамке (sandbox без allow-same-origin + CSP без сети), поэтому внешних
       // ресурсов в нём быть не должно.
-      const sysHtml = `You are a senior front-end designer. Turn the passage from a book into ONE polished, interactive single-file HTML "explorable" for the reader. ` +
-        `Build it with inline SVG + CSS + vanilla JavaScript. Choose the views the passage genuinely supports and offer them as tabs (omit the ones it does not support): ` +
-        `(1) "Scene" — an SVG stage: places as soft shapes, characters as coloured discs with initials placed where the text puts them, objects as small SVG icons, with a subtle idle animation; ` +
-        `(2) "Relations" — a graph: characters as nodes, edges labelled with the action or feeling, hovering a character highlights its connections; ` +
-        `(3) "Timeline" — the events on a rail with Play / Step controls that animate progress and highlight the matching quote. ` +
-        `Clicking any element opens a detail card (bottom sheet) with: who or what it is, what it does in this passage, and a SHORT verbatim quote (max 15 words, original language). ` +
-        `Design: smooth CSS transitions, visible hover/focus states, touch targets of at least 40px, rounded 12px cards, soft shadows. ` +
-        `Palette: background #FAF9F5, ink #3D3929, accent #C15F3C plus 3–4 harmonious muted colours for characters; Georgia for headings, system-ui for UI. It must look refined, never like a default form. ` +
+      const sysHtml = `You are a creative front-end designer and interactive storyteller. Turn the passage from a book into ONE self-contained, single-file HTML experience that makes THIS particular passage come alive for the reader — something they could not get from just reading the text. ` +
+        `Find the single most illuminating idea for this specific passage and execute it with craft. Examples of the kind of thing you might invent (do NOT default to any of them; each passage deserves its own idea): ` +
+        `a floor plan or map of the place where you can move the characters around; an animated stage where the dialogue plays out line by line; a "who stands where" tableau at the key moment; ` +
+        `a mood or atmosphere scene (light, weather, time of day, sound words) the reader can tweak; a physical object or document shown close up with hotspots; ` +
+        `a cause-and-effect chain the reader can trigger step by step; a word-by-word reveal of a loaded phrase or dialect with its meaning; a tiny game or puzzle built from what happens; ` +
+        `a clock/calendar/route showing how time or movement unfolds; a comparison of two points of view; or something entirely different that fits. ` +
+        `Do NOT build a character-relationship graph (nodes and edges between people) — the app already has a separate diagram for relations and events. ` +
+        `Do NOT default to a set of tabs; use tabs or multiple views only when the idea genuinely needs them. One strong, focused idea beats many generic views. Surprise the reader. ` +
+        `It must be genuinely interactive (hover, click, drag, play/step, sliders — whatever suits the idea) and reward exploration; where it helps, reveal a short verbatim quote from the passage (max 15 words, original language) or a one-line explanation. ` +
+        `Build it with inline SVG + CSS + vanilla JavaScript. Smooth transitions, visible hover/focus states, touch targets of at least 40px, soft shadows, refined and original — never like a default form. ` +
+        `Suggested palette (adapt freely to the mood of the passage): background #FAF9F5, ink #3D3929, accent #C15F3C plus harmonious muted colours; Georgia for headings, system-ui for UI. ` +
         `Layout works from 320px to 900px wide and fills the height (html, body { height: 100% }), no horizontal scroll. ` +
         `NO HEADER BLOCK AT ALL: the document must not contain a title, kicker/eyebrow, subtitle or caption that names the book, the author, the chapter or describes the passage ` +
         `(never anything like "Book title · Evening scene" or "A fragment of a conversation about…") — the reader already knows the book and the page. ` +
-        `Start straight with the interactive content itself (the tabs and the visualisation). Labels inside the visualisation (characters, places, events) are fine. ` +
+        `Start straight with the interactive content itself. Labels inside the experience (characters, places, objects, events) are fine. ` +
         `Hard rules: output ONLY the complete HTML document starting with <!doctype html> — no markdown fences, no commentary. ` +
         `Fully self-contained: inline <style> and <script>; no external files, fonts, CDNs, images, network requests or localStorage. ` +
-        `All visible text in ${lang} (quotes stay in the original language). Use only facts from the passage; never invent. At most about 350 lines. The JavaScript must be free of syntax errors.`;
+        `All visible text in ${lang} (quotes stay in the original language). Use only facts from the passage; never invent events or details. At most about 400 lines. The JavaScript must be free of syntax errors and work without any setup.`;
       // Доработка по отзыву читателя (👎): модель получает текущий код и жалобу и возвращает улучшенный
       // документ целиком. Один запрос, без цепочек.
       const improve = body.action === "diagram_html_improve";
