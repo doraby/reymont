@@ -184,7 +184,7 @@ Deno.serve(async (req) => {
       const inputFinal = improve
         ? `${userMsg}\n<reader_feedback>${feedback || "(no comment — improve the visualisation in general)"}</reader_feedback>\n<current_html>${currentHtml}</current_html>`
         : userMsg;
-      const htmlModel = Deno.env.get("INTERACTIVE_MODEL") ?? "gpt-5.4-mini";
+      const htmlModel = Deno.env.get("INTERACTIVE_MODEL") ?? "gpt-5.6-luna";
       const clean = (t: string) => t.trim().replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/, "").trim().slice(0, 80000);
       // Без тихих откатов на более слабую модель: если id модели неверный или недоступен ключу,
       // клиент увидит настоящую ошибку OpenAI, а не молча получит худший результат.
