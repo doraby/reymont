@@ -142,7 +142,7 @@ Deno.serve(async (req) => {
   }
 
   // Premium-статус для клиента: показывает кнопку диаграмм только подписчикам.
-  if (body.action === "me" || body.action === "diagram" || body.action === "diagram_html") {
+  if (body.action === "me" || body.action === "diagram" || body.action === "diagram_html" || body.action === "diagram_html_improve") {
     const { data: pro } = await supa.from("pro_users").select("user_id").eq("user_id", user.id).maybeSingle();
     if (body.action === "me") return json({ pro: !!pro }, 200, cors);
     if (!pro) return err("Diagrams are a Premium feature", 403, cors);
@@ -154,7 +154,7 @@ Deno.serve(async (req) => {
     const lang = String(body.lang ?? "English").slice(0, 30);
     if (!pageText.trim()) return err("No text", 400, cors);
     const userMsg = `Book: "${title}"${author ? " by " + author : ""}\n<passage>${pageText}</passage>`;
-    if (body.action === "diagram_html") {
+    if (body.action === "diagram_html" || body.action === "diagram_html_improve") {
       // Интерактивная версия: один самодостаточный HTML-документ. Клиент запускает его в
       // изолированной рамке (sandbox без allow-same-origin + CSP без сети), поэтому внешних
       // ресурсов в нём быть не должно.
@@ -170,6 +170,20 @@ Deno.serve(async (req) => {
         `Hard rules: output ONLY the complete HTML document starting with <!doctype html> — no markdown fences, no commentary. ` +
         `Fully self-contained: inline <style> and <script>; no external files, fonts, CDNs, images, network requests or localStorage. ` +
         `All visible text in ${lang} (quotes stay in the original language). Use only facts from the passage; never invent. At most about 350 lines. The JavaScript must be free of syntax errors.`;
+      // Доработка по отзыву читателя (👎): модель получает текущий код и жалобу и возвращает улучшенный
+      // документ целиком. Один запрос, без цепочек.
+      const improve = body.action === "diagram_html_improve";
+      const currentHtml = improve ? String(body.html ?? "").slice(0, 60000) : "";
+      const feedback = improve ? String(body.feedback ?? "").slice(0, 800) : "";
+      if (improve && !currentHtml) return err("No interactive code to improve", 400, cors);
+      const sysFinal = improve
+        ? sysHtml + ` You are given the CURRENT version of the document and the reader's feedback on it. ` +
+          `Return an improved COMPLETE document that fixes what the reader disliked (if the feedback is empty, fix the most obvious weaknesses: ` +
+          `emptiness, unreadable text, broken interactions, weak layout). Keep what already works. The same hard rules apply.`
+        : sysHtml;
+      const inputFinal = improve
+        ? `${userMsg}\n<reader_feedback>${feedback || "(no comment — improve the visualisation in general)"}</reader_feedback>\n<current_html>${currentHtml}</current_html>`
+        : userMsg;
       const htmlModel = Deno.env.get("INTERACTIVE_MODEL") ?? "gpt-5.4-mini";
       const clean = (t: string) => t.trim().replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/, "").trim().slice(0, 80000);
       // Без тихих откатов на более слабую модель: если id модели неверный или недоступен ключу,
@@ -178,7 +192,7 @@ Deno.serve(async (req) => {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },
         body: JSON.stringify({
-          model: htmlModel, instructions: sysHtml, input: userMsg, max_output_tokens: 12000,
+          model: htmlModel, instructions: sysFinal, input: inputFinal, max_output_tokens: 12000,
           ...(/^(gpt-5|o\d)/.test(htmlModel) ? { reasoning: { effort: "low" } } : {}),
         }),
       });
