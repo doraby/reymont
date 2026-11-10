@@ -12,7 +12,17 @@ const CURATED_BOOK_IDS = new Set(["curated-chlopi", "curated-propaganda", "curat
 const IMAGE_QUOTA_LIMIT = 3;
 // Модель для перевода, веб-поиска и схем Mermaid (секрет TEXT_MODEL в Supabase перекрывает). Линейка gpt-5:
 // без temperature, лимит ответа — max_completion_tokens (в него входят и токены рассуждений).
-const TEXT_MODEL = Deno.env.get("TEXT_MODEL") ?? "gpt-5.6-nano";
+const TEXT_MODEL = Deno.env.get("TEXT_MODEL") ?? "gpt-5.4-nano";
+
+// Пишет в Logs функции, что именно ответил OpenAI на неудачный запрос: статус, модель, тело ошибки и
+// последние 4 символа ключа (чтобы отличить «неверный ключ» 401 от «нет такой модели/доступа» 404).
+// Саму ошибку клиент по-прежнему получает как есть.
+async function logOpenAIFailure(label: string, model: string, res: Response) {
+  if (res.ok) return;
+  let body = "";
+  try { body = (await res.clone().text()).slice(0, 500); } catch (_) { /* тело недоступно */ }
+  console.error(`[openai] ${label} FAILED: status=${res.status} model=${model} key=…${OPENAI_API_KEY.slice(-4)} body=${body}`);
+}
 // Сколько хайлайтов с AI можно сделать без входа по e-mail (держим в синхроне с текстом в index.html).
 const ANON_FREE_HIGHLIGHTS = 5;
 
@@ -160,7 +170,7 @@ Deno.serve(async (req) => {
         `Hard rules: output ONLY the complete HTML document starting with <!doctype html> — no markdown fences, no commentary. ` +
         `Fully self-contained: inline <style> and <script>; no external files, fonts, CDNs, images, network requests or localStorage. ` +
         `All visible text in ${lang} (quotes stay in the original language). Use only facts from the passage; never invent. At most about 350 lines. The JavaScript must be free of syntax errors.`;
-      const htmlModel = Deno.env.get("INTERACTIVE_MODEL") ?? "gpt-5.6-mini";
+      const htmlModel = Deno.env.get("INTERACTIVE_MODEL") ?? "gpt-5.4-mini";
       const clean = (t: string) => t.trim().replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/, "").trim().slice(0, 80000);
       // Без тихих откатов на более слабую модель: если id модели неверный или недоступен ключу,
       // клиент увидит настоящую ошибку OpenAI, а не молча получит худший результат.
@@ -174,7 +184,7 @@ Deno.serve(async (req) => {
       });
       if (!rr.ok) {
         const t = (await rr.text()).slice(0, 300);
-        console.error("diagram_html failed:", htmlModel, rr.status, t);
+        console.error(`[openai] diagram_html FAILED: status=${rr.status} model=${htmlModel} key=…${OPENAI_API_KEY.slice(-4)} body=${t}`);
         return err(`Interactive diagram failed (model ${htmlModel}): ${t}`, 502, cors);
       }
       const jr = await rr.json();
@@ -200,6 +210,7 @@ Deno.serve(async (req) => {
         messages: [{ role: "system", content: sys }, { role: "user", content: userMsg }],
       }),
     });
+    await logOpenAIFailure("diagram", TEXT_MODEL, r);
     if (!r.ok) return err("Diagram generation failed: " + (await r.text()).slice(0, 300), 502, cors);
     const j = await r.json();
     let code = String(j.choices?.[0]?.message?.content ?? "").trim();
@@ -341,6 +352,7 @@ Deno.serve(async (req) => {
       }),
     });
     // пробрасываем поток SSE как есть — клиент уже умеет его читать
+    await logOpenAIFailure("translate", TEXT_MODEL, r);
     return new Response(r.body, { status: r.status, headers: { ...cors, "Content-Type": "text/event-stream" } });
   }
 
@@ -358,6 +370,7 @@ Deno.serve(async (req) => {
     });
     let r = await call("web_search");
     if (r.status === 400) r = await call("web_search_preview");
+    await logOpenAIFailure("search", TEXT_MODEL, r);
     return new Response(await r.text(), { status: r.status, headers: { ...cors, "Content-Type": "application/json" } });
   }
 
