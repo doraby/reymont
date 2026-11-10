@@ -194,9 +194,10 @@ Deno.serve(async (req) => {
 
       // Провайдер интерактива: секрет INTERACTIVE_PROVIDER ("anthropic" по умолчанию | "openai" — прежний путь
       // через OpenAI остаётся в коде и включается этим секретом); запрос может переопределить полем provider.
+      // Значение секрета читаем терпимо (регистр, пробелы): всё, что не "openai", — это Claude.
       const provider = ["openai", "anthropic"].includes(String(body.provider))
         ? String(body.provider)
-        : (Deno.env.get("INTERACTIVE_PROVIDER") ?? "anthropic");
+        : ((Deno.env.get("INTERACTIVE_PROVIDER") ?? "").trim().toLowerCase() === "openai" ? "openai" : "anthropic");
       if (provider === "anthropic") {
         const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
         if (!ANTHROPIC_API_KEY) return err("ANTHROPIC_API_KEY secret is not set in Supabase", 500, cors);
