@@ -162,7 +162,7 @@
      hiding/showing them never resizes (and re-paginates) the viewer underneath. */
   #topbar {
     position: absolute; top: 0; left: 0; right: 0; height: var(--topbar-h);
-    display: flex; align-items: center; gap: 6px; padding: 0 12px;
+    display: flex; align-items: center; gap: 6px; padding: 0 58px 0 12px;
     /* Раньше --surface (белее body) с border-bottom — на границе получалась
        заметная разноцветная линия. Совпадает с фоном страницы — граница осталась
        только как тонкий разделитель, а не цветовой перепад. */
@@ -173,6 +173,9 @@
      overlaid toolbar on iOS no matter how the offset was computed. This is
      unconditional and can't be miscalculated. */
   #reader.chrome-hidden #topbar { display: none; }
+  /* Справа поверх топбара висят фиксированные кнопки (меню; у Premium ещё диаграмма и интерактив) —
+     отступаем от них, иначе они закрывают закладки и логотип-настройки. */
+  #reader:has(#diagram-btn.pro) #topbar { padding-right: 158px; }
   #tb-title {
     flex: 1; text-align: center; font-size: 15px; font-style: italic; color: var(--muted);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 8px;
@@ -850,7 +853,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.81</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.82</div>
   </div>
 </div>
 
@@ -955,7 +958,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.81'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.82'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
