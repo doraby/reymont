@@ -420,23 +420,5 @@ Deno.serve(async (req) => {
     return new Response(r.body, { status: r.status, headers: { ...cors, "Content-Type": "text/event-stream" } });
   }
 
-  if (body.action === "search") {
-    const title = String(body.title ?? "").slice(0, 200);
-    const author = String(body.author ?? "").slice(0, 200);
-    const prompt = `Search the web for information about: "${text}". It appears in the book "${title}"${author ? " by " + author : ""}.` +
-      (para ? `\nHere is the paragraph where it appears — use it to identify what "${text}" actually refers to, and trust this context over guesses:\n"""${para}"""` : "") +
-      `\nIn ${lang}, briefly explain (3-5 sentences) what or who this is and the most interesting facts about it. If it is a place, person, work of art or historical event — say so. If the web results clearly do not match the meaning in the paragraph, say what it means in the book instead of forcing a match. Answer in ${lang} only.` +
-      (extra ? `\nThe reader also set this standing instruction for this book, apply it every time when relevant: ${extra}` : "");
-    const call = (tool: string) => fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },
-      body: JSON.stringify({ model: TEXT_MODEL, reasoning: { effort: "low" }, tools: [{ type: tool }], input: prompt }),
-    });
-    let r = await call("web_search");
-    if (r.status === 400) r = await call("web_search_preview");
-    await logOpenAIFailure("search", TEXT_MODEL, r);
-    return new Response(await r.text(), { status: r.status, headers: { ...cors, "Content-Type": "application/json" } });
-  }
-
   return err("Unknown action", 400, cors);
 });

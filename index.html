@@ -397,16 +397,6 @@
   .signup-promo .btn.primary:hover { background: #FBF5EC; }
   .signup-promo-note { font-size: 12.5px; color: rgba(255,255,255,.75); margin-top: 16px; }
 
-  .wiki-card {
-    border: 1px solid var(--border); border-radius: 14px; overflow: hidden;
-    background: var(--bg); margin-bottom: 16px;
-  }
-  .wiki-card img { width: 100%; max-height: 220px; object-fit: cover; display: block; }
-  .wiki-card .wc-body { padding: 13px 15px; }
-  .wiki-card .wc-title { font-weight: 600; font-size: 15px; margin-bottom: 5px; }
-  .wiki-card .wc-extract { font-size: 13.5px; line-height: 1.55; color: var(--text); }
-  .wiki-card a.wc-link { display: inline-block; margin-top: 8px; font-size: 12.5px; color: var(--accent); text-decoration: none; font-style: italic; }
-  .wiki-card a.wc-link:hover { text-decoration: underline; }
 
   .illus-card {
     border: 1px solid var(--border); border-radius: 14px; overflow: hidden;
@@ -414,24 +404,11 @@
   }
   .illus-card img { width: 100%; display: block; }
 
-  .img-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-  .img-grid a { display: block; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); background: var(--bg); }
-  .img-grid img { width: 100%; height: 100px; object-fit: cover; display: block; transition: transform .2s; }
-  .img-grid a:hover img { transform: scale(1.05); }
-  .img-credit { font-size: 11.5px; color: var(--muted); font-style: italic; margin-top: 8px; }
 
   #web-out { font-size: 14.5px; line-height: 1.62; }
   #web-out p { margin-bottom: 10px; }
   #web-out a { color: var(--accent); text-decoration: none; border-bottom: 1px solid rgba(193,95,60,.3); }
   #web-out a:hover { border-bottom-color: var(--accent); }
-  .sources { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px; }
-  .source-chip {
-    font-size: 11.5px; color: var(--muted); text-decoration: none;
-    border: 1px solid var(--border); border-radius: 100px; padding: 4px 11px;
-    max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    transition: border-color .15s, color .15s;
-  }
-  .source-chip:hover { border-color: var(--accent-soft); color: var(--accent); }
 
   .spinner {
     display: inline-block; width: 13px; height: 13px; border-radius: 50%;
@@ -836,21 +813,11 @@
         <option value="Japanese">日本語</option>
       </select>
     </div>
-    <div class="field">
-      <label for="in-search">Web search on selection</label>
-      <select id="in-search">
-        <option value="auto">Automatically for short phrases</option>
-        <option value="always">Always automatically</option>
-        <option value="manual">Only on button press</option>
-        <option value="off">Off</option>
-      </select>
-      <div class="note">Search is performed by an OpenAI model with the web search tool, plus a Wikipedia card with a picture.</div>
-    </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.83</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.84</div>
   </div>
 </div>
 
@@ -955,14 +922,13 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.83'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.84'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
 /* ════════════════════════ Icons (Lucide, inlined — no runtime dependency) ════════════════════════ */
 const ICON_PALETTE = '<svg viewBox="0 0 24 24"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor" stroke="none"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor" stroke="none"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor" stroke="none"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor" stroke="none"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>';
 const ICON_SPINNER = '<span class="spinner" style="margin:0"></span>';
-const ICON_SEARCH = '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>';
 const ICON_REFRESH = '<svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>';
 const ICON_TRASH = '<svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>';
 const ICON_SPARKLE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>';
@@ -1282,7 +1248,6 @@ async function fullSync() {
 const LS = {
   key: 'reader.openaiKey',
   lang: 'reader.targetLang',
-  search: 'reader.searchMode',
   fontSize: 'reader.fontSize',
   pos: id => 'reader.pos.' + id,
   last: 'reader.last', // {bookId, cfi, t} — последняя читаемая книга и место
@@ -1294,9 +1259,7 @@ const LS = {
 const settings = {
   get key() { return localStorage.getItem(LS.key) || ''; },
   get lang() { return localStorage.getItem(LS.lang) || 'Russian'; },
-  get search() { return localStorage.getItem(LS.search) || 'auto'; },
 };
-const WIKI_LANGS = { Russian: 'ru', English: 'en', Ukrainian: 'uk', Spanish: 'es', German: 'de', French: 'fr', Italian: 'it', Portuguese: 'pt', Polish: 'pl', Chinese: 'zh', Japanese: 'ja' };
 
 let book = null, rendition = null, currentBookId = null, currentMeta = {}, currentPrompt = '';
 let fontSize = parseInt(localStorage.getItem(LS.fontSize) || '20', 10);
@@ -1306,7 +1269,7 @@ function changeFontSize(delta) {
   if (rendition) rendition.themes.fontSize(fontSize + 'px');
 }
 let selGeneration = 0;          // race guard for async lookups
-let translateAbort = null, searchAbort = null, illustrateAbort = null;
+let translateAbort = null, illustrateAbort = null;
 let hintShown = false;
 
 const $ = id => document.getElementById(id);
@@ -2109,7 +2072,6 @@ function closePanel() {
   document.body.classList.remove('panel-open');
   if ($('panel-body').classList.contains('io')) setPanelBody(''); // остановить скрипты интерактива; незавершённая генерация откроется не сама, а меткой
   if (translateAbort) translateAbort.abort();
-  if (searchAbort) searchAbort.abort();
   setTimeout(() => rendition && rendition.resize(), 320);
 }
 
@@ -2142,7 +2104,6 @@ async function startLookup(text, para, cfiRange) {
   selGeneration++;
   const gen = selGeneration;
   if (translateAbort) translateAbort.abort();
-  if (searchAbort) searchAbort.abort();
 
   // сохраняем выделение как хайлайт
   let note = null;
@@ -2182,23 +2143,10 @@ async function startLookup(text, para, cfiRange) {
     <div class="sel-quote">${esc(text)}</div>
     <div class="p-section-title">Translation · ${esc(settings.lang)}</div>
     <div id="trans-out" class="pending"><span class="spinner"></span>Translating…</div>
-    <div id="ctx-zone"></div>
     ${illusSectionHtml(note)}`, false);
   openPanel();
 
   translate(text, gen, words, para, note);
-
-  const mode = settings.search;
-  const auto = mode === 'always' || (mode === 'auto' && words <= 6);
-  const zone = $('ctx-zone');
-  if (mode === 'off') return;
-  if (auto) {
-    runContext(text, gen, para, note);
-  } else {
-    zone.innerHTML = `<div class="p-section-title">From the web</div>
-      <button class="btn" id="ctx-btn">${ICON_SEARCH}Search the web</button>`;
-    $('ctx-btn').addEventListener('click', () => runContext(text, gen, para, note));
-  }
 }
 
 function saveNotePart(note, field, value) {
@@ -2306,133 +2254,6 @@ async function translate(text, gen, words, para, note) {
     const out = $('trans-out');
     if (out) out.outerHTML = `<div class="p-error">Translation error: ${esc(err.message)}<br>
       <button class="btn" onclick="openSettings()">Check the key</button></div>`;
-  }
-}
-
-/* ════════════════════════ Context: Wikipedia + OpenAI web search ════════════════════════ */
-function runContext(text, gen, para, note) {
-  const zone = $('ctx-zone');
-  if (!zone || gen !== selGeneration) return;
-  zone.innerHTML = `
-    <div class="p-section-title">From the web</div>
-    <div id="wiki-slot"></div>
-    <div id="web-out" class="ctx-pending"><span class="spinner"></span>Searching the web…</div>
-    <div id="img-slot"></div>`;
-  const words = text.split(/\s+/).length;
-  if (words <= 5) wikiLookup(text, gen, note);
-  if (words <= 8) imageSearch(text, gen, note);
-  webSearch(text, gen, para, note);
-}
-
-/* Поиск картинок на Викискладе — бесплатно, без ключа */
-async function imageSearch(term, gen, note) {
-  try {
-    const url = 'https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*'
-      + '&generator=search&gsrnamespace=6&gsrlimit=8'
-      + '&gsrsearch=' + encodeURIComponent('filetype:bitmap ' + term)
-      + '&prop=imageinfo&iiprop=url&iiurlwidth=420';
-    const res = await fetch(url);
-    if (!res.ok) return;
-    const j = await res.json();
-    const pages = Object.values((j.query && j.query.pages) || {})
-      .filter(p => p.imageinfo && p.imageinfo[0] && p.imageinfo[0].thumburl)
-      .sort((a, b) => (a.index || 99) - (b.index || 99))
-      .slice(0, 6);
-    if (gen !== selGeneration || !pages.length) return;
-    const slot = $('img-slot');
-    if (!slot) return;
-    slot.innerHTML = `
-      <div class="p-section-title">Images</div>
-      <div class="img-grid">${pages.map(p => {
-        const ii = p.imageinfo[0];
-        return `<a href="${esc(ii.descriptionurl || ii.url)}" target="_blank" rel="noopener" title="${esc(p.title.replace(/^File:/, ''))}">
-          <img src="${esc(ii.thumburl)}" loading="lazy" alt=""></a>`;
-      }).join('')}</div>
-      <div class="img-credit">Wikimedia Commons · click to open</div>`;
-    saveNotePart(note, 'imgHtml', slot.innerHTML);
-  } catch (e) { console.warn('image search:', e); }
-}
-
-async function wikiLookup(term, gen, note) {
-  const langs = [...new Set([WIKI_LANGS[settings.lang] || 'en', 'en', 'ru'])];
-  for (const lang of langs) {
-    try {
-      const res = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(term)}?redirect=true`);
-      if (!res.ok) continue;
-      const j = await res.json();
-      if (j.type === 'disambiguation' || !j.extract) continue;
-      if (gen !== selGeneration) return;
-      const slot = $('wiki-slot');
-      if (!slot) return;
-      slot.innerHTML = `
-        <div class="wiki-card">
-          ${j.thumbnail ? `<img src="${j.thumbnail.source.replace(/\/\d+px-/, '/640px-')}" alt="" onerror="this.src='${j.thumbnail.source}'">` : ''}
-          <div class="wc-body">
-            <div class="wc-title">${esc(j.title)}</div>
-            <div class="wc-extract">${esc(j.extract)}</div>
-            <a class="wc-link" href="${j.content_urls.desktop.page}" target="_blank" rel="noopener">Wikipedia →</a>
-          </div>
-        </div>`;
-      saveNotePart(note, 'wikiHtml', slot.innerHTML);
-      return;
-    } catch (e) { /* пробуем следующий язык */ }
-  }
-}
-
-async function webSearch(text, gen, para, note) {
-  searchAbort = new AbortController();
-  const langName = settings.lang;
-  const prompt = `Search the web for information about: "${text}". It appears in the book "${currentMeta.title}"${currentMeta.author ? ' by ' + currentMeta.author : ''}.`
-    + (para ? `\nHere is the paragraph where it appears — use it to identify what "${text}" actually refers to, and trust this context over guesses:\n"""${para}"""` : '')
-    + `\nIn ${langName}, briefly explain (3-5 sentences) what or who this is and the most interesting facts about it. If it is a place, person, work of art or historical event — say so. If the web results clearly do not match the meaning in the paragraph, say what it means in the book instead of forcing a match. Answer in ${langName} only.`
-    + (currentPrompt ? `\nThe reader also set this standing instruction for this book, apply it every time when relevant: ${currentPrompt}` : '');
-  const call = toolType => fetch('https://api.openai.com/v1/responses', {
-    method: 'POST',
-    signal: searchAbort.signal,
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + settings.key },
-    body: JSON.stringify({ model: 'gpt-5.4-nano', reasoning: { effort: 'low' }, tools: [{ type: toolType }], input: prompt }),
-  });
-  try {
-    let res;
-    if (settings.key) {
-      res = await call('web_search');
-      if (res.status === 400) res = await call('web_search_preview');
-    } else {
-      res = await aiProxy({ action: 'search', text, para, lang: langName, title: currentMeta.title, author: currentMeta.author, extra: currentPrompt }, searchAbort.signal, 45000);
-      if (res.status === 402 || res.status === 403) { const o = $('web-out'); if (o) o.remove(); return; }
-    }
-    if (!res.ok) {
-      let msg = 'HTTP ' + res.status;
-      try { msg = (await res.json()).error.message; } catch (e) {}
-      throw new Error(msg);
-    }
-    const j = await res.json();
-    if (gen !== selGeneration) return;
-    let textOut = '', anns = [];
-    for (const item of j.output || []) {
-      if (item.type !== 'message') continue;
-      for (const c of item.content || []) {
-        if (c.type === 'output_text') { textOut += c.text; anns = anns.concat(c.annotations || []); }
-      }
-    }
-    const out = $('web-out');
-    if (!out) return;
-    out.className = '';
-    if (!textOut) { out.innerHTML = '<span class="ctx-pending">Nothing found.</span>'; return; }
-    const sources = [];
-    const seen = new Set();
-    for (const a of anns) {
-      if (a.type === 'url_citation' && a.url && !seen.has(a.url)) {
-        seen.add(a.url);
-        sources.push(`<a class="source-chip" href="${esc(a.url)}" target="_blank" rel="noopener">${esc(a.title || new URL(a.url).hostname)}</a>`);
-      }
-    }
-    out.innerHTML = mdLite(textOut) + (sources.length ? `<div class="sources">${sources.join('')}</div>` : '');
-    saveNotePart(note, 'webHtml', out.innerHTML);
-  } catch (err) {
-    if (err.name === 'AbortError' || gen !== selGeneration) return;
-    const out = $('web-out');
-    if (out) { out.className = ''; out.innerHTML = `<div class="p-error">Search failed: ${esc(err.message)}</div>`; }
   }
 }
 
@@ -3080,19 +2901,11 @@ function showNote(id) {
   panelShowingList = false;
   selGeneration++; // отменяем запросы текущего выделения
   if (translateAbort) translateAbort.abort();
-  if (searchAbort) searchAbort.abort();
-  const hasCtx = note.wikiHtml || note.webHtml || note.imgHtml;
   setPanelBody(`
     <div class="sel-quote">${esc(note.text)}</div>
     <div class="note-meta">${note.demo ? 'preview highlight · picked by the Reymont team' : 'saved ' + new Date(note.created).toLocaleDateString() + ' · shown from cache'}</div>
     <div class="p-section-title">Translation · ${esc(note.lang || '')}</div>
     <div id="trans-out">${esc(note.translation || '') || '<i>no translation</i>'}</div>
-    <div id="ctx-zone">
-      ${hasCtx ? '<div class="p-section-title">From the web</div>' : ''}
-      <div id="wiki-slot">${note.wikiHtml || ''}</div>
-      ${note.webHtml ? `<div id="web-out">${note.webHtml}</div>` : ''}
-      <div id="img-slot">${note.imgHtml || ''}</div>
-    </div>
     ${illusSectionHtml(note)}
     ${note.demo ? '' : `<div class="note-actions">
       <button class="btn" onclick="refreshNote('${note.id}')">${ICON_REFRESH}Ask again</button>
@@ -3147,14 +2960,6 @@ function renderNotesList() {
   if (panelShowingList) openHighlightsPanel();
 }
 
-/* Мини-markdown: параграфы, **bold**, [текст](url) */
-function mdLite(src) {
-  let s = esc(src);
-  s = s.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
-  s = s.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
-  return s.split(/\n{2,}/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
-}
-
 /* ════════════════════════ Reading focus (per-book custom prompt) ════════════════════════ */
 function updatePromptBadge() {
   const btn = $('prompt-btn');
@@ -3199,7 +3004,6 @@ async function persistPrompt() {
 function openSettings(openSignIn) {
   $('in-key').value = settings.key;
   $('in-lang').value = settings.lang;
-  $('in-search').value = settings.search;
   $('overlay').classList.add('open');
   if (openSignIn) authClick();
 }
@@ -3207,7 +3011,6 @@ function closeSettings() { $('overlay').classList.remove('open'); }
 function saveSettings() {
   localStorage.setItem(LS.key, $('in-key').value.trim());
   localStorage.setItem(LS.lang, $('in-lang').value);
-  localStorage.setItem(LS.search, $('in-search').value);
   closeSettings();
   toast('Settings saved');
 }
