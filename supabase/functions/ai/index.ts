@@ -395,6 +395,44 @@ Deno.serve(async (req) => {
   const extra = String(body.extra ?? "").slice(0, 500);
   if (!text) return err("No text", 400, cors);
 
+  // Продолжение разговора о хайлайте (чат). Контекст целиком собирается здесь: книга, выделение, окружающий
+  // текст, уже данный перевод, постоянная инструкция читателя и вся (обрезанная по размеру) переписка —
+  // иначе ответы получаются «обезвреженными» и не помнят, о чём шла речь. Анонимным не даём (дорого).
+  if (body.action === "chat") {
+    if (user.is_anonymous) return err("Sign in with email to continue the conversation", 403, cors);
+    const title = String(body.title ?? "").slice(0, 200);
+    const author = String(body.author ?? "").slice(0, 200);
+    const chapter = String(body.chapter ?? "").slice(0, 200);
+    const wide = String(body.wide ?? "").slice(0, 5000);
+    const translation = String(body.translation ?? "").slice(0, 3000);
+    const msgs = (Array.isArray(body.messages) ? body.messages : []).slice(-24)
+      .map((m: { role?: string; content?: unknown }) => ({ role: m?.role === "assistant" ? "assistant" : "user", content: String(m?.content ?? "").slice(0, 4000) }))
+      .filter((m: { content: string }) => m.content.trim());
+    if (!msgs.length || msgs[msgs.length - 1].role !== "user") return err("No question", 400, cors);
+    const sysChat = `You are a learned, candid literary companion discussing a passage from the book "${title}"${author ? " by " + author : ""}${chapter ? " (chapter: " + chapter + ")" : ""} with a reader who is reading it right now. ` +
+      `Reply in ${lang}. You have the full picture below — use it instead of asking the reader to repeat anything. ` +
+      `Be substantive and specific: explain meaning, nuance, tone, dialect and archaisms, etymology, historical, social and cultural background, allusions, character motives and what the author is doing stylistically; ` +
+      `compare alternative translations when relevant; quote short snippets of the original when it helps. ` +
+      `No generic filler, no flattery, no restating the question, no refusing to engage with the text. If you are not sure about a fact, say so plainly rather than inventing it. ` +
+      `Keep answers focused (usually one to three short paragraphs) unless the reader asks for depth. Stay consistent with what was already said earlier in this conversation.` +
+      (extra ? `\nStanding instruction from the reader for this book (apply it when relevant, never quote it): ${extra}` : "") +
+      `\n\n<highlight>${text}</highlight>` +
+      (para ? `\n<paragraph>${para}</paragraph>` : "") +
+      (wide ? `\n<wider_context>${wide}</wider_context>` : "") +
+      (translation ? `\n<translation_already_given>${translation}</translation_already_given>` : "");
+    const chatModel = Deno.env.get("CHAT_MODEL") ?? Deno.env.get("INTERACTIVE_MODEL") ?? TEXT_MODEL;
+    const rc = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },
+      body: JSON.stringify({
+        model: chatModel, stream: true, reasoning_effort: Deno.env.get("CHAT_EFFORT") ?? "low",
+        messages: [{ role: "system", content: sysChat }, ...msgs],
+      }),
+    });
+    await logOpenAIFailure("chat", chatModel, rc);
+    return new Response(rc.body, { status: rc.status, headers: { ...cors, "Content-Type": "text/event-stream" } });
+  }
+
   if (body.action === "translate") {
     console.log("translate: text=", JSON.stringify(text), "para=", JSON.stringify(para.slice(0, 80)), "lang=", lang, "extra=", JSON.stringify(extra));
     const sys = `You are an expert literary translator. Translate the text inside <text> tags into ${lang}. Output ONLY the translation, no comments, tags or quotes.` +

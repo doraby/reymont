@@ -361,6 +361,23 @@
   .is-touch #panel-close-btn { display: none; }
   #panel-body { flex: 1; overflow-y: auto; padding: 0 22px 40px; }
 
+  /* Чат о хайлайте */
+  .chat-sec { margin-top: 22px; }
+  .chat-msg { margin: 10px 0; font-size: 14.5px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+  .chat-msg.user { background: var(--accent-bg); border-radius: 12px; padding: 8px 12px; margin-left: 28px; }
+  .chat-msg.err { color: #B4432A; font-size: 13.5px; }
+  .chat-form {
+    position: sticky; bottom: 0; z-index: 3; display: flex; gap: 8px; align-items: flex-end;
+    background: var(--surface); padding: 10px 0 12px; margin-top: 12px; border-top: 1px solid var(--border);
+  }
+  .chat-form textarea {
+    flex: 1; resize: none; max-height: 140px; min-height: 40px; padding: 9px 12px; border-radius: 12px;
+    border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; font-size: 14.5px; line-height: 1.4;
+  }
+  .chat-form textarea:focus { outline: none; border-color: var(--accent-soft); }
+  .chat-form .btn { flex: none; width: 40px; height: 40px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+  .chat-form .btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .chat-form .btn:disabled { opacity: .5; cursor: default; }
   .sel-quote {
     font-style: italic; font-size: 15.5px; line-height: 1.55; color: var(--text);
     border-left: 3px solid var(--accent-soft); padding: 2px 0 2px 14px; margin-bottom: 22px;
@@ -817,7 +834,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.84</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.85</div>
   </div>
 </div>
 
@@ -922,7 +939,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.84'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.85'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -1090,21 +1107,32 @@ function limitReachedNote(elId) {
     <button class="btn primary" style="margin-top:10px;display:block" onclick="showPaywall()">See Reymont Premium</button></div>`;
 }
 
-function noteToRow(n) {
-  return { id: n.id, book_id: n.bookId, cfi_range: n.cfiRange, text: n.text, para: n.para,
+function noteToRow(n, withChat) {
+  const row = { id: n.id, book_id: n.bookId, cfi_range: n.cfiRange, text: n.text, para: n.para,
     lang: n.lang, translation: n.translation, wiki_html: n.wikiHtml, web_html: n.webHtml,
     img_html: n.imgHtml, illustration: n.illusUrl, created: n.created, updated: n.updated || n.created };
+  if (withChat) row.chat = n.chat || []; // колонка chat (jsonb) — см. supabase/highlights_chat.sql
+  return row;
 }
 function rowToNote(r) {
   return { id: r.id, bookId: r.book_id, cfiRange: r.cfi_range, text: r.text, para: r.para,
     lang: r.lang, translation: r.translation || '', wikiHtml: r.wiki_html || '', webHtml: r.web_html || '',
-    imgHtml: r.img_html || '', illusUrl: r.illustration || '',
+    imgHtml: r.img_html || '', illusUrl: r.illustration || '', chat: Array.isArray(r.chat) ? r.chat : [],
     created: Number(r.created), updated: Number(r.updated || r.created) };
 }
 async function cloudUpsertNote(n) {
   if (!sb || !sbUser) return;
-  try { const { error } = await sb.from('highlights').upsert(noteToRow(n)); if (error) throw error; }
-  catch (e) { console.warn('cloud upsert:', e.message || e); }
+  try {
+    // Если в таблице ещё нет колонки chat, один раз запоминаем это и пишем хайлайт без переписки.
+    const withChat = localStorage.getItem('reader.noChatCol') !== '1';
+    let { error } = await sb.from('highlights').upsert(noteToRow(n, withChat));
+    if (error && withChat && /chat/i.test(error.message || '')) {
+      localStorage.setItem('reader.noChatCol', '1');
+      console.warn('cloud upsert: no "chat" column in highlights — conversation stays on this device (run supabase/highlights_chat.sql)');
+      ({ error } = await sb.from('highlights').upsert(noteToRow(n, false)));
+    }
+    if (error) throw error;
+  } catch (e) { console.warn('cloud upsert:', e.message || e); }
 }
 async function cloudDeleteNote(id) {
   if (!sb || !sbUser) return;
@@ -2143,8 +2171,10 @@ async function startLookup(text, para, cfiRange) {
     <div class="sel-quote">${esc(text)}</div>
     <div class="p-section-title">Translation · ${esc(settings.lang)}</div>
     <div id="trans-out" class="pending"><span class="spinner"></span>Translating…</div>
-    ${illusSectionHtml(note)}`, false);
+    ${illusSectionHtml(note)}
+    ${chatSectionHtml(note || {})}`, false);
   openPanel();
+  setChatContext(note || { chat: [] }, text, para);
 
   translate(text, gen, words, para, note);
 }
@@ -2156,6 +2186,115 @@ function saveNotePart(note, field, value) {
   dbPut('notes', note);
   cloudUpsertNote(note);
   if (field === 'translation') renderNotesList();
+}
+
+/* ════════════════════════ Chat about a highlight ════════════════════════
+   Переписка хранится прямо в хайлайте (note.chat) — в IndexedDB и, если в таблице есть колонка chat,
+   в облаке. Модель каждый раз получает полный контекст (книга, глава, выделение, абзац, окружающий
+   текст, данный перевод, инструкция читателя) плюс последние сообщения — поэтому помнит, о чём речь.
+   Один запрос за раз, без автоповторов. */
+let chatCtx = null, chatBusy = false;
+const MAX_CHAT_STORED = 60, MAX_CHAT_SENT = 24;
+function setChatContext(note, text, para) { chatCtx = { note, text, para }; }
+function chatMsgHtml(m) { return `<div class="chat-msg ${m.role === 'user' ? 'user' : 'assistant'}">${esc(m.content)}</div>`; }
+function chatSectionHtml(note) {
+  return `<div class="chat-sec"><div class="p-section-title">Discuss</div>
+    <div id="chat-thread">${(note.chat || []).map(chatMsgHtml).join('')}</div>
+    <form class="chat-form" onsubmit="return sendChat(event)">
+      <textarea id="chat-in" rows="1" placeholder="Ask more about this passage…" onkeydown="chatKey(event)" oninput="chatGrow(this)"></textarea>
+      <button type="submit" class="btn primary" id="chat-send" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg></button>
+    </form></div>`;
+}
+function chatGrow(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 140) + 'px'; }
+function chatKey(e) { // Enter отправляет (Shift+Enter — новая строка); на тач-устройствах Enter — перенос строки
+  if (e.key === 'Enter' && !e.shiftKey && !document.documentElement.classList.contains('is-touch')) { e.preventDefault(); sendChat(); }
+}
+function chatScroll() { const b = $('panel-body'); if (b) b.scrollTop = b.scrollHeight; }
+function chatSystemPrompt(ctx, translation) { // для своего ключа; на сервере — такая же сборка
+  return `You are a learned, candid literary companion discussing a passage from the book "${currentMeta.title || ''}"${currentMeta.author ? ' by ' + currentMeta.author : ''}${ctx.chapter ? ' (chapter: ' + ctx.chapter + ')' : ''} with a reader who is reading it right now. `
+    + `Reply in ${settings.lang}. You have the full picture below — use it instead of asking the reader to repeat anything. `
+    + 'Be substantive and specific: explain meaning, nuance, tone, dialect and archaisms, etymology, historical, social and cultural background, allusions, character motives and what the author is doing stylistically; compare alternative translations when relevant; quote short snippets of the original when it helps. '
+    + 'No generic filler, no flattery, no restating the question, no refusing to engage with the text. If you are not sure about a fact, say so plainly rather than inventing it. '
+    + 'Keep answers focused (usually one to three short paragraphs) unless the reader asks for depth. Stay consistent with what was already said earlier in this conversation.'
+    + (currentPrompt ? `\nStanding instruction from the reader for this book (apply it when relevant, never quote it): ${currentPrompt}` : '')
+    + `\n\n<highlight>${ctx.text}</highlight>` + (ctx.para ? `\n<paragraph>${ctx.para}</paragraph>` : '')
+    + (ctx.wide ? `\n<wider_context>${ctx.wide}</wider_context>` : '') + (translation ? `\n<translation_already_given>${translation}</translation_already_given>` : '');
+}
+async function sendChat(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  if (chatBusy || !chatCtx) return false;
+  const input = $('chat-in');
+  const q = input && input.value.trim();
+  if (!q) return false;
+  const { note, text, para } = chatCtx;
+  note.chat = note.chat || [];
+  note.chat.push({ role: 'user', content: q, t: Date.now() });
+  input.value = ''; chatGrow(input);
+  if (note.id) saveNotePart(note, 'chat', note.chat.slice(-MAX_CHAT_STORED));
+  const shown = () => chatCtx && chatCtx.note === note && $('chat-thread'); // панель всё ещё показывает этот хайлайт
+  const thread = $('chat-thread');
+  thread.insertAdjacentHTML('beforeend', chatMsgHtml({ role: 'user', content: q }));
+  thread.insertAdjacentHTML('beforeend', '<div class="chat-msg assistant" id="chat-live"><span class="spinner"></span></div>');
+  chatScroll();
+  chatBusy = true; $('chat-send').disabled = true;
+  try {
+    const ctx = note.cfiRange ? getIllustrationContext(note) : { chapter: '', wideContext: para };
+    const translation = note.translation || ($('trans-out') && !$('trans-out').classList.contains('pending') ? $('trans-out').textContent : '');
+    const history = note.chat.slice(-MAX_CHAT_SENT).map(m => ({ role: m.role, content: m.content }));
+    const info = { text, para, chapter: ctx.chapter || '', wide: ctx.wideContext && ctx.wideContext !== para ? ctx.wideContext : '' };
+    console.log(`[chat] → ${history.length} messages, context: highlight ${text.length}, paragraph ${para.length}, wider ${info.wide.length}, translation ${translation.length} chars`);
+    let res;
+    if (settings.key) {
+      res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + settings.key },
+        body: JSON.stringify({ model: 'gpt-5.4-mini', stream: true, reasoning_effort: 'low',
+          messages: [{ role: 'system', content: chatSystemPrompt(info, translation) }, ...history] }),
+      });
+    } else {
+      res = await aiProxy({ action: 'chat', text, para, wide: info.wide, chapter: info.chapter, translation, messages: history,
+        lang: settings.lang, title: currentMeta.title || '', author: currentMeta.author || '', extra: currentPrompt }, null, 90000);
+      if (res.status === 402) { showPaywall(); throw new Error('Free limit reached'); }
+      if (res.status === 403 && sbUser && sbUser.is_anonymous) throw new Error('Sign in with email to continue the conversation.');
+    }
+    if (!res.ok) { let m = 'HTTP ' + res.status; try { m = (await res.json()).error.message; } catch (er) {} console.error('[chat] failed:', m); throw new Error(m); }
+    let acc = '', buf = '';
+    const reader = res.body.getReader(), dec = new TextDecoder();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n'); buf = lines.pop();
+      for (const line of lines) {
+        const t = line.trim();
+        if (!t.startsWith('data:')) continue;
+        const d = t.slice(5).trim();
+        if (d === '[DONE]') continue;
+        try {
+          const delta = JSON.parse(d).choices?.[0]?.delta?.content;
+          if (delta) {
+            acc += delta;
+            if (shown() && $('chat-live')) { $('chat-live').textContent = acc; chatScroll(); }
+          }
+        } catch (er) {}
+      }
+    }
+    acc = acc.trim();
+    if (!acc) throw new Error('The model returned an empty answer — try again.');
+    note.chat.push({ role: 'assistant', content: acc, t: Date.now() });
+    if (note.id) saveNotePart(note, 'chat', note.chat.slice(-MAX_CHAT_STORED));
+    if (shown()) { const live = $('chat-live'); if (live) { live.removeAttribute('id'); live.textContent = acc; } }
+    console.log(`[chat] ← ${acc.length} chars`);
+  } catch (err) {
+    console.warn('[chat] error:', err.message || err);
+    if (note.chat.length && note.chat[note.chat.length - 1].role === 'user') note.chat.pop(); // вопрос без ответа не оставляем в истории — иначе повтор уйдёт с «висящим» вопросом
+    if (note.id) saveNotePart(note, 'chat', note.chat.slice(-MAX_CHAT_STORED));
+    if (shown()) {
+      const live = $('chat-live');
+      if (live) { live.id = ''; live.className = 'chat-msg err'; live.textContent = 'Could not get an answer: ' + (err.message || err); }
+      if ($('chat-in')) $('chat-in').value = q; // вернём вопрос в поле, чтобы не набирать заново
+    }
+  } finally { chatBusy = false; const b = $('chat-send'); if (b) b.disabled = false; }
+  return false;
 }
 
 /* Defensive net: some models echo the reader's own custom instruction back verbatim
@@ -2910,8 +3049,10 @@ function showNote(id) {
     ${note.demo ? '' : `<div class="note-actions">
       <button class="btn" onclick="refreshNote('${note.id}')">${ICON_REFRESH}Ask again</button>
       <button class="btn" onclick="deleteNote('${note.id}')">${ICON_TRASH}Delete highlight</button>
-    </div>`}`, false);
+    </div>`}
+    ${note.demo ? '' : chatSectionHtml(note)}`, false);
   openPanel();
+  if (!note.demo) setChatContext(note, note.text, note.para || '');
 }
 function refreshNote(id) {
   const n = bookNotes.find(x => x.id === id);
