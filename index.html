@@ -190,10 +190,23 @@
     z-index: 220; align-items: center; justify-content: center;
   }
   #chrome-toggle-btn svg { transition: transform .2s; }
-  /* Диаграмма и интерактив страницы (Premium) — обычные иконки в верхнем меню, видны только подписчикам. */
-  #diagram-btn, #interactive-btn { display: none; }
-  #diagram-btn.pro, #interactive-btn.pro { display: inline-flex; }
-  #diagram-btn.busy, #interactive-btn.busy { pointer-events: none; opacity: .55; animation: io-pulse 1.2s ease-in-out infinite; }
+  /* Диаграмма и интерактив страницы (Premium) — простые иконки НАД текстом книги (не в меню и без кружков).
+     Полоса резервирует место над текстом только когда кнопки показаны (подписчикам). Справа оставляем
+     место под кнопку меню (шеврон). */
+  #page-tools {
+    position: absolute; top: 4px; left: 16px; right: 16px; max-width: 760px; margin: 0 auto; height: 32px;
+    display: none; align-items: center; justify-content: flex-end; gap: 4px; padding-right: 46px; z-index: 5;
+  }
+  #reader:has(#diagram-btn.pro) #page-tools { display: flex; }
+  #reader:has(#diagram-btn.pro) #viewer { top: 40px; }
+  .tool-btn {
+    display: none; width: 32px; height: 32px; padding: 0; border: none; background: transparent; cursor: pointer;
+    color: var(--muted); align-items: center; justify-content: center; transition: color .15s;
+  }
+  .tool-btn:hover { color: var(--text); }
+  .tool-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .tool-btn.pro { display: inline-flex; }
+  .tool-btn.busy { pointer-events: none; opacity: .55; animation: io-pulse 1.2s ease-in-out infinite; }
   @keyframes io-pulse { 50% { opacity: .25; } }
   /* Диаграмма на весь экран: поверх всего, с зумом и прокруткой (из iframe книги выйти за колонку нельзя) */
   #diagram-fs { display: none; position: fixed; inset: 0; z-index: 600; background: #FAF9F5; flex-direction: column; }
@@ -596,12 +609,6 @@
       <svg viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
     </button>
     <div id="tb-title"></div>
-    <button class="icon-btn" id="diagram-btn" onclick="makeDiagram()" title="Diagram of this page (Premium)" aria-label="Diagram of this page">
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="5" rx="1"/><rect x="3" y="16" width="6" height="5" rx="1"/><rect x="15" y="16" width="6" height="5" rx="1"/><path d="M12 8v4M6 16v-4h12v4"/></svg>
-  </button>
-    <button class="icon-btn" id="interactive-btn" onclick="makeInteractive()" title="Interactive view of this page (Premium)" aria-label="Interactive view of this page">
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>
-  </button>
     <button class="icon-btn" onclick="openHighlightsPanel()" title="Highlights" aria-label="Highlights">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
     </button>
@@ -617,10 +624,18 @@
   <div id="main">
     <div id="reading-col">
       <div id="viewer-wrap">
+        <div id="page-tools">
+          <button class="tool-btn" id="diagram-btn" onclick="makeDiagram()" title="Diagram of this page (Premium)" aria-label="Diagram of this page">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="5" rx="1"/><rect x="3" y="16" width="6" height="5" rx="1"/><rect x="15" y="16" width="6" height="5" rx="1"/><path d="M12 8v4M6 16v-4h12v4"/></svg>
+          </button>
+          <button class="tool-btn" id="interactive-btn" onclick="makeInteractive()" title="Interactive view of this page (Premium)" aria-label="Interactive view of this page">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>
+          </button>
+        </div>
         <div id="viewer"></div>
         <button id="nav-prev" class="nav-btn" aria-label="Previous page">‹</button>
         <button id="nav-next" class="nav-btn" aria-label="Next page">›</button>
-        <div id="hint">Select any word — get a translation, an explanation and an illustration</div>
+        <div id="hint" class="hide">Select any phrase — get a translation, an explanation and an illustration</div>
       </div>
       <div id="bottombar" onclick="toggleToc(true)" title="Contents" role="button" aria-label="Contents">
         <span id="chapter-label"></span>
@@ -824,7 +839,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.86</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.87</div>
   </div>
 </div>
 
@@ -929,7 +944,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.86'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.87'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -1272,8 +1287,22 @@ const LS = {
   focusOnboarded: 'reader.focusOnboarded',
   interactives: id => 'reader.interactives.' + id, // [{cfi, html}] — интерактивные виды страниц
   diagrams: id => 'reader.diagrams.' + id, // [{cfi, svg}] — нарисованные диаграммы страниц книги
+  firstSeen: 'reader.firstSeen', // когда читатель впервые открыл приложение (мс); 0 — пришёл до появления этой метки
   hintDone: 'reader.hintDone', // читатель уже сделал первую подсветку — подсказка больше не нужна
 };
+/* Подсказка про выделение нужна только новому читателю и только первые сутки. Тем, кто пользовался приложением
+   раньше (есть сохранённое место чтения или подсказка уже гасла), метку ставим 0 — для них она не покажется. */
+const firstSeen = (() => {
+  try {
+    let v = localStorage.getItem(LS.firstSeen);
+    if (v === null) {
+      v = (localStorage.getItem(LS.last) || localStorage.getItem(LS.hintDone)) ? '0' : String(Date.now());
+      localStorage.setItem(LS.firstSeen, v);
+    }
+    return Number(v) || 0;
+  } catch (e) { return 0; }
+})();
+const HINT_DAYS_MS = 24 * 60 * 60 * 1000;
 const settings = {
   get key() { return localStorage.getItem(LS.key) || ''; },
   get lang() { return localStorage.getItem(LS.lang) || 'Russian'; },
@@ -1796,7 +1825,7 @@ async function openBook(id) {
 
   setChromeHidden(true); // меню свёрнуто сразу на любом устройстве, показываем только кнопкой
 
-  if (!hintShown && !localStorage.getItem(LS.hintDone)) {
+  if (!hintShown && !localStorage.getItem(LS.hintDone) && firstSeen && Date.now() - firstSeen < HINT_DAYS_MS) {
     hintShown = true;
     $('hint').classList.remove('hide');
     setTimeout(() => $('hint').classList.add('hide'), 10000);
@@ -2552,8 +2581,10 @@ async function refreshPro() {
     if (!res.ok) throw new Error('HTTP ' + res.status);
     isPro = !!(await res.json()).pro;
   } catch (e) { console.warn('refreshPro:', e.message || e); isPro = false; }
+  const wasPro = btn.classList.contains('pro');
   btn.classList.toggle('pro', isPro);
   $('interactive-btn').classList.toggle('pro', isPro);
+  if (wasPro !== isPro) setTimeout(() => rendition && rendition.resize(), 60); // колонка текста сместилась под полосу кнопок
   if (isPro) showDbgFab(); // подписчикам (новые функции) кнопка отладки видна сразу
 }
 function loadMermaid() {
