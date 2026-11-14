@@ -223,7 +223,10 @@
   /* Панель с интерактивом шире обычной (на мобильном и так во всю ширину) */
   body.panel-wide { --panel-w: min(780px, 62vw); }
   #panel-body.io { padding: 0; display: flex; flex-direction: column; overflow: hidden; }
-  #io-dislike-btn, #io-delete-btn { display: none; }
+  #io-dislike-btn, #io-delete-btn, #note-delete-btn { display: none; }
+  #panel.note-view #note-delete-btn { display: inline-flex; }
+  #illus-zone { margin-top: 12px; }
+  #prompt-btn { margin-right: auto; } /* Reading focus — слева в шапке панели */
   #panel.io-view #io-dislike-btn, #panel.io-view #io-delete-btn { display: inline-flex; }
   .io-tools { flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 10px;
     padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--surface); }
@@ -371,7 +374,7 @@
   .chat-msg.err { color: #B4432A; font-size: 13.5px; }
   .chat-form {
     position: sticky; bottom: 0; z-index: 3; display: flex; gap: 8px; align-items: flex-end;
-    background: var(--surface); padding: 10px 0 12px; margin-top: 12px; border-top: 1px solid var(--border);
+    background: var(--surface); padding: 10px 0 12px; margin-top: 12px;
   }
   .chat-form textarea {
     flex: 1; resize: none; max-height: 140px; min-height: 40px; padding: 9px 12px; border-radius: 12px;
@@ -658,14 +661,17 @@
 <!-- ════════ Right panel ════════ -->
 <div id="panel">
   <div class="panel-head">
+    <button id="prompt-btn" class="icon-btn" onclick="openPromptModal()" title="Reading focus" aria-label="Reading focus">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+    </button>
+    <button id="note-delete-btn" class="icon-btn" onclick="deleteCurrentNote()" title="Delete highlight" aria-label="Delete highlight">
+      <svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+    </button>
     <button id="io-delete-btn" class="icon-btn" onclick="deleteInteractive()" title="Delete this interactive view" aria-label="Delete this interactive view">
       <svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
     </button>
     <button id="io-dislike-btn" class="icon-btn" onclick="openFeedback()" title="Don’t like it — tell the AI what to improve" aria-label="Don’t like it">
       <svg viewBox="0 0 24 24"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.7a2 2 0 0 0-2 1.7l-1.4 9a2 2 0 0 0 2 2.3z"/><path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg>
-    </button>
-    <button id="prompt-btn" class="icon-btn" onclick="openPromptModal()" title="Reading focus" aria-label="Reading focus">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
     </button>
     <button id="panel-close-btn" class="icon-btn" onclick="closePanel()" aria-label="Close">✕</button>
   </div>
@@ -839,7 +845,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.88</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.89</div>
   </div>
 </div>
 
@@ -944,7 +950,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.88'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.89'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -2107,6 +2113,7 @@ function setPanelBody(html, isPromo) {
   body.classList.toggle('promo', !!isPromo);
   body.classList.remove('io');
   $('panel').classList.remove('io-view');
+  $('panel').classList.remove('note-view');
   panelOwner = null; // любое другое содержимое отменяет «владение» панелью интерактивом
   body.innerHTML = html;
   body.scrollTop = 0;
@@ -2214,10 +2221,17 @@ function saveNotePart(note, field, value) {
    Один запрос за раз, без автоповторов. */
 let chatCtx = null, chatBusy = false;
 const MAX_CHAT_STORED = 60, MAX_CHAT_SENT = 24;
-function setChatContext(note, text, para) { chatCtx = { note, text, para }; }
+function setChatContext(note, text, para) {
+  chatCtx = { note, text, para };
+  $('panel').classList.toggle('note-view', !!(note && note.id && !note.demo)); // показывает «удалить» в шапке панели
+}
+function deleteCurrentNote() {
+  const n = chatCtx && chatCtx.note;
+  if (n && n.id && !n.demo && confirm('Delete this highlight?')) deleteNote(n.id);
+}
 function chatMsgHtml(m) { return `<div class="chat-msg ${m.role === 'user' ? 'user' : 'assistant'}">${esc(m.content)}</div>`; }
 function chatSectionHtml(note) {
-  return `<div class="chat-sec"><div class="p-section-title">Discuss</div>
+  return `<div class="chat-sec">
     <div id="chat-thread">${(note.chat || []).map(chatMsgHtml).join('')}</div>
     <form class="chat-form" onsubmit="return sendChat(event)">
       <textarea id="chat-in" rows="1" placeholder="Ask more about this passage…" onkeydown="chatKey(event)" oninput="chatGrow(this)"></textarea>
@@ -2430,7 +2444,7 @@ function illusZoneInner(note) {
 function illusSectionHtml(note) {
   if (!note) return '';
   if (note.demo && !note.illusUrl) return '';
-  return `<div class="p-section-title">Illustration</div><div id="illus-zone">${illusZoneInner(note)}</div>`;
+  return `<div id="illus-zone">${illusZoneInner(note)}</div>`;
 }
 async function requestIllustration(noteId) {
   console.log('requestIllustration: start, noteId =', noteId);
@@ -3067,9 +3081,8 @@ function showNote(id) {
     <div class="p-section-title">Translation · ${esc(note.lang || '')}</div>
     <div id="trans-out">${esc(note.translation || '') || '<i>no translation</i>'}</div>
     ${illusSectionHtml(note)}
-    ${note.demo ? '' : `<div class="note-actions">
+    ${note.demo || note.translation ? '' : `<div class="note-actions">
       <button class="btn" onclick="refreshNote('${note.id}')">${ICON_REFRESH}Ask again</button>
-      <button class="btn" onclick="deleteNote('${note.id}')">${ICON_TRASH}Delete highlight</button>
     </div>`}
     ${note.demo ? '' : chatSectionHtml(note)}`, false);
   openPanel();
