@@ -846,7 +846,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.92</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.93</div>
   </div>
 </div>
 
@@ -951,7 +951,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.92'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.93'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -1801,9 +1801,11 @@ async function openBook(id) {
     // onload у <link> — без таймаута и без onerror. Если сеть зависает, это вешает
     // рендер главы на много секунд (видели зависание rendition.display() на телефоне).
     // Georgia — приемлемый фолбэк из той же font-family цепочки, без риска сети.
+    repairNotesInSection(contents); // до вставок: хайлайты чиним по чистому тексту главы
     injectIllustrations(contents);
     injectDiagrams(contents);
     injectInteractives(contents);
+    refreshHighlights(contents);    // вставки появились — подсветки пересчитываем под них
     bindTouchSelectionFallback(contents);
   });
 
@@ -2160,6 +2162,7 @@ async function startLookup(text, para, cfiRange) {
   localStorage.setItem(LS.hintDone, '1');
   $('hint').classList.add('hide');
   para = para || '';
+  cfiRange = normalizeCfiRange(cfiRange, text);
   selGeneration++;
   const gen = selGeneration;
   if (translateAbort) translateAbort.abort();
@@ -2566,20 +2569,127 @@ async function loadDemoHighlightsInBackground(bookId) {
   if (added) renderNotesList();
 }
 function addHighlight(note) {
-  if (!rendition) return;
+  if (!rendition || !rendition.getContents) return;
   console.log('addHighlight: attaching', note.id, 'at', note.cfiRange);
-  try {
-    const fill = note.demo ? '#D4A017' : '#D97757';
-    rendition.annotations.add('highlight', note.cfiRange, {}, () => { console.log('addHighlight: epub.js own mark-click fired for', note.id); showNote(note.id); }, 'hl',
-      { 'fill': fill, 'fill-opacity': '0.22', 'mix-blend-mode': 'multiply' });
-    console.log('addHighlight: annotations.add returned ok for', note.id);
-  } catch (e) { console.warn('highlight failed to attach:', e); }
+  // Только если глава сейчас показана; остальные подсветятся при её отрисовке (хук контента → refreshHighlights).
+  for (const c of rendition.getContents()) if (sectionHasNote(c, note)) { if (note._live) { try { rendition.annotations.remove(note._live, 'highlight'); } catch (e) {} } addHighlightIn(c, note); }
 }
 function removeHighlight(note) {
   if (!rendition) return;
-  try { rendition.annotations.remove(note.cfiRange, 'highlight'); } catch (e) {}
+  try { rendition.annotations.remove(note._live || note.cfiRange, 'highlight'); } catch (e) {}
+  note._live = null;
 }
 
+
+/* ── Сбивающиеся хайлайты и привязки ──
+   Наши вставки (диаграмма, метка/превью интерактива, иллюстрация) — обычные элементы-соседи в тексте главы,
+   а CFI считает индексы соседей. Параметр ignoreClass у epub.js работает только при СОЗДАНИИ CFI, а при разборе
+   его игнорирует — поэтому с вставками на странице хайлайт «уезжал» на несколько абзацев. Решение: храним
+   «чистые» CFI (как будто вставок нет) и переводим туда-обратно, на время временно убирая вставки из DOM:
+     • cleanCfiFromRange — диапазон → чистый CFI;  cleanRangeFromCfi — чистый CFI → диапазон;
+     • liveCfiFromClean — чистый CFI → CFI для ТЕКУЩЕГО DOM со вставками (его и получает epub.js для подсветки).
+   Старые хайлайты, созданные при вставках, чинятся по сохранённому тексту/абзацу (repairNotesInSection). */
+const normWs = t => (t || '').replace(/\s+/g, ' ').trim();
+function withoutInsertions(doc, fn) {
+  const nodes = [...doc.querySelectorAll('.' + INS_CLASS)];
+  if (!nodes.length) return fn();
+  const marks = nodes.map(n => ({ n, parent: n.parentNode, next: n.nextSibling }));
+  nodes.forEach(n => n.remove());
+  try { return fn(); }
+  finally { for (let i = marks.length - 1; i >= 0; i--) marks[i].parent.insertBefore(marks[i].n, marks[i].next); }
+}
+function cleanCfiFromRange(contents, range) { return withoutInsertions(contents.document, () => contents.cfiFromRange(range)); }
+function cleanRangeFromCfi(contents, cfi) { return withoutInsertions(contents.document, () => new ePub.CFI(cfi).toRange(contents.document)); }
+function liveCfiFromClean(contents, cfi) {
+  const r = cleanRangeFromCfi(contents, cfi);
+  return r ? contents.cfiFromRange(r) : cfi;
+}
+function rangeTextMatches(range, text) {
+  const a = normWs(range.toString()), b = normWs(text);
+  return !!b && (a === b || a.startsWith(b.slice(0, 40)) || (b.startsWith(a.slice(0, 40)) && a.length > 3));
+}
+/* Выделение создаёт epub.js (индексы с учётом вставок) — сразу переводим в чистый CFI. */
+function normalizeCfiRange(cfiRange, text) {
+  if (!rendition || !cfiRange) return cfiRange;
+  try {
+    for (const c of rendition.getContents()) {
+      if (c.cfiBase && !cfiRange.includes(c.cfiBase + '!')) continue;
+      const exact = new ePub.CFI(cfiRange).toRange(c.document); // как создал epub.js: вставки учтены
+      if (exact && rangeTextMatches(exact, text)) return cleanCfiFromRange(c, exact);
+    }
+  } catch (e) { console.warn('normalizeCfiRange:', e); }
+  return cfiRange;
+}
+/* Диапазон по тексту внутри блока: склеиваем текстовые узлы и ищем регулярным выражением (пробелы — любые). */
+function findTextRange(root, text) {
+  const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: n =>
+    (n.parentElement && n.parentElement.closest('.' + INS_CLASS)) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
+  const nodes = []; let full = '';
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) { nodes.push({ n, start: full.length }); full += n.nodeValue; }
+  const t = normWs(text); if (!t) return null;
+  const m = new RegExp(t.split(' ').map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s+')).exec(full);
+  if (!m) return null;
+  const locate = (pos, end) => { for (let i = nodes.length - 1; i >= 0; i--) if (pos > nodes[i].start || (!end && pos === nodes[i].start)) return { node: nodes[i].n, off: pos - nodes[i].start }; return null; };
+  const s0 = locate(m.index, false), e0 = locate(m.index + m[0].length, true);
+  if (!s0 || !e0) return null;
+  const r = root.ownerDocument.createRange(); r.setStart(s0.node, s0.off); r.setEnd(e0.node, e0.off);
+  return r;
+}
+function relocateNoteRange(contents, note) {
+  const doc = contents.document;
+  try { // 1) как создал epub.js (вставки учтены) — если они сейчас на месте
+    const exact = new ePub.CFI(note.cfiRange).toRange(doc);
+    if (exact && rangeTextMatches(exact, note.text)) return exact;
+  } catch (e) {}
+  // 2) найти абзац по сохранённому контексту, а в нём — сам текст
+  const para = normWs(note.para).slice(0, 60);
+  if (para.length >= 12) {
+    for (const b of doc.querySelectorAll(BLOCK_SEL)) {
+      if (b.closest('.' + INS_CLASS) || !normWs(b.textContent).includes(para)) continue;
+      if ([...b.querySelectorAll(BLOCK_SEL)].some(x => !x.closest('.' + INS_CLASS) && normWs(x.textContent).includes(para))) continue;
+      const r = findTextRange(b, note.text); if (r) return r;
+    }
+  }
+  return findTextRange(doc.body, note.text); // 3) последняя надежда — первое вхождение в главе
+}
+function sectionHasNote(contents, note) { return !!note.cfiRange && !(contents.cfiBase && !note.cfiRange.includes(contents.cfiBase + '!')); }
+function repairNotesInSection(contents) {
+  if (!currentBookId || !bookNotes.length) return;
+  for (const note of bookNotes) {
+    if (note.demo || !note.text || !sectionHasNote(contents, note)) continue;
+    try {
+      const cur = cleanRangeFromCfi(contents, note.cfiRange);
+      if (cur && rangeTextMatches(cur, note.text)) continue; // всё на месте
+      const fixed = relocateNoteRange(contents, note);
+      if (!fixed) { console.warn('repair: could not relocate highlight', note.id); continue; }
+      const newCfi = cleanCfiFromRange(contents, fixed);
+      if (!newCfi || newCfi === note.cfiRange) continue;
+      console.log('repair: highlight', note.id, 'moved back to its text:', JSON.stringify(note.text.slice(0, 30)));
+      removeHighlight(note);
+      saveNotePart(note, 'cfiRange', newCfi);
+    } catch (e) { console.warn('repair failed for', note.id, e && e.message || e); }
+  }
+}
+/* Подсветки: epub.js получает CFI для текущего DOM; после любых вставок/удалений вставок — перерисовываем. */
+function addHighlightIn(contents, note) {
+  let live = note.cfiRange;
+  try { live = liveCfiFromClean(contents, note.cfiRange) || live; } catch (e) { console.warn('live cfi failed:', e && e.message || e); }
+  note._live = live;
+  const fill = note.demo ? '#D4A017' : '#D97757';
+  try {
+    rendition.annotations.add('highlight', live, {}, () => { console.log('addHighlight: epub.js own mark-click fired for', note.id); showNote(note.id); }, 'hl',
+      { 'fill': fill, 'fill-opacity': '0.22', 'mix-blend-mode': 'multiply' });
+  } catch (e) { console.warn('highlight failed to attach:', e); }
+}
+function refreshHighlights(contents) {
+  if (!rendition) return;
+  for (const note of bookNotes) {
+    if (!sectionHasNote(contents, note)) continue;
+    if (note._live) { try { rendition.annotations.remove(note._live, 'highlight'); } catch (e) {} }
+    addHighlightIn(contents, note);
+  }
+}
+function refreshAllHighlights() { try { rendition.getContents().forEach(refreshHighlights); } catch (e) { console.warn('refreshAllHighlights:', e); } }
 
 /* ═══════════ Диаграмма страницы (Premium) ═══════════
    Кнопка рядом с кнопкой меню: текст текущей страницы → Mermaid-код от ИИ → SVG под текстом.
@@ -2658,7 +2768,7 @@ function realStartRange(contents, loc) {
   return r;
 }
 function realPageStartCfi(contents, loc) {
-  try { const r = realStartRange(contents, loc); if (r) return contents.cfiFromRange(r, INS_CLASS); } catch (e) { console.warn('realPageStartCfi:', e); }
+  try { const r = realStartRange(contents, loc); if (r) return cleanCfiFromRange(contents, r); } catch (e) { console.warn('realPageStartCfi:', e); }
   return loc.start.cfi;
 }
 function currentPageText() {
@@ -2703,7 +2813,7 @@ function anchorForPageStart(contents, cfi, text) {
   if (contents.cfiBase && !cfi.includes(contents.cfiBase + '!')) return null; // CFI из другой главы
   const doc = contents.document;
   try {
-    const range = new ePub.CFI(cfi).toRange(doc, INS_CLASS);
+    const range = cleanRangeFromCfi(contents, cfi);
     const n = range && range.startContainer;
     const el = n && (n.nodeType === 1 ? n : n.parentElement);
     const block = el && !el.closest('.' + INS_CLASS) && el.closest(BLOCK_SEL);
@@ -2892,7 +3002,7 @@ async function syncInteractives(remoteAll) { // remoteAll — все строк�
     }
     console.log('[interactive] synced', remote.length, 'from the cloud' + (changed ? ', local list updated' : ''));
     if (changed && currentBookId && rendition) {
-      try { rendition.getContents().forEach(injectInteractives); } catch (e) {}
+      try { rendition.getContents().forEach(injectInteractives); refreshAllHighlights(); } catch (e) {}
       renderNotesList();
     }
   } catch (e) { console.warn('syncInteractives:', e.message || e); }
@@ -2971,7 +3081,7 @@ window.addEventListener('message', e => {
   rec.snap = snap;
   saveInteractive(currentBookId, rec);
   const contents = rendition && rendition.getContents()[0];
-  if (contents) placeInteractiveLabel(contents, rec); // кнопку в тексте заменяет превью
+  if (contents) { placeInteractiveLabel(contents, rec); refreshAllHighlights(); } // кнопку в тексте заменяет превью
 });
 function showInteractiveInPanel(rec, notice) {
   currentInteractive = rec;
@@ -2994,6 +3104,7 @@ function deleteInteractive() {
   currentInteractive = null;
   try { // убираем превью/метку со страницы
     rendition.getContents().forEach(c => c.document.querySelectorAll(`[data-reymont-interactive="${CSS.escape(rec.cfi)}"]`).forEach(n => n.remove()));
+    refreshAllHighlights();
   } catch (e) { console.warn('deleteInteractive (page):', e.message); }
   closePanel();
   toast('Interactive view deleted');
@@ -3028,7 +3139,7 @@ async function gotoInteractive(rec) {
     const vr = doc.createRange(); vr.setStart(a.startContainer, a.startOffset); vr.setEnd(z.endContainer, z.endOffset);
     onPage = vr.intersectsNode(el) || vr.intersectsNode(target);
   } catch (e) { /* считаем, что не на странице */ }
-  if (!onPage) { try { await rendition.display(c.cfiFromNode(target, INS_CLASS)); } catch (e) { console.warn('[interactive] goto block failed:', e && e.message || e); } }
+  if (!onPage) { try { await rendition.display(c.cfiFromNode(target)); } catch (e) { console.warn('[interactive] goto block failed:', e && e.message || e); } }
 }
 function interactiveElapsed() { return Math.round((Date.now() - interactiveStartedAt) / 1000); }
 function tickInteractive() {
@@ -3093,7 +3204,7 @@ async function buildInteractive(action, cfi, text, prevRec, feedback) {
     cloudUpsertInteractive(bookId, rec);
     if (currentBookId === bookId) {
       const contents = rendition.getContents()[0];
-      if (contents) placeInteractiveLabel(contents, rec);
+      if (contents) { placeInteractiveLabel(contents, rec); refreshAllHighlights(); }
     }
     if (panelOwner === token) showInteractiveInPanel(rec, same ? 'The AI returned the same code — try describing the problem more specifically.' : '');
     else toast('Interactive view is ready — open it from the page');
@@ -3133,7 +3244,7 @@ async function makeDiagram() {
     catch (e) { console.warn('diagram not saved (storage full):', e.message); }
     const contents = rendition.getContents()[0];
     if (!contents || !placeDiagram(contents, d)) toast('Could not place the diagram on this page');
-    else toast('Diagram added at the top of the page ✓');
+    else { refreshAllHighlights(); toast('Diagram added at the top of the page ✓'); }
   } catch (e) {
     console.warn('makeDiagram:', e);
     toast('Could not draw the diagram: ' + (e.message || e).toString().slice(0, 120));
@@ -3152,7 +3263,7 @@ function getIllustrationContext(note) {
     for (const contents of rendition.getContents()) {
       const doc = contents.document;
       let range;
-      try { range = new ePub.CFI(note.cfiRange).toRange(doc); } catch (e) { continue; }
+      try { range = cleanRangeFromCfi(contents, note.cfiRange); } catch (e) { continue; }
       if (!range) continue;
       const endNode = range.endContainer;
       const anchor = endNode.nodeType === 1 ? endNode : endNode.parentElement;
@@ -3193,13 +3304,14 @@ function injectIllustrations(contents) {
       continue;
     }
     try {
-      const range = new ePub.CFI(note.cfiRange).toRange(doc);
+      const range = cleanRangeFromCfi(contents, note.cfiRange);
       if (!range) continue;
       const endNode = range.endContainer;
       const anchor = endNode.nodeType === 1 ? endNode : endNode.parentElement;
       const block = anchor && anchor.closest('p, li, blockquote, dd, dt, td, h1, h2, h3, h4, div');
       if (!block) continue;
       const wrap = doc.createElement('div');
+      wrap.className = INS_CLASS; // не считается в CFI, как и остальные вставки
       wrap.setAttribute('data-reymont-illus', note.id);
       // Умеренный размер, как книжная иллюстрация-плашка, а не полностраничная вставка —
       // картинки у нас портретные (2:3) и на всю ширину колонки просто не влезли бы в одну
@@ -3218,7 +3330,7 @@ function injectIllustrations(contents) {
 /* Перерисовать вставки на всех сейчас отображённых страницах (обычно одна) — без перелистывания */
 function refreshInlineIllustrations() {
   if (!rendition || !rendition.getContents) return;
-  try { rendition.getContents().forEach(injectIllustrations); } catch (e) { console.warn('refreshInlineIllustrations:', e); }
+  try { rendition.getContents().forEach(injectIllustrations); refreshAllHighlights(); } catch (e) { console.warn('refreshInlineIllustrations:', e); }
 }
 
 function showNote(id) {
@@ -3254,7 +3366,7 @@ async function deleteNote(id) {
   renderNotesList();
   closePanel();
   if (rendition && rendition.getContents) {
-    try { rendition.getContents().forEach(c => { const el = c.document.querySelector(`[data-reymont-illus="${id}"]`); if (el) el.remove(); }); } catch (e) {}
+    try { rendition.getContents().forEach(c => { const el = c.document.querySelector(`[data-reymont-illus="${id}"]`); if (el) el.remove(); }); refreshAllHighlights(); } catch (e) {}
   }
 }
 
