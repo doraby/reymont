@@ -846,7 +846,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.91</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.92</div>
   </div>
 </div>
 
@@ -951,7 +951,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.91'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.92'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -2636,48 +2636,93 @@ function blockAtCfi(contents, cfi) {
   } catch (e) { return null; }
 }
 /* Текст видимой страницы (между началом и концом текущей локации) — без наших вставок. */
+const INS_CLASS = 'reymont-ins';
+/* Начало страницы — по ПЕРВОМУ НАСТОЯЩЕМУ тексту. Если наша вставка (диаграмма, метка интерактива) уже стоит
+   в начале страницы, epub.js считает началом текст внутри неё — и привязка уезжала в саму вставку: после
+   перезагрузки её там нет, интерактив не находился и не ставился на страницу. Поэтому шагаем мимо вставок. */
+function realStartRange(contents, loc) {
+  const doc = contents.document;
+  const a = new ePub.CFI(loc.start.cfi).toRange(doc);
+  if (!a) return null;
+  const el = a.startContainer.nodeType === 1 ? a.startContainer : a.startContainer.parentElement;
+  const ins = el && el.closest('.' + INS_CLASS);
+  if (!ins) return a;
+  let last = ins;
+  while (last.nextElementSibling && last.nextElementSibling.classList.contains(INS_CLASS)) last = last.nextElementSibling;
+  const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, { acceptNode: n =>
+    (n.textContent.trim() && !(n.parentElement && n.parentElement.closest('.' + INS_CLASS))) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT });
+  walker.currentNode = last;
+  const node = walker.nextNode();
+  if (!node) return a;
+  const r = doc.createRange(); r.setStart(node, 0); r.collapse(true);
+  return r;
+}
+function realPageStartCfi(contents, loc) {
+  try { const r = realStartRange(contents, loc); if (r) return contents.cfiFromRange(r, INS_CLASS); } catch (e) { console.warn('realPageStartCfi:', e); }
+  return loc.start.cfi;
+}
 function currentPageText() {
   const loc = rendition.currentLocation();
   const contents = rendition.getContents()[0];
   if (!loc || !loc.start || !loc.end || !contents) return '';
   const doc = contents.document;
   try {
-    const a = new ePub.CFI(loc.start.cfi).toRange(doc), b = new ePub.CFI(loc.end.cfi).toRange(doc);
+    const a = realStartRange(contents, loc), b = new ePub.CFI(loc.end.cfi).toRange(doc);
     const r = doc.createRange();
     r.setStart(a.startContainer, a.startOffset);
     r.setEnd(b.endContainer, b.endOffset);
     const frag = r.cloneContents();
-    frag.querySelectorAll('.reymont-ins').forEach(n => n.remove());
-    return (frag.textContent || '').replace(/\s+/g, ' ').trim();
+    frag.querySelectorAll('.' + INS_CLASS).forEach(n => n.remove());
+    const t = (frag.textContent || '').replace(/\s+/g, ' ').trim();
+    if (t.length >= 80) return t;
+    // Высокая вставка (например, большая диаграмма) вытолкнула текст со страницы — берём текст сразу после неё.
+    const r2 = doc.createRange(); r2.setStart(a.startContainer, a.startOffset); r2.setEnd(doc.body, doc.body.childNodes.length);
+    const f2 = r2.cloneContents(); f2.querySelectorAll('.' + INS_CLASS).forEach(n => n.remove());
+    return (f2.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 1800);
   } catch (e) { console.warn('currentPageText:', e); return ''; }
+}
+/* Запасной способ найти место, если CFI не разрешился (старые записи с привязкой внутрь вставки): блок, в котором
+   начинается текст страницы (rec.text хранит начало страницы). */
+function anchorByText(doc, text) {
+  const norm = t => (t || '').replace(/\s+/g, ' ').trim();
+  const snip = norm(text).slice(0, 40);
+  if (snip.length < 12) return null;
+  const real = el => !el.closest('.' + INS_CLASS);
+  for (const b of doc.querySelectorAll(BLOCK_SEL)) {
+    if (!real(b) || !norm(b.textContent).includes(snip)) continue;
+    if ([...b.querySelectorAll(BLOCK_SEL)].some(x => real(x) && norm(x.textContent).includes(snip))) continue; // берём самый внутренний
+    return norm(b.textContent).startsWith(snip) ? b : (b.nextElementSibling || b); // страница начиналась с середины абзаца — ставим перед следующим
+  }
+  return null;
 }
 /* Куда вставлять: ПЕРЕД первым блоком страницы, чтобы вставка появилась на этой же странице, а не
    на следующей. Если страница начинается с середины абзаца — перед следующим блоком (иначе вставка
-   оказалась бы на предыдущей странице). Класс .reymont-ins — это ignoreClass рендера: в CFI такие
-   узлы не считаются, поэтому позиции и хайлайты не едут. */
-function anchorForPageStart(contents, cfi) {
+   оказалась бы на предыдущей странице). Класс .reymont-ins — это ignoreClass: в CFI такие узлы не
+   считаются, поэтому позиции и хайлайты не едут. */
+function anchorForPageStart(contents, cfi, text) {
   if (contents.cfiBase && !cfi.includes(contents.cfiBase + '!')) return null; // CFI из другой главы
+  const doc = contents.document;
   try {
-    const doc = contents.document;
-    const range = new ePub.CFI(cfi).toRange(doc);
-    if (!range) return null;
-    const n = range.startContainer;
-    const el = n.nodeType === 1 ? n : n.parentElement;
-    const block = el && el.closest(BLOCK_SEL);
-    if (!block) return null;
-    const pre = doc.createRange();
-    pre.setStart(block, 0);
-    pre.setEnd(range.startContainer, range.startOffset);
-    if (pre.toString().trim()) return block.nextElementSibling || block;
-    return block;
-  } catch (e) { return null; }
+    const range = new ePub.CFI(cfi).toRange(doc, INS_CLASS);
+    const n = range && range.startContainer;
+    const el = n && (n.nodeType === 1 ? n : n.parentElement);
+    const block = el && !el.closest('.' + INS_CLASS) && el.closest(BLOCK_SEL);
+    if (block) {
+      const pre = doc.createRange();
+      pre.setStart(block, 0);
+      pre.setEnd(range.startContainer, range.startOffset);
+      if (pre.toString().trim()) return block.nextElementSibling || block;
+      return block;
+    }
+  } catch (e) { /* ниже — запасной путь */ }
+  return text ? anchorByText(doc, text) : null;
 }
 function placeDiagram(contents, d) {
   const doc = contents.document;
   const old = doc.querySelector(`[data-reymont-diagram="${CSS.escape(d.cfi)}"]`);
   if (old) old.remove();
   const start = d.at === 'start'; // старые записи (v3.70–71) хранят конец страницы и ставятся после блока
-  const block = start ? anchorForPageStart(contents, d.cfi) : blockAtCfi(contents, d.cfi);
+  const block = start ? anchorForPageStart(contents, d.cfi, d.text) : blockAtCfi(contents, d.cfi);
   if (!block) return false;
   const wrap = doc.createElement('div');
   wrap.className = 'reymont-ins';
@@ -2836,8 +2881,7 @@ async function syncInteractives(remoteAll) { // remoteAll — все строк�
       for (const rec of list) {
         const r = rmap.get(rec.cfi);
         if (!r) {
-          if (rec.synced) { changed = true; continue; } // удалён на другом устройстве
-          cloudUpsertInteractive(bookId, rec); next.push(rec); continue; // ещё не загружен
+          cloudUpsertInteractive(bookId, rec); next.push(rec); continue; // нет в облаке — загружаем (локально ничего не удаляем молча)
         }
         const rt = Number(r.updated || r.created);
         if (rt > (rec.t || 0)) { next.push(fromRow(r)); changed = true; }
@@ -2862,7 +2906,7 @@ function placeInteractiveLabel(contents, rec) {
   const doc = contents.document;
   const old = doc.querySelector(`[data-reymont-interactive="${CSS.escape(rec.cfi)}"]`);
   if (old) old.remove();
-  const block = anchorForPageStart(contents, rec.cfi);
+  const block = anchorForPageStart(contents, rec.cfi, rec.text);
   if (!block) return false;
   const wrap = doc.createElement('div');
   wrap.className = 'reymont-ins';
@@ -2962,6 +3006,30 @@ function submitFeedback() {
   closeFeedback();
   if (rec) buildInteractive('diagram_html_improve', rec.cfi, rec.text || currentPageText().slice(0, 3000) || 'n/a', rec, feedback);
 }
+/* Перейти на страницу интерактива: сначала по CFI; если он не разрешился — по главе; затем проверяем, что сама
+   метка интерактива на показанной странице, и если нет — переходим к блоку, перед которым она стоит. */
+async function gotoInteractive(rec) {
+  try { await rendition.display(rec.cfi); }
+  catch (e) {
+    console.warn('[interactive] display(cfi) failed:', e && e.message || e);
+    try { const sec = book.spine.get(rec.cfi); if (sec) await rendition.display(sec.href); } catch (e2) { console.warn('[interactive] chapter fallback failed:', e2 && e2.message || e2); }
+  }
+  await new Promise(r => setTimeout(r, 150)); // дать вставке отрисоваться
+  const c = rendition.getContents()[0];
+  if (!c) return;
+  const doc = c.document, sel = `[data-reymont-interactive="${CSS.escape(rec.cfi)}"]`;
+  let el = doc.querySelector(sel);
+  if (!el) { injectInteractives(c); el = doc.querySelector(sel); }
+  if (!el) { console.warn('[interactive] could not find its place in the chapter'); return; }
+  const target = el.nextElementSibling || el;
+  let onPage = false;
+  try {
+    const loc = rendition.currentLocation(), a = realStartRange(c, loc), z = new ePub.CFI(loc.end.cfi).toRange(doc);
+    const vr = doc.createRange(); vr.setStart(a.startContainer, a.startOffset); vr.setEnd(z.endContainer, z.endOffset);
+    onPage = vr.intersectsNode(el) || vr.intersectsNode(target);
+  } catch (e) { /* считаем, что не на странице */ }
+  if (!onPage) { try { await rendition.display(c.cfiFromNode(target, INS_CLASS)); } catch (e) { console.warn('[interactive] goto block failed:', e && e.message || e); } }
+}
 function interactiveElapsed() { return Math.round((Date.now() - interactiveStartedAt) / 1000); }
 function tickInteractive() {
   const sec = interactiveElapsed();
@@ -2983,7 +3051,7 @@ async function makeInteractive() {
   const loc = rendition.currentLocation();
   const text = currentPageText().slice(0, 3000);
   if (!loc || !loc.start || text.length < 80) { toast('Not enough text on this page'); return; }
-  const cfi = loc.start.cfi;
+  const cfi = realPageStartCfi(rendition.getContents()[0], loc);
   const have = loadInteractives(currentBookId).find(x => x.cfi === cfi);
   if (have) { showInteractiveInPanel(have); return; } // уже строили для этой страницы — без нового запроса
   buildInteractive('diagram_html', cfi, text, null, '');
@@ -3058,7 +3126,7 @@ async function makeDiagram() {
     const mermaid = await loadMermaid();
     const { svg } = await mermaid.render('rm-diagram-' + Date.now(), code); // при кривом синтаксисе бросит — ловим ниже, без повторов
     if (currentBookId !== bookId) return; // пока рисовалось, открыли другую книгу
-    const d = { cfi: loc.start.cfi, at: 'start', svg };
+    const d = { cfi: realPageStartCfi(rendition.getContents()[0], loc), at: 'start', svg, text: text.slice(0, 200) };
     const list = loadDiagrams(bookId).filter(x => x.cfi !== d.cfi);
     list.push(d);
     try { localStorage.setItem(LS.diagrams(bookId), JSON.stringify(list.slice(-MAX_DIAGRAMS_PER_BOOK))); }
@@ -3221,7 +3289,7 @@ function openHighlightsPanel() {
   $('panel-body').querySelectorAll('.io-item').forEach(el => el.addEventListener('click', async () => {
     const rec = loadInteractives(currentBookId).find(x => x.cfi === el.dataset.cfi);
     if (!rec) return;
-    try { await rendition.display(rec.cfi); } catch (e) { console.warn(e); }
+    await gotoInteractive(rec);
     showInteractiveInPanel(rec);
   }));
   openPanel();
