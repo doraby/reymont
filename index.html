@@ -325,6 +325,7 @@
   #toc-list { overflow-y: auto; padding: 6px 10px 24px; }
   .note-item { padding: 11px 12px; border-radius: 10px; cursor: pointer; }
   .note-item:hover { background: var(--surface-2); }
+  .ni-io { font-style: normal; color: var(--accent); font-weight: 600; border-left-color: var(--accent); }
   .ni-text { font-size: 14px; font-style: italic; line-height: 1.4; border-left: 2px solid var(--accent-soft); padding-left: 9px; }
   .ni-demo-badge {
     display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
@@ -845,7 +846,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.89</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.90</div>
   </div>
 </div>
 
@@ -950,7 +951,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.89'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.90'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -1282,6 +1283,7 @@ async function fullSync() {
   await syncBooksList();
   if ($('library') && $('library').style.display !== 'none') renderLibrary();
   await syncLastPosition();
+  await syncInteractives();
 }
 
 const LS = {
@@ -2772,6 +2774,82 @@ function saveInteractive(bookId, rec) {
     catch (e) { if (list.length <= 1) { console.warn('interactive not saved:', e.message); return false; } list.shift(); }
   }
 }
+
+/* ── Облачная синхронизация интерактивов (таблица interactives, см. supabase/interactives.sql) ──
+   Без таблицы всё работает как раньше — интерактивы остаются на устройстве; отсутствие таблицы
+   определяем по ошибке один раз и больше не пробуем. Флаг synced различает «ещё не загружен»
+   (загружаем) и «был в облаке, а теперь его там нет» (удалён на другом устройстве — убираем и тут). */
+const IO_NO_TABLE = 'reader.noIoTable';
+function ioCloudOn() { return !!(sb && isRealUser()) && localStorage.getItem(IO_NO_TABLE) !== '1'; }
+function ioTableMissing(error) {
+  const m = (error && (error.message || '')) + ' ' + (error && error.code || '');
+  if (/interactives/i.test(m) && /(PGRST205|42P01|does not exist|could not find)/i.test(m)) {
+    localStorage.setItem(IO_NO_TABLE, '1');
+    console.warn('[interactive] no "interactives" table in Supabase — they stay on this device (run supabase/interactives.sql)');
+    return true;
+  }
+  return false;
+}
+function writeInteractives(bookId, list) {
+  list = list.slice(-MAX_INTERACTIVES_PER_BOOK);
+  for (;;) {
+    try { localStorage.setItem(LS.interactives(bookId), JSON.stringify(list)); return; }
+    catch (e) { if (list.length <= 1) return; list.shift(); }
+  }
+}
+async function cloudUpsertInteractive(bookId, rec) {
+  if (!ioCloudOn()) return;
+  try {
+    const { error } = await sb.from('interactives').upsert(
+      { user_id: sbUser.id, book_id: bookId, cfi: rec.cfi, html: rec.html, page_text: rec.text || '', updated: rec.t || Date.now() });
+    if (error) throw error;
+    const list = loadInteractives(bookId); const cur = list.find(x => x.cfi === rec.cfi);
+    if (cur && !cur.synced) { cur.synced = true; writeInteractives(bookId, list); }
+  } catch (e) { if (!ioTableMissing(e)) console.warn('cloudUpsertInteractive:', e.message || e); }
+}
+async function cloudDeleteInteractive(bookId, cfi) {
+  if (!ioCloudOn()) return;
+  try {
+    const { error } = await sb.from('interactives').delete().eq('user_id', sbUser.id).eq('book_id', bookId).eq('cfi', cfi);
+    if (error) throw error;
+  } catch (e) { if (!ioTableMissing(e)) console.warn('cloudDeleteInteractive:', e.message || e); }
+}
+async function syncInteractives() {
+  if (!ioCloudOn()) return;
+  try {
+    const { data: remote, error } = await sb.from('interactives').select('book_id,cfi,html,page_text,updated');
+    if (error) throw error;
+    const byBook = new Map();
+    for (const r of remote || []) { if (!byBook.has(r.book_id)) byBook.set(r.book_id, []); byBook.get(r.book_id).push(r); }
+    const books = new Set(byBook.keys());
+    const prefix = LS.interactives('');
+    for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(prefix)) books.add(k.slice(prefix.length)); }
+    let changed = false;
+    for (const bookId of books) {
+      const rrows = byBook.get(bookId) || [];
+      const rmap = new Map(rrows.map(r => [r.cfi, r]));
+      const list = loadInteractives(bookId);
+      const lmap = new Map(list.map(x => [x.cfi, x]));
+      const next = [];
+      for (const rec of list) {
+        const r = rmap.get(rec.cfi);
+        if (!r) {
+          if (rec.synced) { changed = true; continue; } // удалён на другом устройстве
+          cloudUpsertInteractive(bookId, rec); next.push(rec); continue; // ещё не загружен
+        }
+        if (Number(r.updated) > (rec.t || 0)) { next.push({ cfi: rec.cfi, html: r.html, text: r.page_text || '', t: Number(r.updated), synced: true }); changed = true; }
+        else { rec.synced = true; if ((rec.t || 0) > Number(r.updated)) cloudUpsertInteractive(bookId, rec); next.push(rec); }
+      }
+      for (const r of rrows) if (!lmap.has(r.cfi)) { next.push({ cfi: r.cfi, html: r.html, text: r.page_text || '', t: Number(r.updated), synced: true }); changed = true; }
+      writeInteractives(bookId, next);
+    }
+    console.log('[interactive] synced', (remote || []).length, 'from the cloud' + (changed ? ', local list updated' : ''));
+    if (changed && currentBookId && rendition) {
+      try { rendition.getContents().forEach(injectInteractives); } catch (e) {}
+      renderNotesList();
+    }
+  } catch (e) { if (!ioTableMissing(e)) console.warn('syncInteractives:', e.message || e); }
+}
 const SNAPSHOT_CSP = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:">`;
 function snapshotDoc(snap) { // статичный снимок уже отрисованного интерактива — без скриптов
   const m = /<head[^>]*>/i.exec(snap);
@@ -2850,6 +2928,7 @@ window.addEventListener('message', e => {
 });
 function showInteractiveInPanel(rec, notice) {
   currentInteractive = rec;
+  panelShowingList = false;
   setPanelBody(`${notice ? `<div class="io-notice">${esc(notice)}</div>` : ''}
     <iframe id="interactive-frame" sandbox="allow-scripts" title="Interactive view"></iframe>`, false);
   $('panel-body').classList.add('io');
@@ -2864,6 +2943,7 @@ function deleteInteractive() {
   if (!confirm('Delete this interactive view?')) return;
   const list = loadInteractives(currentBookId).filter(x => x.cfi !== rec.cfi);
   try { localStorage.setItem(LS.interactives(currentBookId), JSON.stringify(list)); } catch (e) { console.warn('deleteInteractive:', e.message); }
+  cloudDeleteInteractive(currentBookId, rec.cfi);
   currentInteractive = null;
   try { // убираем превью/метку со страницы
     rendition.getContents().forEach(c => c.document.querySelectorAll(`[data-reymont-interactive="${CSS.escape(rec.cfi)}"]`).forEach(n => n.remove()));
@@ -2939,6 +3019,7 @@ async function buildInteractive(action, cfi, text, prevRec, feedback) {
     console.log(`[interactive] ${action} ← ${provider || '?'}/${model || '?'}, new code ${html.length} chars` + (improving ? `, identical to previous: ${same}` : ''));
     const rec = { cfi, html, text: text.slice(0, 2000), t: Date.now() }; // snap появится после первого показа
     saveInteractive(bookId, rec);
+    cloudUpsertInteractive(bookId, rec);
     if (currentBookId === bookId) {
       const contents = rendition.getContents()[0];
       if (contents) placeInteractiveLabel(contents, rec);
@@ -3110,21 +3191,35 @@ async function deleteNote(id) {
    это тот же контейнер, что показывает перевод конкретного хайлайта. */
 let panelShowingList = false; // true, пока в #panel открыт именно список, а не перевод
 function notesListHtml() {
-  if (!bookNotes.length) return '<div class="notes-empty">Select text in the book — highlights with translations will appear here.</div>';
-  return bookNotes.map(n => `
+  const ios = currentBookId ? loadInteractives(currentBookId).sort((a, b) => (b.t || 0) - (a.t || 0)) : [];
+  if (!bookNotes.length && !ios.length) return '<div class="notes-empty">Select text in the book — highlights with translations will appear here.</div>';
+  const ioHtml = ios.map(r => `
+    <div class="note-item io-item" data-cfi="${esc(r.cfi)}" title="Open this interactive view and go to its page">
+      <div class="ni-text ni-io">✦ Interactive view</div>
+      ${r.text ? `<div class="ni-trans">${esc(r.text.slice(0, 90))}${r.text.length > 90 ? '…' : ''}</div>` : ''}
+    </div>`).join('');
+  const notesHtml = bookNotes.map(n => `
     <div class="note-item" data-id="${n.id}">
       <div class="ni-text">${n.demo ? '<span class="ni-demo-badge">Preview</span> ' : ''}${esc(n.text.slice(0, 80))}${n.text.length > 80 ? '…' : ''}</div>
       ${n.translation ? `<div class="ni-trans">${esc(n.translation.split('\n')[0].slice(0, 90))}</div>` : ''}
     </div>`).join('');
+  return ioHtml + notesHtml;
 }
 function openHighlightsPanel() {
   panelShowingList = true;
   setPanelBody(notesListHtml(), false);
-  $('panel-body').querySelectorAll('.note-item').forEach(el => el.addEventListener('click', async () => {
+  $('panel-body').querySelectorAll('.note-item[data-id]').forEach(el => el.addEventListener('click', async () => {
     const n = bookNotes.find(x => x.id === el.dataset.id);
     if (!n) return;
     try { await rendition.display(n.cfiRange); } catch (e) { console.warn(e); }
     showNote(n.id);
+  }));
+  // Интерактив из списка: переходим на его страницу и открываем его в панели.
+  $('panel-body').querySelectorAll('.io-item').forEach(el => el.addEventListener('click', async () => {
+    const rec = loadInteractives(currentBookId).find(x => x.cfi === el.dataset.cfi);
+    if (!rec) return;
+    try { await rendition.display(rec.cfi); } catch (e) { console.warn(e); }
+    showInteractiveInPanel(rec);
   }));
   openPanel();
 }
