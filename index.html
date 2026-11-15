@@ -846,7 +846,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.90</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.91</div>
   </div>
 </div>
 
@@ -951,7 +951,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.90'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.91'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -1257,9 +1257,12 @@ async function syncLastPosition() {
 
 async function fullSync() {
   if (!sb || !sbUser) return;
+  let remoteAll = null;
   try {
-    const { data: remote, error } = await sb.from('highlights').select('*');
+    const { data: remoteRows, error } = await sb.from('highlights').select('*');
     if (error) throw error;
+    remoteAll = remoteRows || [];
+    const remote = remoteAll.filter(r => !isIoRow(r)); // интерактивы лежат в той же таблице, но это не хайлайты
     const local = await dbAll('notes');
     const lmap = new Map(local.map(n => [n.id, n]));
     const rmap = new Map(remote.map(r => [r.id, r]));
@@ -1283,7 +1286,7 @@ async function fullSync() {
   await syncBooksList();
   if ($('library') && $('library').style.display !== 'none') renderLibrary();
   await syncLastPosition();
-  await syncInteractives();
+  await syncInteractives(remoteAll);
 }
 
 const LS = {
@@ -2542,7 +2545,7 @@ async function loadDemoHighlights(bookId) {
   try {
     const { data, error } = await withTimeout(sb.from('highlights').select('*').eq('book_id', bookId), 8000, 'loading demo highlights');
     if (error) throw error;
-    return (data || []).map(r => Object.assign(rowToNote(r), { demo: true }));
+    return (data || []).filter(r => !isIoRow(r)).map(r => Object.assign(rowToNote(r), { demo: true }));
   } catch (e) { console.warn('loadDemoHighlights:', e.message || e); return []; }
 }
 async function loadNotes(bookId) {
@@ -2775,21 +2778,21 @@ function saveInteractive(bookId, rec) {
   }
 }
 
-/* ── Облачная синхронизация интерактивов (таблица interactives, см. supabase/interactives.sql) ──
-   Без таблицы всё работает как раньше — интерактивы остаются на устройстве; отсутствие таблицы
-   определяем по ошибке один раз и больше не пробуем. Флаг synced различает «ещё не загружен»
-   (загружаем) и «был в облаке, а теперь его там нет» (удалён на другом устройстве — убираем и тут). */
-const IO_NO_TABLE = 'reader.noIoTable';
-function ioCloudOn() { return !!(sb && isRealUser()) && localStorage.getItem(IO_NO_TABLE) !== '1'; }
-function ioTableMissing(error) {
-  const m = (error && (error.message || '')) + ' ' + (error && error.code || '');
-  if (/interactives/i.test(m) && /(PGRST205|42P01|does not exist|could not find)/i.test(m)) {
-    localStorage.setItem(IO_NO_TABLE, '1');
-    console.warn('[interactive] no "interactives" table in Supabase — they stay on this device (run supabase/interactives.sql)');
-    return true;
-  }
-  return false;
+/* ── Облачная синхронизация интерактивов — прямо в таблице highlights ──
+   Интерактив хранится строкой хайлайта: lang = IO_LANG, cfi_range = страница, text = текст страницы,
+   web_html = код интерактива (колонка осталась от убранной секции «From the web»). Отдельная таблица и SQL
+   не нужны. Такие строки не должны попадать в обычные хайлайты — они отсекаются в fullSync и в демо-списке.
+   Флаг synced различает «ещё не загружен» (загружаем) и «был в облаке, а теперь его там нет» (удалён на другом
+   устройстве — убираем и тут). */
+const IO_LANG = '__interactive__';
+function isIoRow(r) { return r && r.lang === IO_LANG; }
+function ioRowId(bookId, cfi) { let h = 5381; for (let i = 0; i < cfi.length; i++) h = ((h << 5) + h + cfi.charCodeAt(i)) | 0; return `io-${bookId}-${(h >>> 0).toString(36)}`; }
+function ioToRow(bookId, rec) {
+  const t = rec.t || Date.now();
+  return { id: ioRowId(bookId, rec.cfi), book_id: bookId, cfi_range: rec.cfi, text: (rec.text || 'interactive').slice(0, 2000), para: '',
+    lang: IO_LANG, translation: '', wiki_html: '', web_html: rec.html, img_html: '', illustration: '', created: t, updated: t };
 }
+function ioCloudOn() { return !!(sb && isRealUser()); }
 function writeInteractives(bookId, list) {
   list = list.slice(-MAX_INTERACTIVES_PER_BOOK);
   for (;;) {
@@ -2800,36 +2803,35 @@ function writeInteractives(bookId, list) {
 async function cloudUpsertInteractive(bookId, rec) {
   if (!ioCloudOn()) return;
   try {
-    const { error } = await sb.from('interactives').upsert(
-      { user_id: sbUser.id, book_id: bookId, cfi: rec.cfi, html: rec.html, page_text: rec.text || '', updated: rec.t || Date.now() });
+    const { error } = await sb.from('highlights').upsert(ioToRow(bookId, rec));
     if (error) throw error;
     const list = loadInteractives(bookId); const cur = list.find(x => x.cfi === rec.cfi);
     if (cur && !cur.synced) { cur.synced = true; writeInteractives(bookId, list); }
-  } catch (e) { if (!ioTableMissing(e)) console.warn('cloudUpsertInteractive:', e.message || e); }
+  } catch (e) { console.warn('[interactive] cloud save failed:', e.message || e); }
 }
 async function cloudDeleteInteractive(bookId, cfi) {
   if (!ioCloudOn()) return;
   try {
-    const { error } = await sb.from('interactives').delete().eq('user_id', sbUser.id).eq('book_id', bookId).eq('cfi', cfi);
+    const { error } = await sb.from('highlights').delete().eq('id', ioRowId(bookId, cfi));
     if (error) throw error;
-  } catch (e) { if (!ioTableMissing(e)) console.warn('cloudDeleteInteractive:', e.message || e); }
+  } catch (e) { console.warn('[interactive] cloud delete failed:', e.message || e); }
 }
-async function syncInteractives() {
-  if (!ioCloudOn()) return;
+async function syncInteractives(remoteAll) { // remoteAll — все строки highlights, которые fullSync уже скачал
+  if (!ioCloudOn() || !remoteAll) return;
   try {
-    const { data: remote, error } = await sb.from('interactives').select('book_id,cfi,html,page_text,updated');
-    if (error) throw error;
+    const remote = remoteAll.filter(isIoRow);
     const byBook = new Map();
-    for (const r of remote || []) { if (!byBook.has(r.book_id)) byBook.set(r.book_id, []); byBook.get(r.book_id).push(r); }
+    for (const r of remote) { if (!byBook.has(r.book_id)) byBook.set(r.book_id, []); byBook.get(r.book_id).push(r); }
     const books = new Set(byBook.keys());
     const prefix = LS.interactives('');
     for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(prefix)) books.add(k.slice(prefix.length)); }
     let changed = false;
     for (const bookId of books) {
       const rrows = byBook.get(bookId) || [];
-      const rmap = new Map(rrows.map(r => [r.cfi, r]));
+      const rmap = new Map(rrows.map(r => [r.cfi_range, r]));
       const list = loadInteractives(bookId);
       const lmap = new Map(list.map(x => [x.cfi, x]));
+      const fromRow = r => ({ cfi: r.cfi_range, html: r.web_html || '', text: r.text || '', t: Number(r.updated || r.created), synced: true });
       const next = [];
       for (const rec of list) {
         const r = rmap.get(rec.cfi);
@@ -2837,18 +2839,19 @@ async function syncInteractives() {
           if (rec.synced) { changed = true; continue; } // удалён на другом устройстве
           cloudUpsertInteractive(bookId, rec); next.push(rec); continue; // ещё не загружен
         }
-        if (Number(r.updated) > (rec.t || 0)) { next.push({ cfi: rec.cfi, html: r.html, text: r.page_text || '', t: Number(r.updated), synced: true }); changed = true; }
-        else { rec.synced = true; if ((rec.t || 0) > Number(r.updated)) cloudUpsertInteractive(bookId, rec); next.push(rec); }
+        const rt = Number(r.updated || r.created);
+        if (rt > (rec.t || 0)) { next.push(fromRow(r)); changed = true; }
+        else { rec.synced = true; if ((rec.t || 0) > rt) cloudUpsertInteractive(bookId, rec); next.push(rec); }
       }
-      for (const r of rrows) if (!lmap.has(r.cfi)) { next.push({ cfi: r.cfi, html: r.html, text: r.page_text || '', t: Number(r.updated), synced: true }); changed = true; }
+      for (const r of rrows) if (!lmap.has(r.cfi_range) && r.web_html) { next.push(fromRow(r)); changed = true; }
       writeInteractives(bookId, next);
     }
-    console.log('[interactive] synced', (remote || []).length, 'from the cloud' + (changed ? ', local list updated' : ''));
+    console.log('[interactive] synced', remote.length, 'from the cloud' + (changed ? ', local list updated' : ''));
     if (changed && currentBookId && rendition) {
       try { rendition.getContents().forEach(injectInteractives); } catch (e) {}
       renderNotesList();
     }
-  } catch (e) { if (!ioTableMissing(e)) console.warn('syncInteractives:', e.message || e); }
+  } catch (e) { console.warn('syncInteractives:', e.message || e); }
 }
 const SNAPSHOT_CSP = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:">`;
 function snapshotDoc(snap) { // статичный снимок уже отрисованного интерактива — без скриптов
