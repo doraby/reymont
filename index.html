@@ -843,7 +843,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.94</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.95</div>
   </div>
 </div>
 
@@ -948,7 +948,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.94'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.95'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -1259,7 +1259,7 @@ async function fullSync() {
     const { data: remoteRows, error } = await sb.from('highlights').select('*');
     if (error) throw error;
     remoteAll = remoteRows || [];
-    const remote = remoteAll.filter(r => !isIoRow(r)); // интерактивы лежат в той же таблице, но это не хайлайты
+    const remote = remoteAll.filter(r => !isSideRow(r)); // интерактивы и диаграммы лежат в той же таблице, но это не хайлайты
     const local = await dbAll('notes');
     const lmap = new Map(local.map(n => [n.id, n]));
     const rmap = new Map(remote.map(r => [r.id, r]));
@@ -1284,6 +1284,7 @@ async function fullSync() {
   if ($('library') && $('library').style.display !== 'none') renderLibrary();
   await syncLastPosition();
   await syncInteractives(remoteAll);
+  await syncDiagrams(remoteAll);
 }
 
 const LS = {
@@ -2545,7 +2546,7 @@ async function loadDemoHighlights(bookId) {
   try {
     const { data, error } = await withTimeout(sb.from('highlights').select('*').eq('book_id', bookId), 8000, 'loading demo highlights');
     if (error) throw error;
-    return (data || []).filter(r => !isIoRow(r)).map(r => Object.assign(rowToNote(r), { demo: true }));
+    return (data || []).filter(r => !isSideRow(r)).map(r => Object.assign(rowToNote(r), { demo: true }));
   } catch (e) { console.warn('loadDemoHighlights:', e.message || e); return []; }
 }
 async function loadNotes(bookId) {
@@ -2936,74 +2937,96 @@ function saveInteractive(bookId, rec) {
    не нужны. Такие строки не должны попадать в обычные хайлайты — они отсекаются в fullSync и в демо-списке.
    Флаг synced различает «ещё не загружен» (загружаем) и «был в облаке, а теперь его там нет» (удалён на другом
    устройстве — убираем и тут). */
-const IO_LANG = '__interactive__';
+const IO_LANG = '__interactive__', DG_LANG = '__diagram__';
 function isIoRow(r) { return r && r.lang === IO_LANG; }
-function ioRowId(bookId, cfi) { let h = 5381; for (let i = 0; i < cfi.length; i++) h = ((h << 5) + h + cfi.charCodeAt(i)) | 0; return `io-${bookId}-${(h >>> 0).toString(36)}`; }
-function ioToRow(bookId, rec) {
-  const t = rec.t || Date.now();
-  return { id: ioRowId(bookId, rec.cfi), book_id: bookId, cfi_range: rec.cfi, text: (rec.text || 'interactive').slice(0, 2000), para: '',
-    lang: IO_LANG, translation: '', wiki_html: '', web_html: rec.html, img_html: '', illustration: '', created: t, updated: t };
-}
+function isSideRow(r) { return r && (r.lang === IO_LANG || r.lang === DG_LANG); } // интерактив/диаграмма, а не хайлайт
+function sideRowId(prefix, bookId, cfi) { let h = 5381; for (let i = 0; i < cfi.length; i++) h = ((h << 5) + h + cfi.charCodeAt(i)) | 0; return `${prefix}-${bookId}-${(h >>> 0).toString(36)}`; }
 function ioCloudOn() { return !!(sb && isRealUser()); }
-function writeInteractives(bookId, list) {
-  list = list.slice(-MAX_INTERACTIVES_PER_BOOK);
+/* Два вида «боковых» записей, которые живут строками в highlights: интерактивы (код в web_html) и диаграммы (SVG в
+   web_html, признак at='start' — в para). Всё остальное у них общее, поэтому описание вида — в одном объекте. */
+const SIDE = {
+  io: {
+    lang: IO_LANG, prefix: 'io', name: 'interactive', fallbackText: 'interactive', lsKey: id => LS.interactives(id), max: () => MAX_INTERACTIVES_PER_BOOK,
+    load: id => loadInteractives(id), data: rec => rec.html, setData: (rec, v) => { rec.html = v; },
+    toRow: (rec) => ({ para: '' }), fromRow: r => ({ html: r.web_html || '' }),
+    inject: c => injectInteractives(c),
+  },
+  dg: {
+    lang: DG_LANG, prefix: 'dg', name: 'diagram', fallbackText: 'diagram', lsKey: id => LS.diagrams(id), max: () => MAX_DIAGRAMS_PER_BOOK,
+    load: id => loadDiagrams(id), data: rec => rec.svg, setData: (rec, v) => { rec.svg = v; },
+    toRow: (rec) => ({ para: rec.at === 'start' ? 'start' : '' }), fromRow: r => Object.assign({ svg: r.web_html || '' }, r.para === 'start' ? { at: 'start' } : {}),
+    inject: c => injectDiagrams(c),
+  },
+};
+function sideToRow(k, bookId, rec) {
+  const t = rec.t || (k.name === 'diagram' ? 1 : Date.now());
+  return Object.assign({ id: sideRowId(k.prefix, bookId, rec.cfi), book_id: bookId, cfi_range: rec.cfi, text: (rec.text || k.fallbackText).slice(0, 2000), para: '',
+    lang: k.lang, translation: '', wiki_html: '', web_html: k.data(rec), img_html: '', illustration: '', created: t, updated: t }, k.toRow(rec));
+}
+function writeSide(k, bookId, list) {
+  list = list.slice(-k.max());
   for (;;) {
-    try { localStorage.setItem(LS.interactives(bookId), JSON.stringify(list)); return; }
+    try { localStorage.setItem(k.lsKey(bookId), JSON.stringify(list)); return; }
     catch (e) { if (list.length <= 1) return; list.shift(); }
   }
 }
-async function cloudUpsertInteractive(bookId, rec) {
+function writeInteractives(bookId, list) { writeSide(SIDE.io, bookId, list); }
+function writeDiagrams(bookId, list) { writeSide(SIDE.dg, bookId, list); }
+async function cloudUpsertSide(k, bookId, rec) {
   if (!ioCloudOn()) return;
   try {
-    const { error } = await sb.from('highlights').upsert(ioToRow(bookId, rec));
+    const { error } = await sb.from('highlights').upsert(sideToRow(k, bookId, rec));
     if (error) throw error;
-    const list = loadInteractives(bookId); const cur = list.find(x => x.cfi === rec.cfi);
-    if (cur && !cur.synced) { cur.synced = true; writeInteractives(bookId, list); }
-  } catch (e) { console.warn('[interactive] cloud save failed:', e.message || e); }
+    const list = k.load(bookId); const cur = list.find(x => x.cfi === rec.cfi);
+    if (cur && !cur.synced) { cur.synced = true; writeSide(k, bookId, list); }
+  } catch (e) { console.warn(`[${k.name}] cloud save failed:`, e.message || e); }
 }
-async function cloudDeleteInteractive(bookId, cfi) {
+async function cloudDeleteSide(k, bookId, cfi) {
   if (!ioCloudOn()) return;
   try {
-    const { error } = await sb.from('highlights').delete().eq('id', ioRowId(bookId, cfi));
+    const { error } = await sb.from('highlights').delete().eq('id', sideRowId(k.prefix, bookId, cfi));
     if (error) throw error;
-  } catch (e) { console.warn('[interactive] cloud delete failed:', e.message || e); }
+  } catch (e) { console.warn(`[${k.name}] cloud delete failed:`, e.message || e); }
 }
-async function syncInteractives(remoteAll) { // remoteAll — все строки highlights, которые fullSync уже скачал
+const cloudUpsertInteractive = (bookId, rec) => cloudUpsertSide(SIDE.io, bookId, rec);
+const cloudDeleteInteractive = (bookId, cfi) => cloudDeleteSide(SIDE.io, bookId, cfi);
+const cloudUpsertDiagram = (bookId, rec) => cloudUpsertSide(SIDE.dg, bookId, rec);
+async function syncSide(k, remoteAll) { // remoteAll — все строки highlights, которые fullSync уже скачал
   if (!ioCloudOn() || !remoteAll) return;
   try {
-    const remote = remoteAll.filter(isIoRow);
+    const remote = remoteAll.filter(r => r.lang === k.lang);
     const byBook = new Map();
     for (const r of remote) { if (!byBook.has(r.book_id)) byBook.set(r.book_id, []); byBook.get(r.book_id).push(r); }
     const books = new Set(byBook.keys());
-    const prefix = LS.interactives('');
-    for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(prefix)) books.add(k.slice(prefix.length)); }
+    const prefix = k.lsKey('');
+    for (let i = 0; i < localStorage.length; i++) { const key = localStorage.key(i); if (key && key.startsWith(prefix)) books.add(key.slice(prefix.length)); }
     let changed = false;
     for (const bookId of books) {
       const rrows = byBook.get(bookId) || [];
       const rmap = new Map(rrows.map(r => [r.cfi_range, r]));
-      const list = loadInteractives(bookId);
+      const list = k.load(bookId);
       const lmap = new Map(list.map(x => [x.cfi, x]));
-      const fromRow = r => ({ cfi: r.cfi_range, html: r.web_html || '', text: r.text || '', t: Number(r.updated || r.created), synced: true });
+      const fromRow = r => Object.assign({ cfi: r.cfi_range, text: r.text || '', t: Number(r.updated || r.created), synced: true }, k.fromRow(r));
       const next = [];
       for (const rec of list) {
         const r = rmap.get(rec.cfi);
-        if (!r) {
-          cloudUpsertInteractive(bookId, rec); next.push(rec); continue; // нет в облаке — загружаем (локально ничего не удаляем молча)
-        }
+        if (!r) { cloudUpsertSide(k, bookId, rec); next.push(rec); continue; } // нет в облаке — загружаем (локально ничего не удаляем молча)
         const rt = Number(r.updated || r.created);
         if (rt > (rec.t || 0)) { next.push(fromRow(r)); changed = true; }
-        else { rec.synced = true; if ((rec.t || 0) > rt) cloudUpsertInteractive(bookId, rec); next.push(rec); }
+        else { rec.synced = true; if ((rec.t || 0) > rt) cloudUpsertSide(k, bookId, rec); next.push(rec); }
       }
       for (const r of rrows) if (!lmap.has(r.cfi_range) && r.web_html) { next.push(fromRow(r)); changed = true; }
-      writeInteractives(bookId, next);
+      writeSide(k, bookId, next);
     }
-    console.log('[interactive] synced', remote.length, 'from the cloud' + (changed ? ', local list updated' : ''));
+    console.log(`[${k.name}] synced`, remote.length, 'from the cloud' + (changed ? ', local list updated' : ''));
     if (changed && currentBookId && rendition) {
-      try { rendition.getContents().forEach(injectInteractives); refreshAllHighlights(); } catch (e) {}
+      try { rendition.getContents().forEach(c => k.inject(c)); refreshAllHighlights(); } catch (e) {}
       renderNotesList();
     }
-  } catch (e) { console.warn('syncInteractives:', e.message || e); }
+  } catch (e) { console.warn(`sync ${k.name}:`, e.message || e); }
 }
+const syncInteractives = remoteAll => syncSide(SIDE.io, remoteAll);
+const syncDiagrams = remoteAll => syncSide(SIDE.dg, remoteAll);
 const SNAPSHOT_CSP = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:">`;
 function snapshotDoc(snap) { // статичный снимок уже отрисованного интерактива — без скриптов
   const m = /<head[^>]*>/i.exec(snap);
@@ -3116,19 +3139,19 @@ function submitFeedback() {
 }
 /* Перейти на страницу интерактива: сначала по CFI; если он не разрешился — по главе; затем проверяем, что сама
    метка интерактива на показанной странице, и если нет — переходим к блоку, перед которым она стоит. */
-async function gotoInteractive(rec) {
+async function gotoInserted(rec, attr, injectFn) {
   try { await rendition.display(rec.cfi); }
   catch (e) {
-    console.warn('[interactive] display(cfi) failed:', e && e.message || e);
-    try { const sec = book.spine.get(rec.cfi); if (sec) await rendition.display(sec.href); } catch (e2) { console.warn('[interactive] chapter fallback failed:', e2 && e2.message || e2); }
+    console.warn('[goto] display(cfi) failed:', e && e.message || e);
+    try { const sec = book.spine.get(rec.cfi); if (sec) await rendition.display(sec.href); } catch (e2) { console.warn('[goto] chapter fallback failed:', e2 && e2.message || e2); }
   }
   await new Promise(r => setTimeout(r, 150)); // дать вставке отрисоваться
   const c = rendition.getContents()[0];
   if (!c) return;
-  const doc = c.document, sel = `[data-reymont-interactive="${CSS.escape(rec.cfi)}"]`;
+  const doc = c.document, sel = `[${attr}="${CSS.escape(rec.cfi)}"]`;
   let el = doc.querySelector(sel);
-  if (!el) { injectInteractives(c); el = doc.querySelector(sel); }
-  if (!el) { console.warn('[interactive] could not find its place in the chapter'); return; }
+  if (!el) { injectFn(c); el = doc.querySelector(sel); }
+  if (!el) { console.warn('[goto] could not find its place in the chapter'); return; }
   const target = el.nextElementSibling || el;
   let onPage = false;
   try {
@@ -3136,8 +3159,10 @@ async function gotoInteractive(rec) {
     const vr = doc.createRange(); vr.setStart(a.startContainer, a.startOffset); vr.setEnd(z.endContainer, z.endOffset);
     onPage = vr.intersectsNode(el) || vr.intersectsNode(target);
   } catch (e) { /* считаем, что не на странице */ }
-  if (!onPage) { try { await rendition.display(c.cfiFromNode(target)); } catch (e) { console.warn('[interactive] goto block failed:', e && e.message || e); } }
+  if (!onPage) { try { await rendition.display(c.cfiFromNode(target)); } catch (e) { console.warn('[goto] goto block failed:', e && e.message || e); } }
 }
+const gotoInteractive = rec => gotoInserted(rec, 'data-reymont-interactive', injectInteractives);
+const gotoDiagram = rec => gotoInserted(rec, 'data-reymont-diagram', injectDiagrams);
 function interactiveElapsed() { return Math.round((Date.now() - interactiveStartedAt) / 1000); }
 function tickInteractive() {
   const sec = interactiveElapsed();
@@ -3234,11 +3259,11 @@ async function makeDiagram() {
     const mermaid = await loadMermaid();
     const { svg } = await mermaid.render('rm-diagram-' + Date.now(), code); // при кривом синтаксисе бросит — ловим ниже, без повторов
     if (currentBookId !== bookId) return; // пока рисовалось, открыли другую книгу
-    const d = { cfi: realPageStartCfi(rendition.getContents()[0], loc), at: 'start', svg, text: text.slice(0, 200) };
+    const d = { cfi: realPageStartCfi(rendition.getContents()[0], loc), at: 'start', svg, text: text.slice(0, 200), t: Date.now() };
     const list = loadDiagrams(bookId).filter(x => x.cfi !== d.cfi);
     list.push(d);
-    try { localStorage.setItem(LS.diagrams(bookId), JSON.stringify(list.slice(-MAX_DIAGRAMS_PER_BOOK))); }
-    catch (e) { console.warn('diagram not saved (storage full):', e.message); }
+    writeDiagrams(bookId, list);
+    cloudUpsertDiagram(bookId, d);
     const contents = rendition.getContents()[0];
     if (!contents || !placeDiagram(contents, d)) toast('Could not place the diagram on this page');
     else { refreshAllHighlights(); toast('Diagram added at the top of the page ✓'); }
@@ -3372,18 +3397,24 @@ async function deleteNote(id) {
 let panelShowingList = false; // true, пока в #panel открыт именно список, а не перевод
 function notesListHtml() {
   const ios = currentBookId ? loadInteractives(currentBookId).sort((a, b) => (b.t || 0) - (a.t || 0)) : [];
-  if (!bookNotes.length && !ios.length) return '<div class="notes-empty">Select text in the book — highlights with translations will appear here.</div>';
+  const dgs = currentBookId ? loadDiagrams(currentBookId).sort((a, b) => (b.t || 0) - (a.t || 0)) : [];
+  if (!bookNotes.length && !ios.length && !dgs.length) return '<div class="notes-empty">Select text in the book — highlights with translations will appear here.</div>';
   const ioHtml = ios.map(r => `
     <div class="note-item io-item" data-cfi="${esc(r.cfi)}" title="Open this interactive view and go to its page">
       <div class="ni-text ni-io">✦ Interactive view</div>
       ${r.text ? `<div class="ni-trans">${esc(r.text.slice(0, 90))}${r.text.length > 90 ? '…' : ''}</div>` : ''}
+    </div>`).join('');
+  const dgHtml = dgs.map(d => `
+    <div class="note-item dg-item" data-cfi="${esc(d.cfi)}" title="Open this diagram and go to its page">
+      <div class="ni-text ni-io">◇ Diagram</div>
+      ${d.text ? `<div class="ni-trans">${esc(d.text.slice(0, 90))}${d.text.length > 90 ? '…' : ''}</div>` : ''}
     </div>`).join('');
   const notesHtml = bookNotes.map(n => `
     <div class="note-item" data-id="${n.id}">
       <div class="ni-text">${n.demo ? '<span class="ni-demo-badge">Preview</span> ' : ''}${esc(n.text.slice(0, 80))}${n.text.length > 80 ? '…' : ''}</div>
       ${n.translation ? `<div class="ni-trans">${esc(n.translation.split('\n')[0].slice(0, 90))}</div>` : ''}
     </div>`).join('');
-  return ioHtml + notesHtml;
+  return ioHtml + dgHtml + notesHtml;
 }
 function openHighlightsPanel() {
   panelShowingList = true;
@@ -3400,6 +3431,13 @@ function openHighlightsPanel() {
     if (!rec) return;
     await gotoInteractive(rec);
     showInteractiveInPanel(rec);
+  }));
+  // Диаграмма из списка: переходим на её страницу и открываем крупно.
+  $('panel-body').querySelectorAll('.dg-item').forEach(el => el.addEventListener('click', async () => {
+    const d = loadDiagrams(currentBookId).find(x => x.cfi === el.dataset.cfi);
+    if (!d) return;
+    await gotoDiagram(d);
+    openDiagramFs(d.svg);
   }));
   openPanel();
 }
