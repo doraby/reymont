@@ -265,6 +265,9 @@ Deno.serve(async (req) => {
       `the interaction between characters (flowchart or sequenceDiagram: who does or says what to whom), or the sequence of events (timeline or sequenceDiagram). ` +
       `Rules: output ONLY valid Mermaid code — no markdown fences, no comments, no explanations. ` +
       `In a sequenceDiagram every message arrow must be followed by a colon and NON-EMPTY text (never "A->>B:" with nothing after it); no semicolons. ` +
+      `Keep it small and READABLE. Show only the 3 to 5 most important characters (never more than 5): declare each participant EXACTLY ONCE, with a short but distinct name (a first name, never a single letter), ` +
+      `and declare ONLY participants that send or receive at least one message — no empty lifelines, no duplicates, no placeholder or minor characters. ` +
+      `Retell the passage as a brief summary: at most 10 messages, each a short phrase of up to 8 words in your own words (do NOT quote long lines verbatim); skip repeated or trivial exchanges. ` +
       `At most 12 nodes. Write every label in ${lang}, always inside double quotes, without HTML, without parentheses or quotes inside labels. ` +
       `Use only what the passage actually says; do not invent facts. Do not use click, link or style directives.`;
     const r = await fetch("https://api.openai.com/v1/chat/completions", {
