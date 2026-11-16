@@ -843,7 +843,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.95</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.96</div>
   </div>
 </div>
 
@@ -948,7 +948,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.95'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.96'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -1984,7 +1984,7 @@ document.addEventListener('click', e => {
   if (!mark) return;
   const cfi = mark.getAttribute('data-epubcfi');
   console.log('highlightTap(outer): clicked mark, cfi =', cfi);
-  const note = bookNotes.find(n => n.cfiRange === cfi);
+  const note = bookNotes.find(n => n._live === cfi || n.cfiRange === cfi); // epub.js получает «живой» CFI (см. addHighlightIn)
   if (note) { console.log('highlightTap(outer): MATCH — opening', note.id); showNote(note.id); }
   else console.log('highlightTap(outer): no matching note in bookNotes (', bookNotes.length, 'loaded)');
 });
@@ -2600,7 +2600,7 @@ function cleanCfiFromRange(contents, range) { return withoutInsertions(contents.
 function cleanRangeFromCfi(contents, cfi) { return withoutInsertions(contents.document, () => new ePub.CFI(cfi).toRange(contents.document)); }
 function liveCfiFromClean(contents, cfi) {
   const r = cleanRangeFromCfi(contents, cfi);
-  return r ? contents.cfiFromRange(r) : cfi;
+  return r ? contents.cfiFromRange(r) : null;
 }
 function rangeTextMatches(range, text) {
   const a = normWs(range.toString()), b = normWs(text);
@@ -2630,8 +2630,7 @@ function findTextRange(root, text) {
   const locate = (pos, end) => { for (let i = nodes.length - 1; i >= 0; i--) if (pos > nodes[i].start || (!end && pos === nodes[i].start)) return { node: nodes[i].n, off: pos - nodes[i].start }; return null; };
   const s0 = locate(m.index, false), e0 = locate(m.index + m[0].length, true);
   if (!s0 || !e0) return null;
-  const r = root.ownerDocument.createRange(); r.setStart(s0.node, s0.off); r.setEnd(e0.node, e0.off);
-  return r;
+  try { const r = root.ownerDocument.createRange(); r.setStart(s0.node, s0.off); r.setEnd(e0.node, e0.off); return r; } catch (e) { return null; }
 }
 function relocateNoteRange(contents, note) {
   const doc = contents.document;
@@ -2656,7 +2655,8 @@ function repairNotesInSection(contents) {
   for (const note of bookNotes) {
     if (note.demo || !note.text || !sectionHasNote(contents, note)) continue;
     try {
-      const cur = cleanRangeFromCfi(contents, note.cfiRange);
+      let cur = null;
+      try { cur = cleanRangeFromCfi(contents, note.cfiRange); } catch (e) { cur = null; } // неразрешимый CFI = «не на месте»
       if (cur && rangeTextMatches(cur, note.text)) continue; // всё на месте
       const fixed = relocateNoteRange(contents, note);
       if (!fixed) { console.warn('repair: could not relocate highlight', note.id); continue; }
@@ -2670,8 +2670,9 @@ function repairNotesInSection(contents) {
 }
 /* Подсветки: epub.js получает CFI для текущего DOM; после любых вставок/удалений вставок — перерисовываем. */
 function addHighlightIn(contents, note) {
-  let live = note.cfiRange;
-  try { live = liveCfiFromClean(contents, note.cfiRange) || live; } catch (e) { console.warn('live cfi failed:', e && e.message || e); }
+  let live = null;
+  try { live = liveCfiFromClean(contents, note.cfiRange); } catch (e) { live = null; }
+  if (!live) { note._live = null; return; } // позиция не разрешается (битый CFI) — не рисуем; repairNotesInSection попробует починить
   note._live = live;
   const fill = note.demo ? '#D4A017' : '#D97757';
   try {
@@ -3241,6 +3242,22 @@ async function buildInteractive(action, cfi, text, prevRec, feedback) {
   } finally { setInteractiveBusy(false); }
 }
 
+/* Модель иногда пишет в sequenceDiagram стрелку с пустым текстом («A->>B:») — Mermaid такое не разбирает. Убираем такие
+   строки и завершающие «;». Рисуем сначала как есть, при ошибке — один раз очищенный код (без циклов). */
+function sanitizeMermaid(code) {
+  const isSeq = /^\s*sequenceDiagram/m.test(code);
+  return code.split('\n').filter(line => !(isSeq && /(?:-->>|->>|-->|->|--x|-x|--\)|-\))\s*[+-]?[^:]+:\s*$/.test(line)))
+    .map(line => line.replace(/;+\s*$/, '')).join('\n');
+}
+async function renderMermaidSafe(mermaid, code) {
+  try { return await mermaid.render('rm-diagram-' + Date.now(), code); }
+  catch (e) {
+    const fixed = sanitizeMermaid(code);
+    if (fixed === code) throw e;
+    console.warn('makeDiagram: retrying once with a cleaned-up diagram');
+    try { return await mermaid.render('rm-diagram-' + Date.now() + 'b', fixed); } catch (e2) { throw e; }
+  }
+}
 async function makeDiagram() {
   if (diagramBusy || !rendition || !currentBookId) return; // повторный клик во время запроса — игнор
   const btn = $('diagram-btn');
@@ -3257,7 +3274,7 @@ async function makeDiagram() {
     if (!res.ok) { let m = 'HTTP ' + res.status; try { m = (await res.json()).error.message; } catch (e) {} throw new Error(m); }
     const { code } = await res.json();
     const mermaid = await loadMermaid();
-    const { svg } = await mermaid.render('rm-diagram-' + Date.now(), code); // при кривом синтаксисе бросит — ловим ниже, без повторов
+    const { svg } = await renderMermaidSafe(mermaid, code); // при кривом синтаксисе — один повтор с очищенным кодом, дальше ошибка
     if (currentBookId !== bookId) return; // пока рисовалось, открыли другую книгу
     const d = { cfi: realPageStartCfi(rendition.getContents()[0], loc), at: 'start', svg, text: text.slice(0, 200), t: Date.now() };
     const list = loadDiagrams(bookId).filter(x => x.cfi !== d.cfi);

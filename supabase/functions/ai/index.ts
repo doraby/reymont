@@ -264,6 +264,7 @@ Deno.serve(async (req) => {
       `Pick the form that fits the passage best: the staging of a scene (who stands where, places, objects — flowchart with subgraphs), ` +
       `the interaction between characters (flowchart or sequenceDiagram: who does or says what to whom), or the sequence of events (timeline or sequenceDiagram). ` +
       `Rules: output ONLY valid Mermaid code — no markdown fences, no comments, no explanations. ` +
+      `In a sequenceDiagram every message arrow must be followed by a colon and NON-EMPTY text (never "A->>B:" with nothing after it); no semicolons. ` +
       `At most 12 nodes. Write every label in ${lang}, always inside double quotes, without HTML, without parentheses or quotes inside labels. ` +
       `Use only what the passage actually says; do not invent facts. Do not use click, link or style directives.`;
     const r = await fetch("https://api.openai.com/v1/chat/completions", {
