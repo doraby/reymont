@@ -8,6 +8,7 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#F0EEE5">
+<script>try{var __s=localStorage.getItem('reader.style');if(__s&&/^(illuminated|taffeta|paper)$/.test(__s))document.documentElement.setAttribute('data-theme',__s)}catch(e){}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
@@ -51,6 +52,69 @@
   }
   button { font-family: var(--serif); color: inherit; }
   ::selection { background: rgba(217, 119, 87, 0.30); }
+
+
+  /* ───────────────── Reading styles (Settings → Reading style) ─────────────────
+     Классика — переменные выше. Остальные переопределяют их через :root[data-theme]. Книгу внутри iframe
+     стилизует epub.js (см. bookRules в JS), здесь — оболочка приложения. */
+  :root[data-theme="illuminated"] {
+    --bg: #EBE0C4; --surface: #F6EED8; --surface-2: #E3D6B3; --border: #D2C092; --text: #2B2117; --muted: #7D6C50;
+    --accent: #8E2A1F; --accent-soft: #A8392B; --accent-bg: rgba(142, 42, 31, 0.10);
+    --shadow: 0 10px 40px rgba(60, 40, 10, 0.24); --serif: 'EB Garamond', Georgia, 'Times New Roman', serif;
+  }
+  :root[data-theme="illuminated"] body {
+    background:
+      radial-gradient(1100px 620px at 50% -12%, rgba(255, 248, 224, 0.9), transparent 68%),
+      radial-gradient(900px 500px at 100% 110%, rgba(190, 150, 80, 0.20), transparent 60%),
+      var(--bg);
+  }
+  :root[data-theme="taffeta"] {
+    --bg: #1B1A2C; --surface: #26233B; --surface-2: #302C4A; --border: #3C3860; --text: #EFE7DB; --muted: #A9A1BC;
+    --accent: #E8BBA6; --accent-soft: #D79C88; --accent-bg: rgba(232, 187, 166, 0.14);
+    --shadow: 0 12px 44px rgba(0, 0, 0, 0.55); --serif: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+  }
+  :root[data-theme="taffeta"] body {
+    background:
+      radial-gradient(1200px 700px at 12% -10%, rgba(132, 98, 178, 0.38), transparent 62%),
+      radial-gradient(1000px 640px at 100% 105%, rgba(30, 150, 160, 0.30), transparent 58%),
+      repeating-linear-gradient(118deg, rgba(255, 255, 255, 0.030) 0 2px, rgba(0, 0, 0, 0.040) 2px 5px),
+      linear-gradient(162deg, #1F2A3C, #2A2145 52%, #17383F);
+    background-attachment: fixed;
+  }
+  :root[data-theme="taffeta"] body { font-size: 17px; }
+  :root[data-theme="taffeta"] .btn.primary { color: #2A2145; }
+  /* color-scheme: dark на корне делал бы фон iframe книги непрозрачно-белым — ставим только на поля ввода */
+  :root[data-theme="taffeta"] input, :root[data-theme="taffeta"] textarea, :root[data-theme="taffeta"] select { background: var(--surface-2); color: var(--text); color-scheme: dark; }
+  :root[data-theme="paper"] {
+    --bg: #E6E3DC; --surface: #FFFFFF; --surface-2: #F1EEE7; --border: #DAD6CC; --text: #1F1E1B; --muted: #86827A;
+    --accent: #B3261E; --accent-soft: #C4423A; --accent-bg: rgba(179, 38, 30, 0.08);
+    --shadow: 0 10px 40px rgba(0, 0, 0, 0.13); --serif: 'Libre Baskerville', 'PT Serif', Georgia, 'Times New Roman', serif;
+  }
+  :root[data-theme="paper"] body { background: radial-gradient(1000px 600px at 50% 0%, #EFEDE7, var(--bg)); font-size: 15px; }
+  /* Лист белой бумаги под колонкой текста */
+  :root[data-theme="paper"] #viewer-wrap::before {
+    content: ''; position: absolute; top: 0; bottom: 0; left: 50%; width: min(calc(100% - 8px), 836px); transform: translateX(-50%);
+    background:
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .5  0 0 0 0 .47  0 0 0 0 .42  0 0 0 .07 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"),
+      #FFFFFF;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 24px 60px rgba(40, 35, 25, 0.16), 0 3px 8px rgba(40, 35, 25, 0.06);
+    pointer-events: none;
+  }
+  /* Выбор стиля в настройках */
+  .style-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 6px; }
+  .style-card { border: 2px solid var(--border); border-radius: 14px; background: var(--surface); padding: 0; cursor: pointer; overflow: hidden; text-align: left; transition: border-color .15s, transform .08s; }
+  .style-card:hover { border-color: var(--accent-soft); }
+  .style-card:active { transform: scale(0.985); }
+  .style-card.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
+  .sc-page { height: 92px; padding: 12px; overflow: hidden; display: flex; align-items: flex-start; gap: 9px; }
+  .sc-page > span { float: none !important; flex: none; }
+  .sc-lines { flex: 1; padding-top: 6px; }
+  .sc-lines i { display: block; height: 5px; border-radius: 3px; margin: 0 0 7px; opacity: .40; background: currentColor; }
+  .sc-lines i:nth-child(1) { width: 92%; } .sc-lines i:nth-child(2) { width: 100%; } .sc-lines i:nth-child(3) { width: 78%; } .sc-lines i:nth-child(4) { width: 90%; }
+  .sc-name { padding: 8px 12px 10px; font-size: 13.5px; font-weight: 600; color: var(--text); display: flex; justify-content: space-between; gap: 8px; }
+  .sc-name small { font-weight: 400; color: var(--muted); font-size: 11.5px; }
+  .field label.check-row { display: flex; align-items: center; gap: 10px; margin: 14px 0 0; font-size: 14.5px; font-weight: 400; cursor: pointer; }
+  .field label.check-row input[type=checkbox] { width: 18px !important; height: 18px; padding: 0; margin: 0; flex: none; accent-color: var(--accent); }
 
   .icon-btn {
     display: inline-flex; align-items: center; justify-content: center;
@@ -815,6 +879,12 @@
       <div class="note">Free, no password — sync your highlights and use the built-in AI without an OpenAI key.</div>
     </div>
     <div class="field">
+      <label>Reading style</label>
+      <div id="style-picker" class="style-grid"></div>
+      <label class="check-row"><input type="checkbox" id="in-dropcaps" onchange="setDropcaps(this.checked)"> Drop caps — decorative first letters</label>
+      <div class="note">Changes the look of the whole app and the book text. Applies immediately.</div>
+    </div>
+    <div class="field">
       <label for="in-key">OpenAI API key (optional)</label>
       <div class="key-row">
         <input type="password" id="in-key" placeholder="sk-...">
@@ -844,7 +914,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.97</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.99</div>
   </div>
 </div>
 
@@ -949,7 +1019,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.97'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.99'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -1298,6 +1368,8 @@ const LS = {
   interactives: id => 'reader.interactives.' + id, // [{cfi, html}] — интерактивные виды страниц
   diagrams: id => 'reader.diagrams.' + id, // [{cfi, svg}] — нарисованные диаграммы страниц книги
   firstSeen: 'reader.firstSeen', // когда читатель впервые открыл приложение (мс); 0 — пришёл до появления этой метки
+  style: 'reader.style',       // classic | illuminated | taffeta | paper
+  dropcaps: 'reader.dropcaps', // '' (по умолчанию стиля) | '1' | '0'
   hintDone: 'reader.hintDone', // читатель уже сделал первую подсветку — подсказка больше не нужна
 };
 /* Подсказка про выделение нужна только новому читателю и только первые сутки. Тем, кто пользовался приложением
@@ -1313,6 +1385,168 @@ const firstSeen = (() => {
   } catch (e) { return 0; }
 })();
 const HINT_DAYS_MS = 24 * 60 * 60 * 1000;
+/* ═══════════ Reading styles ═══════════
+   Четыре стиля: Classic (как было), Illuminated (пергамент и буквицы), Taffeta (тёмный переливающийся шёлк),
+   Paper (белый лист). Оболочку красит :root[data-theme] (CSS-переменные), книгу в iframe — epub.js-темы (bookRules).
+   Буквицы — чистый CSS (p.rm-dc::first-letter): класс ставится только абзацу после заголовка, который начинается
+   с буквы; DOM-узлы не добавляются, поэтому CFI хайлайтов и привязок не страдают. В iframe шрифты подключаются
+   ссылкой <link> (из родителя они туда не попадают); у Classic тело книги остаётся как было. */
+const STYLES = {
+  classic: {
+    label: 'Classic', blurb: 'warm paper', theme: '#F0EEE5', fonts: '', capsDefault: false,
+    book: { font: "'Lora', Georgia, serif", ink: '#3D3929', head: '#3D3929', headWeight: '600', link: '#C15F3C', sel: 'rgba(217,119,87,0.35)', lh: '1.7', scale: '' },
+    cap: { 'float': 'left', 'font-family': "'Playfair Display', 'Lora', Georgia, serif", 'font-weight': '800', 'font-size': '3.5em', 'line-height': '0.8', 'padding': '0.06em 0.1em 0 0', 'color': '#C15F3C' },
+    hl: { fill: '#D97757', opacity: '0.22', blend: 'multiply' },
+    preview: { bg: '#F0EEE5', ink: '#3D3929' },
+  },
+  illuminated: {
+    label: 'Illuminated', blurb: 'parchment', theme: '#EBE0C4', capsDefault: true,
+    fonts: 'family=EB+Garamond:ital,wght@0,400..700;1,400..700&family=Cinzel+Decorative:wght@400;700;900&family=Playfair+Display:wght@800',
+    book: { font: "'EB Garamond', Georgia, serif", ink: '#2B2117', head: '#8E2A1F', headWeight: '700', link: '#8E2A1F', sel: 'rgba(201,162,39,0.38)', lh: '1.62', scale: '1.14em' },
+    headRules: {
+      'h1, h2, h3': { 'font-family': "'Cinzel Decorative', 'EB Garamond', Georgia, serif !important", 'color': '#8E2A1F !important', 'text-align': 'center', 'letter-spacing': '0.05em', 'font-weight': '700' },
+      'h1::after, h2::after': { 'content': '"❦"', 'display': 'block', 'font-size': '0.62em', 'color': '#A8842B', 'letter-spacing': '0', 'margin-top': '0.3em' },
+    },
+    cap: { 'float': 'left', 'font-family': "'Cinzel Decorative', 'Playfair Display', Georgia, serif", 'font-weight': '700', 'font-size': '3.6em', 'line-height': '0.84',
+      'padding': '0.06em 0.17em 0.13em 0.1em', 'margin': '0.08em 0.14em 0 0', 'color': '#8E2A1F',
+      'background': 'linear-gradient(145deg, #F9ECC0, #E1C06A 55%, #F4E0A0)', 'border': '2px solid #A8842B', 'border-radius': '3px', 'box-shadow': 'inset 0 0 0 2px #F7E9B6' },
+    hl: { fill: '#C9A227', opacity: '0.38', blend: 'multiply' },
+    preview: { bg: '#F3EAD0', ink: '#2B2117' },
+  },
+  taffeta: {
+    label: 'Taffeta', blurb: 'shot silk, dark', theme: '#1B1A2C', capsDefault: true,
+    fonts: 'family=Cormorant+Garamond:ital,wght@0,400..700;1,400..700&family=Playfair+Display:ital,wght@1,800',
+    book: { font: "'Cormorant Garamond', Georgia, serif", ink: '#EFE7DB', head: '#F3D2C2', headWeight: '600', link: '#E8BBA6', sel: 'rgba(232,187,166,0.35)', lh: '1.62', scale: '1.2em' },
+    headRules: {
+      'h1, h2, h3': { 'color': '#F3D2C2 !important', 'text-align': 'center', 'letter-spacing': '0.06em', 'font-weight': '600' },
+      'h1::after, h2::after': { 'content': '""', 'display': 'block', 'width': '3.2em', 'height': '1px', 'margin': '0.7em auto 0', 'background': 'linear-gradient(90deg, transparent, #E8BBA6, transparent)' },
+    },
+    cap: { 'float': 'left', 'font-family': "'Playfair Display', 'Cormorant Garamond', Georgia, serif", 'font-style': 'italic', 'font-weight': '800', 'font-size': '4em', 'line-height': '0.82',
+      'padding': '0.02em 0.1em 0 0', 'margin': '0.04em 0.04em 0 0', 'color': '#E8BBA6',
+      'background-image': 'linear-gradient(160deg, #FBE3D4, #D99E8B 52%, #A98ACF)', '-webkit-background-clip': 'text', 'background-clip': 'text', '-webkit-text-fill-color': 'transparent' },
+    hl: { fill: '#E8BBA6', opacity: '0.30', blend: 'screen' },
+    preview: { bg: 'linear-gradient(160deg, #1F2A3C, #2A2145 55%, #17383F)', ink: '#EFE7DB' },
+  },
+  paper: {
+    label: 'Paper', blurb: 'white sheet', theme: '#E6E3DC', capsDefault: true,
+    fonts: 'family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=PT+Serif:ital,wght@0,400;0,700;1,400&family=Abril+Fatface&family=Playfair+Display:wght@800',
+    book: { font: "'Libre Baskerville', 'PT Serif', Georgia, serif", ink: '#1F1E1B', head: '#1F1E1B', headWeight: '700', link: '#B3261E', sel: 'rgba(242,201,76,0.45)', lh: '1.85', scale: '0.94em' },
+    headRules: {
+      'h1, h2, h3': { 'font-variant': 'small-caps', 'letter-spacing': '0.07em', 'text-align': 'center', 'font-weight': '700' },
+      'h1::after, h2::after': { 'content': '""', 'display': 'block', 'width': '2.2em', 'height': '2px', 'margin': '0.6em auto 0', 'background': '#B3261E' },
+    },
+    cap: { 'float': 'left', 'font-family': "'Abril Fatface', 'Playfair Display', Georgia, serif", 'font-size': '4.1em', 'line-height': '0.78', 'padding': '0.05em 0.1em 0 0', 'color': '#B3261E' },
+    hl: { fill: '#F2C94C', opacity: '0.45', blend: 'multiply' },
+    preview: { bg: '#FFFFFF', ink: '#1F1E1B' },
+  },
+};
+function currentStyleId() { const v = localStorage.getItem(LS.style); return STYLES[v] ? v : 'classic'; }
+function styleThemeName(id) { return id === 'classic' ? 'claude' : id; }
+function dropcapsOn() { const v = localStorage.getItem(LS.dropcaps); return v === '1' ? true : v === '0' ? false : STYLES[currentStyleId()].capsDefault; }
+function bookRules(id) {
+  const st = STYLES[id], b = st.book, imp = v => v + ' !important';
+  const rules = {
+    'body': { 'font-family': imp(b.font), 'color': imp(b.ink), 'background': 'transparent !important', 'line-height': imp(b.lh), 'text-align': 'justify', 'hyphens': 'auto', 'padding': '0 4px',
+      // Double-tap on book text otherwise triggers the native zoom gesture instead
+      // of just selecting a word — manipulation drops that without touching scroll.
+      'touch-action': 'manipulation' },
+    'p, li, div, span, blockquote': { 'font-family': imp(b.font), 'color': imp(b.ink) },
+    'h1, h2, h3, h4, h5': { 'font-family': imp(b.font), 'color': imp(b.head), 'font-weight': b.headWeight },
+    'a': { 'color': imp(b.link) },
+    'img': { 'max-width': '100% !important' },
+    '::selection': { 'background': b.sel },
+  };
+  // У многих EPUB свой line-height на абзацах — перебиваем и им, но только в новых стилях (Classic остаётся как был)
+  if (b.scale || id !== 'classic') rules['p, li, blockquote'] = Object.assign(b.scale ? { 'font-size': imp(b.scale) } : {}, id !== 'classic' ? { 'line-height': imp(b.lh) } : {});
+  Object.assign(rules, st.headRules || {});
+  const cap = {}; for (const [k, v] of Object.entries(st.cap)) cap[k] = imp(v);
+  rules['p.rm-dc::first-letter'] = cap;
+  return rules;
+}
+function ensureFonts(doc, id) {
+  const st = STYLES[id], qs = [];
+  if (st.fonts) qs.push(st.fonts); else if (dropcapsOn()) qs.push('family=Playfair+Display:wght@800'); // у Classic свой шрифт книги не меняем
+  for (const q of qs) {
+    const key = 'rm-fonts-' + q.length + '-' + q.charCodeAt(7) + q.charCodeAt(q.length - 3);
+    if (!doc.head || doc.getElementById(key)) continue;
+    const l = doc.createElement('link'); l.id = key; l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?' + q + '&display=swap';
+    doc.head.appendChild(l);
+  }
+}
+/* Буквицы: только абзацу сразу после заголовка и только если он начинается с буквы (не с тире диалога). */
+function applyDropCaps(contents) {
+  const doc = contents && contents.document;
+  if (!doc || !doc.body) return;
+  doc.querySelectorAll('p.rm-dc').forEach(p => p.classList.remove('rm-dc'));
+  if (!dropcapsOn()) return;
+  const okStart = t => t.length >= 60 && /^[\s"'“”„«»‘’(\[]*\p{L}/u.test(t);
+  const real = el => !el.closest('.' + INS_CLASS);
+  const heads = [...doc.querySelectorAll('h1, h2, h3')].filter(real);
+  if (!heads.length) return;
+  const FOLLOWING = Node.DOCUMENT_POSITION_FOLLOWING;
+  const ps = [...doc.querySelectorAll('p')].filter(p => real(p) && (p.textContent || '').trim().length >= 20); // мимо пустых «маркеров страниц»
+  heads.forEach((h, i) => {
+    // первый абзац ПОСЛЕ заголовка в порядке документа (он может лежать и в соседнем блоке, а не рядом с <h>)
+    const p = ps.find(q => (h.compareDocumentPosition(q) & FOLLOWING) && !h.contains(q));
+    if (!p) return;
+    const next = heads[i + 1];
+    if (next && (next.compareDocumentPosition(p) & FOLLOWING)) return; // между ними ещё заголовок — абзац принадлежит ему
+    if (okStart((p.textContent || '').trim())) p.classList.add('rm-dc');
+  });
+}
+function applyStyleToContents(contents) {
+  if (!contents || !contents.document) return;
+  ensureFonts(contents.document, currentStyleId());
+  applyDropCaps(contents);
+}
+function styleHighlight() { return STYLES[currentStyleId()].hl; }
+function applyStyle(id) {
+  if (!STYLES[id]) id = 'classic';
+  localStorage.setItem(LS.style, id);
+  if (id === 'classic') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', id);
+  const m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute('content', STYLES[id].theme);
+  ensureFonts(document, id);
+  if (typeof rendition !== 'undefined' && rendition) {
+    try {
+      // epub.js не снимает стили прошлой темы (правила накапливаются и «протекают» — рамка буквицы из Illuminated
+      // оставалась в других стилях), поэтому убираем <style> остальных наших тем сами.
+      const keep = 'epubjs-inserted-css-' + styleThemeName(id), ours = Object.keys(STYLES).map(k => 'epubjs-inserted-css-' + styleThemeName(k));
+      rendition.getContents().forEach(c => ours.forEach(sid => { if (sid !== keep) { const n = c.document.getElementById(sid); if (n) n.remove(); } }));
+      rendition.themes.select(styleThemeName(id));
+      rendition.getContents().forEach(applyStyleToContents);
+      refreshAllHighlights(); // цвет подсветки зависит от стиля
+      setTimeout(() => rendition && rendition.resize(), 120); // шрифт/размер сменились — страницы пересчитываются
+    } catch (e) { console.warn('applyStyle:', e); }
+  }
+  renderStylePicker();
+}
+function setDropcaps(on) {
+  localStorage.setItem(LS.dropcaps, on ? '1' : '0');
+  ensureFonts(document, currentStyleId());
+  if (typeof rendition !== 'undefined' && rendition) { rendition.getContents().forEach(applyStyleToContents); setTimeout(() => rendition && rendition.resize(), 120); }
+  renderStylePicker();
+}
+function renderStylePicker() {
+  const box = document.getElementById('style-picker');
+  const cb = document.getElementById('in-dropcaps');
+  if (cb) cb.checked = dropcapsOn();
+  if (!box) return;
+  const cur = currentStyleId();
+  box.innerHTML = Object.keys(STYLES).map(id => {
+    const st = STYLES[id], pv = st.preview;
+    const cap = Object.entries(st.cap).map(([k, v]) => `${k}:${v}`).join(';') + ';font-size:2.5em;margin:0;line-height:.9';
+    return `<button type="button" class="style-card${id === cur ? ' active' : ''}" onclick="applyStyle('${id}')" aria-label="${st.label}">
+      <div class="sc-page" style="background:${pv.bg};color:${pv.ink};font-family:${st.book.font}"><span style="${cap}">A</span><div class="sc-lines"><i></i><i></i><i></i><i></i></div></div>
+      <div class="sc-name">${st.label}<small>${st.blurb}</small></div></button>`;
+  }).join('');
+}
+// Оболочка и шрифты — сразу при запуске; книга подхватит стиль при открытии (openBook регистрирует все темы).
+(function bootStyle() {
+  const id = currentStyleId();
+  const m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute('content', STYLES[id].theme);
+  ensureFonts(document, id);
+})();
+
 const settings = {
   get key() { return localStorage.getItem(LS.key) || ''; },
   get lang() { return localStorage.getItem(LS.lang) || 'Russian'; },
@@ -1774,32 +2008,15 @@ async function openBook(id) {
     allowScriptedContent: false,
   });
 
-  rendition.themes.register('claude', {
-    'body': {
-      'font-family': "'Lora', Georgia, serif !important",
-      'color': '#3D3929 !important',
-      'background': 'transparent !important',
-      'line-height': '1.7 !important',
-      'text-align': 'justify',
-      'hyphens': 'auto',
-      'padding': '0 4px',
-      // Double-tap on book text otherwise triggers the native zoom gesture instead
-      // of just selecting a word — manipulation drops that without touching scroll.
-      'touch-action': 'manipulation',
-    },
-    'p, li, div, span, blockquote': { 'font-family': "'Lora', Georgia, serif !important", 'color': '#3D3929 !important' },
-    'h1, h2, h3, h4, h5': { 'font-family': "'Lora', Georgia, serif !important", 'color': '#3D3929 !important', 'font-weight': '600' },
-    'a': { 'color': '#C15F3C !important' },
-    'img': { 'max-width': '100% !important' },
-    '::selection': { 'background': 'rgba(217,119,87,0.35)' },
-  });
-  rendition.themes.select('claude');
+  for (const sid of Object.keys(STYLES)) rendition.themes.register(styleThemeName(sid), bookRules(sid));
+  rendition.themes.select(styleThemeName(currentStyleId()));
   rendition.themes.fontSize(fontSize + 'px');
   rendition.hooks.content.register(contents => {
     // contents.addStylesheet() возвращает Promise, который резолвится только по
     // onload у <link> — без таймаута и без onerror. Если сеть зависает, это вешает
     // рендер главы на много секунд (видели зависание rendition.display() на телефоне).
     // Georgia — приемлемый фолбэк из той же font-family цепочки, без риска сети.
+    applyStyleToContents(contents); // шрифты стиля и буквицы (только класс у абзаца — CFI не меняются)
     repairNotesInSection(contents); // до вставок: хайлайты чиним по чистому тексту главы
     injectIllustrations(contents);
     injectDiagrams(contents);
@@ -2675,10 +2892,10 @@ function addHighlightIn(contents, note) {
   try { live = liveCfiFromClean(contents, note.cfiRange); } catch (e) { live = null; }
   if (!live) { note._live = null; return; } // позиция не разрешается (битый CFI) — не рисуем; repairNotesInSection попробует починить
   note._live = live;
-  const fill = note.demo ? '#D4A017' : '#D97757';
+  const hl = styleHighlight(), fill = note.demo ? '#D4A017' : hl.fill;
   try {
     rendition.annotations.add('highlight', live, {}, () => { console.log('addHighlight: epub.js own mark-click fired for', note.id); showNote(note.id); }, 'hl',
-      { 'fill': fill, 'fill-opacity': '0.22', 'mix-blend-mode': 'multiply' });
+      { 'fill': fill, 'fill-opacity': hl.opacity, 'mix-blend-mode': hl.blend });
   } catch (e) { console.warn('highlight failed to attach:', e); }
 }
 function refreshHighlights(contents) {
@@ -3546,6 +3763,8 @@ async function persistPrompt() {
 
 /* ════════════════════════ Settings ════════════════════════ */
 function openSettings(openSignIn) {
+  Object.keys(STYLES).forEach(sid => ensureFonts(document, sid)); // чтобы превью стилей были настоящими шрифтами
+  renderStylePicker();
   $('in-key').value = settings.key;
   $('in-lang').value = settings.lang;
   $('overlay').classList.add('open');
