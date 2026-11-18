@@ -527,11 +527,11 @@
   .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
   .settings-version { text-align: center; font-size: 11px; color: var(--muted); font-style: italic; margin-top: 16px; user-select: none; }
 
-  #prompt-overlay, #fb-overlay, #add-overlay {
+  #prompt-overlay, #fb-overlay {
     position: fixed; inset: 0; background: rgba(61,57,41,.35); backdrop-filter: blur(2px);
     display: none; align-items: center; justify-content: center; z-index: 400;
   }
-  #prompt-overlay.open, #fb-overlay.open, #add-overlay.open { display: flex; }
+  #prompt-overlay.open, #fb-overlay.open { display: flex; }
   #prompt-btn.active { color: var(--accent); background: var(--accent-bg); }
   #cover-prompt-overlay {
     position: fixed; inset: 0; background: rgba(61,57,41,.35); backdrop-filter: blur(2px);
@@ -646,7 +646,6 @@
     <div class="lib-sub">Select a word or a paragraph while reading — you'll get a translation, an interpretation, and an illustration.</div>
 
     <input type="file" id="file-input" accept=".epub,.zip,application/epub+zip,application/zip,application/octet-stream" multiple hidden>
-    <input type="file" id="dir-input" webkitdirectory multiple hidden>
 
     <div id="lib-error" class="banner error" style="display:none"></div>
     <div id="lib-warn" class="banner warn" style="display:none"></div>
@@ -833,18 +832,6 @@
   </div>
 </div>
 
-<!-- ════════ Add books chooser ════════ -->
-<div id="add-overlay" onclick="if (event.target === this) closeAddMenu()">
-  <div class="modal">
-    <h2>Add books</h2>
-    <div class="m-sub">Pick one or many .epub files — or choose a folder (for example Downloads or Documents) and Reymont will find every EPUB inside it, including subfolders. Your browser can’t scan the whole disk by itself, so it needs to know where to look.</div>
-    <div class="modal-actions" style="flex-direction:column;align-items:stretch;margin-top:8px">
-      <button class="btn primary" onclick="addMenuFolder()" style="justify-content:center">Find all EPUBs in a folder…</button>
-      <button class="btn" onclick="addMenuFiles()" style="justify-content:center">Choose files…</button>
-    </div>
-  </div>
-</div>
-
 <!-- ════════ Interactive feedback modal ════════ -->
 <div id="fb-overlay">
   <div class="modal">
@@ -931,7 +918,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.106</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.107</div>
   </div>
 </div>
 
@@ -1036,7 +1023,8 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.106'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
+const APP_VERSION = '3.107'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -1544,7 +1532,7 @@ function applyStyle(id) {
       rendition.themes.select(styleThemeName(id));
       rendition.getContents().forEach(applyStyleToContents);
       refreshAllHighlights(); // цвет подсветки зависит от стиля
-      setTimeout(() => rendition && rendition.resize(), 120); // шрифт/размер сменились — страницы пересчитываются
+      setTimeout(() => safeResize(), 120); // шрифт/размер сменились — страницы пересчитываются
     } catch (e) { console.warn('applyStyle:', e); }
   }
   renderStylePicker();
@@ -1552,7 +1540,7 @@ function applyStyle(id) {
 function setDropcaps(on) {
   localStorage.setItem(LS.dropcaps, on ? '1' : '0');
   ensureFonts(document, currentStyleId());
-  if (typeof rendition !== 'undefined' && rendition) { rendition.getContents().forEach(applyStyleToContents); setTimeout(() => rendition && rendition.resize(), 120); }
+  if (typeof rendition !== 'undefined' && rendition) { rendition.getContents().forEach(applyStyleToContents); setTimeout(() => safeResize(), 120); }
   renderStylePicker();
 }
 function renderStylePicker() {
@@ -1701,7 +1689,7 @@ async function renderLibrary() {
   addCard.innerHTML = `
     <div class="book-cover">+</div>
     <div class="book-meta"><div class="book-title">Add books</div></div>`;
-  addCard.addEventListener('click', addBooksClick);
+  addCard.addEventListener('click', () => $('file-input').click());
   grid.appendChild(addCard);
 
   const ownedIds = new Set(books.map(b => b.id));
@@ -2039,18 +2027,9 @@ async function importMany(fileList) {
 }
 /* «+ Add books»: где браузер умеет читать папки (десктопные Chrome/Edge и др.) — выбор «файлы» или «найти все EPUB в папке»;
    на телефоне папки недоступны — сразу системный выбор файлов (можно отметить много). */
-function addBooksClick() {
-  if (!canPickFolder()) { $('file-input').click(); return; }
-  $('add-overlay').classList.add('open');
-}
-function closeAddMenu() { $('add-overlay').classList.remove('open'); }
-function addMenuFiles() { closeAddMenu(); $('file-input').click(); }
-function addMenuFolder() { closeAddMenu(); pickFolder(); }
 /* Папка с книгами. showDirectoryPicker в Chrome отказывается открывать «Загрузки», «Документы» целиком, домашнюю папку и системные
    («can't open this folder because it contains system files»), поэтому берём обычный выбор папки <input webkitdirectory>: он
    открывает любую папку, включая «Загрузки» и «Документы», и отдаёт файлы со всеми вложенными папками — мы оставляем .epub. */
-function canPickFolder() { return !IS_TOUCH && 'webkitdirectory' in document.createElement('input'); }
-function pickFolder() { $('dir-input').click(); }
 /* Перетаскивание: файлы и папки. Записи (entries) нужно взять синхронно в обработчике drop, читать — уже асинхронно. */
 async function filesFromEntries(entries) {
   const out = [];
@@ -2283,7 +2262,7 @@ $('nav-next').addEventListener('click', () => rendition && rendition.next());
   btn.addEventListener('mouseup', release);
   btn.addEventListener('mouseleave', release);
 });
-window.addEventListener('resize', () => { if (rendition) try { rendition.resize(); } catch (e) {} });
+window.addEventListener('resize', () => { safeResize(); });
 $('sel-fab').addEventListener('click', () => {
   if (!pendingSelection) return;
   const { text, para, cfiRange } = pendingSelection;
@@ -2463,7 +2442,7 @@ function getParagraphContext(sel, text) {
 function openPanel(wide) {
   document.body.classList.toggle('panel-wide', !!wide);
   $('panel').classList.add('open'); document.body.classList.add('panel-open');
-  setTimeout(() => rendition && rendition.resize(), 320);
+  setTimeout(() => safeResize(), 320);
 }
 /* Единая точка входа для перезаписи #panel-body — сбрасывает скролл (иначе новое
    содержимое могло открыться "домотанным" на старую позицию скролла) и переключает
@@ -2487,7 +2466,7 @@ function closePanel() {
   document.body.classList.remove('panel-open');
   if ($('panel-body').classList.contains('io')) setPanelBody(''); // остановить скрипты интерактива; незавершённая генерация откроется не сама, а меткой
   if (translateAbort) translateAbort.abort();
-  setTimeout(() => rendition && rendition.resize(), 320);
+  setTimeout(() => safeResize(), 320);
 }
 
 /* 'new' — ещё не пробовал; 'usedFree' — потратил бесплатные анонимные запросы (лимит ANON_FREE_HIGHLIGHTS в ai/index.ts). */
@@ -3050,7 +3029,7 @@ let toolStripShown = false;
 function syncToolStrip() { // полоса инструментов над текстом занимает место → при появлении/исчезновении пересчитываем страницы
   $('illustrate-btn').classList.toggle('show', !!(sb && isRealUser()));
   const shown = !!document.querySelector('#page-tools .tool-btn.pro, #page-tools .tool-btn.show');
-  if (shown !== toolStripShown) { toolStripShown = shown; setTimeout(() => rendition && rendition.resize(), 60); }
+  if (shown !== toolStripShown) { toolStripShown = shown; setTimeout(() => safeResize(), 60); }
 }
 async function refreshPro() {
   const btn = $('diagram-btn');
@@ -4026,7 +4005,6 @@ $('file-input').addEventListener('change', e => {
   const files = [...e.target.files]; e.target.value = '';
   if (files.length === 1) importFile(files[0]); else if (files.length) importMany(files); // одна книга — сразу открываем, несколько — на полку
 });
-$('dir-input').addEventListener('change', e => { const files = [...e.target.files]; e.target.value = ''; importMany(files); });
 ['dragover', 'dragenter'].forEach(ev => document.addEventListener(ev, e => {
   e.preventDefault();
   const add = document.querySelector('.book-add');
