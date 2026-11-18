@@ -527,11 +527,11 @@
   .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
   .settings-version { text-align: center; font-size: 11px; color: var(--muted); font-style: italic; margin-top: 16px; user-select: none; }
 
-  #prompt-overlay, #fb-overlay {
+  #prompt-overlay, #fb-overlay, #add-overlay {
     position: fixed; inset: 0; background: rgba(61,57,41,.35); backdrop-filter: blur(2px);
     display: none; align-items: center; justify-content: center; z-index: 400;
   }
-  #prompt-overlay.open, #fb-overlay.open { display: flex; }
+  #prompt-overlay.open, #fb-overlay.open, #add-overlay.open { display: flex; }
   #prompt-btn.active { color: var(--accent); background: var(--accent-bg); }
   #cover-prompt-overlay {
     position: fixed; inset: 0; background: rgba(61,57,41,.35); backdrop-filter: blur(2px);
@@ -833,6 +833,18 @@
   </div>
 </div>
 
+<!-- ════════ Add books chooser ════════ -->
+<div id="add-overlay" onclick="if (event.target === this) closeAddMenu()">
+  <div class="modal">
+    <h2>Add books</h2>
+    <div class="m-sub">Pick one or many .epub files — or point to a folder (Downloads, Documents, a flash drive) and Reymont will find every EPUB inside it, including subfolders.</div>
+    <div class="modal-actions" style="flex-direction:column;align-items:stretch;margin-top:8px">
+      <button class="btn primary" onclick="addMenuFolder()" style="justify-content:center">Find all EPUBs in a folder…</button>
+      <button class="btn" onclick="addMenuFiles()" style="justify-content:center">Choose files…</button>
+    </div>
+  </div>
+</div>
+
 <!-- ════════ Interactive feedback modal ════════ -->
 <div id="fb-overlay">
   <div class="modal">
@@ -919,7 +931,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.104</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.105</div>
   </div>
 </div>
 
@@ -1024,7 +1036,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.104'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.105'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -1688,18 +1700,9 @@ async function renderLibrary() {
   addCard.className = 'book-card book-add';
   addCard.innerHTML = `
     <div class="book-cover">+</div>
-    <div class="book-meta"><div class="book-title">Add a book</div></div>`;
-  addCard.addEventListener('click', () => $('file-input').click());
+    <div class="book-meta"><div class="book-title">Add books</div></div>`;
+  addCard.addEventListener('click', addBooksClick);
   grid.appendChild(addCard);
-  if (canPickFolder()) { // папка целиком: все .epub внутри, включая вложенные папки
-    const dirCard = document.createElement('div');
-    dirCard.className = 'book-card book-add';
-    dirCard.innerHTML = `
-      <div class="book-cover"><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div>
-      <div class="book-meta"><div class="book-title">Add a folder</div></div>`;
-    dirCard.addEventListener('click', pickFolder);
-    grid.appendChild(dirCard);
-  }
 
   const ownedIds = new Set(books.map(b => b.id));
   for (const cb of CURATED_BOOKS) {
@@ -2036,6 +2039,15 @@ async function importMany(fileList) {
 }
 /* Папка с книгами. Браузер не даёт искать по всему устройству сам — выбираете папку (хоть «Документы»), мы ищем .epub в ней
    и во всех вложенных. Chrome/Edge: showDirectoryPicker (листает только нужное); остальные десктопные: <input webkitdirectory>. */
+/* «+ Add books»: где браузер умеет читать папки (десктопные Chrome/Edge и др.) — выбор «файлы» или «найти все EPUB в папке»;
+   на телефоне папки недоступны — сразу системный выбор файлов (можно отметить много). */
+function addBooksClick() {
+  if (!canPickFolder()) { $('file-input').click(); return; }
+  $('add-overlay').classList.add('open');
+}
+function closeAddMenu() { $('add-overlay').classList.remove('open'); }
+function addMenuFiles() { closeAddMenu(); $('file-input').click(); }
+function addMenuFolder() { closeAddMenu(); pickFolder(); }
 function canPickFolder() { return !IS_TOUCH && (!!window.showDirectoryPicker || 'webkitdirectory' in document.createElement('input')); }
 async function scanDir(dir, out, state, depth) {
   if (depth > 12) return;
