@@ -904,7 +904,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.103</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.104</div>
   </div>
 </div>
 
@@ -1009,7 +1009,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.103'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.104'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -2113,7 +2113,18 @@ async function openBook(id) {
 
   refreshPro();
   await loadNotes(id); // до display(), чтобы картинки уже были на месте при первом рендере
-  const savedCfi = localStorage.getItem(LS.pos(id));
+  // Обложка / титул / оглавление / лицензия не показываются: помечаем их linear=false (epub.js
+  // пропускает такие секции в first()/next()/prev() и в locations), а книга открывается на тексте.
+  let navToc = [];
+  try {
+    await book.ready;
+    navToc = (await book.loaded.navigation).toc || [];
+    hideFrontMatter(navToc);
+  } catch (e) { console.warn('front matter:', e); }
+  let savedCfi = localStorage.getItem(LS.pos(id));
+  if (savedCfi && hiddenFront.size) { // раньше позиция «на обложке» сохранялась — игнорируем её
+    try { const sec = book.spine.get(savedCfi); if (sec && hiddenFront.has(sec.href)) savedCfi = null; } catch (e) {}
+  }
   console.log('openBook: rendering page…');
   await withTimeout(rendition.display(savedCfi || undefined), 30000, 'rendering the page');
   console.log('openBook: page on screen ✓');
@@ -2122,7 +2133,7 @@ async function openBook(id) {
   renderNotesList();
   if (isCuratedId(id)) loadDemoHighlightsInBackground(id);
 
-  book.loaded.navigation.then(nav => buildToc(nav.toc));
+  buildToc(navToc);
   book.opened.then(() => book.locations.generate(800)).then(() => {
     const loc = rendition.currentLocation();
     if (loc && loc.start) updateProgress(loc);
@@ -2160,6 +2171,33 @@ function updateProgress(loc) {
   if (currentBookId) dbGet('books', currentBookId).then(rec => { if (rec) { rec.progress = pct; dbPut('books', rec); } });
 }
 
+/* Служебные страницы в начале книги (обложка, титул, «Spis treści», лицензия Gutenberg). */
+const FRONT_LABEL = /^(okładka|strona tytułowa|spis\s+treści|cover|title\s*page|table\s+of\s+contents|contents|copyright|licen[sc]e)$/i;
+const FRONT_ID = /cover|title-?page|(^|[^a-z])toc([^a-z]|$)|table[_-]?of[_-]?content|pg-header|default-info|copyright|colophon/i;
+let hiddenFront = new Set();
+function hideFrontMatter(tocItems) {
+  hiddenFront = new Set();
+  const labels = new Map(); // базовый href → метки из TOC
+  const collect = arr => { for (const it of arr || []) {
+    const b = it.href.split('#')[0];
+    (labels.get(b) || labels.set(b, []).get(b)).push((it.label || '').trim());
+    collect(it.subitems);
+  } };
+  collect(tocItems);
+  const items = book.spine.spineItems || [];
+  const found = [];
+  items.slice(0, 8).forEach(sec => {
+    const ls = labels.get(sec.href) || [];
+    const base = sec.href.split('/').pop();
+    // служебная: все её TOC-метки служебные, либо idref/имя файла говорят об этом (cover, pg-header…)
+    const byLabel = ls.length > 0 && ls.every(l => FRONT_LABEL.test(l));
+    const byId = FRONT_ID.test(sec.idref || '') || FRONT_ID.test(base);
+    if (byLabel || byId) found.push(sec);
+  });
+  if (!found.length || found.length >= items.length) return; // нечего прятать / нельзя прятать всё
+  found.forEach(sec => { sec.linear = false; hiddenFront.add(sec.href); });
+}
+
 let flatToc = [];
 function buildToc(items) {
   flatToc = [];
@@ -2167,6 +2205,10 @@ function buildToc(items) {
   list.innerHTML = '';
   const walk = (arr, depth) => {
     for (const it of arr) {
+      if (hiddenFront.has(it.href.split('#')[0])) { // служебные страницы в оглавление не выводим
+        if (it.subitems && it.subitems.length) walk(it.subitems, depth);
+        continue;
+      }
       flatToc.push({ href: it.href, label: it.label.trim() });
       const btn = document.createElement('button');
       btn.className = 'toc-item' + (depth ? ' sub' : '');
