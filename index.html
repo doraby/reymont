@@ -492,6 +492,8 @@
   #web-out a { color: var(--accent); text-decoration: none; border-bottom: 1px solid rgba(193,95,60,.3); }
   #web-out a:hover { border-bottom-color: var(--accent); }
 
+  .viewer-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+  .viewer-loading .spinner { width: 22px; height: 22px; margin: 0; }
   .spinner {
     display: inline-block; width: 13px; height: 13px; border-radius: 50%;
     border: 2px solid var(--surface-2); border-top-color: var(--accent-soft);
@@ -918,7 +920,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.107</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.108</div>
   </div>
 </div>
 
@@ -1024,7 +1026,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.107'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.108'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -1293,18 +1295,14 @@ async function resumeLastBook(state) {
     $('library').style.display = 'block';
   }
 }
-/* Старт без экрана выбора: последняя читаемая книга, а при первом визите — первая книга
-   каталога (public domain), сразу в режиме чтения и без регистрации. Полка остаётся за
-   кнопкой «назад» в читалке; на неудачу показываем её же. */
+/* Старт: последняя читаемая книга, а при первом визите — сразу полка с каталогом
+   (public domain, без регистрации). На неудачу показываем её же. */
 async function startReading() {
-  const showShelf = () => { $('library').style.display = 'block'; };
+  const showShelf = () => { $('library').style.display = 'block'; prefetchCuratedBooks(); };
   try {
     const last = readLastLocal();
     if (last && await dbGet('books', last.bookId)) { await openBook(last.bookId); return; }
-    const cb = CURATED_BOOKS[0];
-    if (!cb) return showShelf();
-    if (!(await dbGet('books', cb.id))) await fetchAndSaveCuratedBook(cb);
-    await openBook(cb.id);
+    showShelf(); // первый визит (в т.ч. без входа) — сразу каталог, без пустого экрана
   } catch (err) {
     console.error('startReading:', err);
     $('reader').classList.remove('open');
@@ -1860,33 +1858,37 @@ async function parseEpubForLibrary(data) {
   return { meta, cover };
 }
 
-/* Каталог бесплатных книг, зашитых в приложение — файлы лежат в /books рядом с index.html. */
+/* Каталог бесплатных книг, зашитых в приложение — лежат в /books рядом с index.html.
+   opf — та же книга, распакованная в папку: epub.js с URL на .opf качает только пакет,
+   оглавление и текущую главу (ленивая загрузка), а не весь архив — книга открывается
+   сразу. file (.epub целиком) оставлен для скачивания/совместимости. */
 const CURATED_BOOKS = [
-  { id: 'curated-chlopi', file: 'books/chlopi.epub', title: 'Chłopi', author: 'Władysław Reymont' },
-  { id: 'curated-propaganda', file: 'books/bernays-propaganda.epub', title: 'Propaganda', author: 'Edward L. Bernays' },
-  { id: 'curated-crystallizing', file: 'books/bernays-crystallizing.epub', title: 'Crystallizing Public Opinion', author: 'Edward L. Bernays' },
+  { id: 'curated-chlopi', file: 'books/chlopi.epub', opf: 'books/chlopi/OPS/package.opf', title: 'Chłopi', author: 'Władysław Reymont' },
+  { id: 'curated-propaganda', file: 'books/bernays-propaganda.epub', opf: 'books/bernays-propaganda/OEBPS/content.opf', title: 'Propaganda', author: 'Edward L. Bernays' },
+  { id: 'curated-crystallizing', file: 'books/bernays-crystallizing.epub', opf: 'books/bernays-crystallizing/OEBPS/content.opf', title: 'Crystallizing Public Opinion', author: 'Edward L. Bernays' },
 ];
+const curatedById = id => CURATED_BOOKS.find(cb => cb.id === id);
 
-async function fetchAndSaveCuratedBook(curated) {
-  const res = await fetch(curated.file, { cache: 'no-store' });
-  if (!res.ok) throw new Error('HTTP ' + res.status);
-  let data = await res.arrayBuffer();
-  data = await normalizeEpubData(data);
-  const { meta, cover } = await parseEpubForLibrary(data);
+/* Запись каталожной книги на полке — без самого файла (текст грузится по главам из
+   распакованной папки), только метаданные, прогресс и reading focus. Сети не нужно. */
+async function ensureCuratedRecord(curated) {
+  if (await dbGet('books', curated.id)) return;
   await dbPut('books', {
-    id: curated.id, data, cover: curatedCoverOverrides[curated.id] || cover,
-    title: meta.title || curated.title,
-    author: meta.creator || curated.author || '',
+    id: curated.id, data: null, cover: curatedCoverOverrides[curated.id] || null,
+    title: curated.title, author: curated.author || '',
     added: Date.now(), lastOpened: Date.now(), progress: 0,
   });
+}
+/* Прогреваем кеш браузера пакетом каталожных книг, пока читатель смотрит на полку. */
+function prefetchCuratedBooks() {
+  const go = () => CURATED_BOOKS.forEach(cb => { if (cb.opf) fetch(cb.opf).catch(() => {}); });
+  if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 2000 }); else setTimeout(go, 300);
 }
 
 async function importCuratedBook(curated, cardEl) {
   try {
-    toast('Downloading “' + curated.title + '”…');
     if (cardEl) cardEl.classList.add('pending');
-    await fetchAndSaveCuratedBook(curated);
-    await renderLibrary();
+    await ensureCuratedRecord(curated);
     await openBook(curated.id);
     await maybeOnboardReadingFocus();
   } catch (err) {
@@ -1920,13 +1922,9 @@ async function downloadCloudBook(remote, cardEl) {
 async function generateCuratedCover(curated, btn, customPrompt) {
   btn.classList.add('busy'); btn.innerHTML = ICON_SPINNER;
   try {
-    let rec = await dbGet('books', curated.id);
-    if (!rec) {
-      toast('Adding “' + curated.title + '”…');
-      await fetchAndSaveCuratedBook(curated);
-    }
+    await ensureCuratedRecord(curated);
     await generateCover(curated.id, btn, customPrompt); // saves the new cover on the book record and re-renders
-    rec = await dbGet('books', curated.id);
+    const rec = await dbGet('books', curated.id);
     if (rec && rec.cover) curatedCoverOverrides[curated.id] = rec.cover; // server also shared it via curated_covers, for every other reader
   } catch (err) {
     console.error('generateCuratedCover:', err);
@@ -2058,7 +2056,11 @@ function blobUrlToDataUrl(url) {
 async function openBook(id) {
   const rec = await dbGet('books', id);
   if (!rec) { toast('Book not found'); return; }
+  const curated = curatedById(id);
+  if (!rec.data && !(curated && curated.opf)) throw new Error('the book file is missing');
   currentBookId = id;
+  // Демо-хайлайты тянем параллельно с открытием книги, а не после него.
+  const demoP = curated ? loadDemoHighlights(id) : null;
   currentMeta = { title: rec.title, author: rec.author };
   currentPrompt = rec.customPrompt || '';
   updatePromptBadge();
@@ -2071,9 +2073,10 @@ async function openBook(id) {
 
   if (rendition) { try { rendition.destroy(); } catch (e) {} }
   if (book) { try { book.destroy(); } catch (e) {} }
-  $('viewer').innerHTML = '';
+  $('viewer').innerHTML = '<div class="viewer-loading"><span class="spinner"></span></div>';
 
-  book = ePub(rec.data.slice(0));
+  // Каталожные — из распакованной папки (ленивая загрузка по главам), свои — из IndexedDB.
+  book = ePub(curated && curated.opf ? new URL(curated.opf, location.href).href : rec.data.slice(0));
   rendition = book.renderTo('viewer', {
     width: '100%', height: '100%',
     flow: 'paginated', spread: 'none',
@@ -2116,10 +2119,11 @@ async function openBook(id) {
   console.log('openBook: rendering page…');
   await withTimeout(rendition.display(savedCfi || undefined), 30000, 'rendering the page');
   console.log('openBook: page on screen ✓');
+  const vl = document.querySelector('#viewer .viewer-loading'); if (vl) vl.remove();
 
   bookNotes.forEach(addHighlight);
   renderNotesList();
-  if (isCuratedId(id)) loadDemoHighlightsInBackground(id);
+  if (demoP) applyDemoHighlights(id, demoP);
 
   buildToc(navToc);
   book.opened.then(() => book.locations.generate(800)).then(() => {
@@ -2872,7 +2876,8 @@ async function loadDemoHighlights(bookId) {
   try {
     const { data, error } = await withTimeout(sb.from('highlights').select('*').eq('book_id', bookId), 8000, 'loading demo highlights');
     if (error) throw error;
-    return (data || []).filter(r => !isSideRow(r)).map(r => Object.assign(rowToNote(r), { demo: true }));
+    const me = isRealUser() ? sbUser.id : null; // свои строки и так лежат в bookNotes
+    return (data || []).filter(r => !isSideRow(r) && (!me || r.user_id !== me)).map(r => Object.assign(rowToNote(r), { demo: true }));
   } catch (e) { console.warn('loadDemoHighlights:', e.message || e); return []; }
 }
 async function loadNotes(bookId) {
@@ -2882,8 +2887,8 @@ async function loadNotes(bookId) {
    книги (без этого разделения зависший/медленный запрос держал экран читалки пустым,
    пока rendition.display() всё ещё ждал загрузки notes). Подтягиваем и подсвечиваем
    демо-хайлайты уже post-factum, когда книга и так на экране. */
-async function loadDemoHighlightsInBackground(bookId) {
-  const demo = await loadDemoHighlights(bookId);
+async function applyDemoHighlights(bookId, demoP) {
+  const demo = await demoP;
   if (currentBookId !== bookId || !demo.length) return; // книгу успели закрыть/сменить
   const ownIds = new Set(bookNotes.map(n => n.id));
   let added = false;

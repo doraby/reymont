@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<package xmlns="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/" unique-identifier="BookId" version="3.0" xml:lang="pl">
+	<metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
+		<dc:title>Chłopi</dc:title>
+		<dc:language>pl</dc:language>
+		<dc:publisher>Agora</dc:publisher>
+		<dc:creator >Władysław Stanisław Reymont</dc:creator>
+		<dc:date >2026-07-17</dc:date>
+		<dc:identifier id="BookId">978-832-680-420-5</dc:identifier>
+		<meta name="generator" content="Konwersja do formatu ePUB Agora Książka i Muzyka sp. z o.o. Wykorzystano czcionkę Apolonia autorstwa dr Tomasza Wełny"/>
+		<meta name="cover" content="cover"/>
+		<meta property="dcterms:modified">2026-07-17T11:00:49Z</meta>
+		<meta property="rendition:layout">reflowable</meta>
+		<meta property="rendition:orientation">auto</meta>
+		<meta property="rendition:spread">auto</meta>
+		<meta property="schema:accessMode">textual</meta>
+		<meta property="schema:accessModeSufficient">textual</meta>
+		<meta property="schema:accessibilityFeature">longDescription</meta>
+		<meta property="schema:accessibilityHazard">none</meta>
+		<meta property="schema:accessibilitySummary">This publication conforms to WCAG 2.0 Level AA.</meta>
+		<dc:subject>zdrada</dc:subject>
+		<dc:subject>chłopstwo</dc:subject>
+		<dc:subject>miłość</dc:subject>
+		<dc:subject>pory roku</dc:subject>
+		<dc:subject>prace na roli</dc:subject>
+		<dc:subject>rok liturgiczny</dc:subject>
+		<dc:subject>osąd</dc:subject>
+		<dc:subject>Antek Boryna</dc:subject>
+		<dc:subject>Maciej Boryna</dc:subject>
+		<dc:subject>Jagna Paczesiówna Borynowa</dc:subject>
+		<dc:subject>Polacy</dc:subject>
+		<dc:subject>Żydzi</dc:subject>
+		<dc:subject>Lipce</dc:subject>
+		<dc:subject>literatura Młodej Polski, modernizmu</dc:subject>
+		<dc:subject>literatura polska</dc:subject>
+		<dc:description>Chłopi</dc:description>
+		<dc:type>Text</dc:type>
+	</metadata>
+	<manifest>
+		<item id="nav" href="toc.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+		<item id="coverpage_1" href="coverpage_1.xhtml" media-type="application/xhtml+xml"/>
+		<item id="titlepage_2" href="titlepage_2.xhtml" media-type="application/xhtml+xml"/>
+		<item id="table_of_content_3" href="table_of_content_3.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_4" href="chapter_4.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_5" href="chapter_5.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_6" href="chapter_6.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_7" href="chapter_7.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_8" href="chapter_8.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_9" href="chapter_9.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_10" href="chapter_10.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_11" href="chapter_11.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_12" href="chapter_12.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_13" href="chapter_13.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_14" href="chapter_14.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_15" href="chapter_15.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_16" href="chapter_16.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_17" href="chapter_17.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_18" href="chapter_18.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_19" href="chapter_19.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_20" href="chapter_20.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_21" href="chapter_21.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_22" href="chapter_22.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_23" href="chapter_23.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_24" href="chapter_24.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_25" href="chapter_25.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_26" href="chapter_26.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_27" href="chapter_27.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_28" href="chapter_28.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_29" href="chapter_29.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_30" href="chapter_30.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_31" href="chapter_31.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_32" href="chapter_32.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_33" href="chapter_33.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_34" href="chapter_34.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_35" href="chapter_35.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_36" href="chapter_36.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_37" href="chapter_37.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_38" href="chapter_38.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_39" href="chapter_39.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_40" href="chapter_40.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_41" href="chapter_41.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_42" href="chapter_42.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_43" href="chapter_43.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_44" href="chapter_44.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_45" href="chapter_45.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_46" href="chapter_46.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_47" href="chapter_47.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_48" href="chapter_48.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_49" href="chapter_49.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_50" href="chapter_50.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_51" href="chapter_51.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter_52" href="chapter_52.xhtml" media-type="application/xhtml+xml"/>
+		<item id="bookinfo_53" href="bookinfo_53.xhtml" media-type="application/xhtml+xml"/>
+		<item id="cover" href="images/okladka.jpg" media-type="image/jpeg" properties="cover-image"/>
+		<item id="img1" href="images/publio.jpg" media-type="image/jpeg"/>
+		<item id="Apolonia.otf" href="fonts/Apolonia.otf" media-type="font/otf"/>
+		<item id="Apolonia-Bold.otf" href="fonts/Apolonia-Bold.otf" media-type="font/otf"/>
+		<item id="Apolonia-BoldItalic.otf" href="fonts/Apolonia-BoldItalic.otf" media-type="font/otf"/>
+		<item id="Apolonia-Italic.otf" href="fonts/Apolonia-Italic.otf" media-type="font/otf"/>
+		<item id="css1" href="css/ebook_style.css" media-type="text/css"/>
+		<item id="default-info-epub3" href="Text/default-info-epub3.xhtml" media-type="application/xhtml+xml"/>
+	</manifest>
+	<spine>
+		<itemref idref="coverpage_1" />
+		<itemref idref="default-info-epub3" />
+		<itemref idref="titlepage_2" />
+		<itemref idref="table_of_content_3" />
+		<itemref idref="chapter_4" />
+		<itemref idref="chapter_5" />
+		<itemref idref="chapter_6" />
+		<itemref idref="chapter_7" />
+		<itemref idref="chapter_8" />
+		<itemref idref="chapter_9" />
+		<itemref idref="chapter_10" />
+		<itemref idref="chapter_11" />
+		<itemref idref="chapter_12" />
+		<itemref idref="chapter_13" />
+		<itemref idref="chapter_14" />
+		<itemref idref="chapter_15" />
+		<itemref idref="chapter_16" />
+		<itemref idref="chapter_17" />
+		<itemref idref="chapter_18" />
+		<itemref idref="chapter_19" />
+		<itemref idref="chapter_20" />
+		<itemref idref="chapter_21" />
+		<itemref idref="chapter_22" />
+		<itemref idref="chapter_23" />
+		<itemref idref="chapter_24" />
+		<itemref idref="chapter_25" />
+		<itemref idref="chapter_26" />
+		<itemref idref="chapter_27" />
+		<itemref idref="chapter_28" />
+		<itemref idref="chapter_29" />
+		<itemref idref="chapter_30" />
+		<itemref idref="chapter_31" />
+		<itemref idref="chapter_32" />
+		<itemref idref="chapter_33" />
+		<itemref idref="chapter_34" />
+		<itemref idref="chapter_35" />
+		<itemref idref="chapter_36" />
+		<itemref idref="chapter_37" />
+		<itemref idref="chapter_38" />
+		<itemref idref="chapter_39" />
+		<itemref idref="chapter_40" />
+		<itemref idref="chapter_41" />
+		<itemref idref="chapter_42" />
+		<itemref idref="chapter_43" />
+		<itemref idref="chapter_44" />
+		<itemref idref="chapter_45" />
+		<itemref idref="chapter_46" />
+		<itemref idref="chapter_47" />
+		<itemref idref="chapter_48" />
+		<itemref idref="chapter_49" />
+		<itemref idref="chapter_50" />
+		<itemref idref="chapter_51" />
+		<itemref idref="chapter_52" />
+		<itemref idref="bookinfo_53" />
+	</spine>
+	<guide>
+		<reference href="coverpage_1.xhtml" title="Okładka" type="cover"/>
+		<reference href="toc.xhtml" title="Spis treści" type="toc"/>
+	</guide>
+</package>
