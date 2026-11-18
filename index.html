@@ -920,7 +920,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.109</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.110</div>
   </div>
 </div>
 
@@ -1026,7 +1026,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.109'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.110'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -1987,23 +1987,70 @@ let cloudUploadQueue = Promise.resolve();
 function queueCloudUpload(rec) { // по одной, чтобы сотня книг не грузилась параллельно
   cloudUploadQueue = cloudUploadQueue.then(() => cloudUploadBook(rec)).catch(() => {});
 }
+/* Обычный EPUB: META-INF/container.xml лежит в корне архива. Ищем имя прямо в байтах zip
+   (без распаковки) — тогда «матрёшку» разбирать не нужно и JSZip лишний раз не гоняем. */
+function hasRootContainer(data) {
+  const s = new TextDecoder('latin1').decode(new Uint8Array(data));
+  for (let i = s.indexOf('META-INF/container.xml'); i >= 0; i = s.indexOf('META-INF/container.xml', i + 1)) {
+    if (i === 0 || s[i - 1] !== '/') return true;
+  }
+  return false;
+}
+/* Сразу переключаемся в читалку со спиннером, пока файл читается. */
+function showBookLoading(title) {
+  $('library').style.display = 'none';
+  $('reader').classList.add('open');
+  $('tb-title').textContent = title || '';
+  $('viewer').innerHTML = '<div class="viewer-loading"><span class="spinner"></span></div>';
+}
+/* Одна книга: открываем сразу из прочитанного буфера, одним разбором EPUB. Название,
+   автор и обложка берутся из уже открытой книги и дописываются в запись в фоне. */
 async function importFile(file) {
   if (!file) return;
   $('lib-error').style.display = 'none';
-  toast('Opening the book…');
   let step = 'reading the file';
   try {
-    const rec = await importOne(file, t => { step = t; });
-    queueCloudUpload(rec); // best-effort, background — so it also shows up on your other devices
-    await renderLibrary();
+    const id = bookIdFor(file);
+    showBookLoading(file.name.replace(/\.epub$/i, ''));
+    if (await dbGet('books', id)) { step = 'opening the book'; await openBook(id); return; } // уже на полке
+    let data = await readFileBuffer(file);
+    const head = new Uint8Array(data, 0, Math.min(2, data.byteLength));
+    if (head[0] !== 0x50 || head[1] !== 0x4B) throw new Error('This file doesn’t look like an EPUB: no zip archive inside.');
+    step = 'parsing the EPUB';
+    if (!hasRootContainer(data)) data = await normalizeEpubData(data);
+    const rec = {
+      id, data, cover: null, title: file.name.replace(/\.epub$/i, ''), author: '',
+      added: Date.now(), lastOpened: Date.now(), progress: 0,
+    };
     step = 'opening the book';
-    await openBook(rec.id);
+    await openBook(id, rec); // openBook сам сохраняет запись в IndexedDB
+    fillBookMeta(rec, book).then(() => queueCloudUpload(rec)); // фон: метаданные/обложка, потом облако
     await maybeOnboardReadingFocus();
   } catch (err) {
     console.error(err);
+    $('reader').classList.remove('open');
+    $('library').style.display = 'block';
+    renderLibrary();
     libError(`Couldn’t open the book (step: ${step}). ${err && err.name ? err.name + ': ' : ''}${err && err.message || err}`);
     toast('Error — details under the upload area');
   }
+}
+async function fillBookMeta(rec, b) {
+  try {
+    const meta = await withTimeout(b.loaded.metadata, 20000, 'reading metadata');
+    if (meta.title) rec.title = meta.title;
+    if (meta.creator) rec.author = meta.creator;
+    if (currentBookId === rec.id) {
+      currentMeta = { title: rec.title, author: rec.author };
+      $('tb-title').textContent = rec.title + (rec.author ? ' — ' + rec.author : '');
+    }
+  } catch (e) { console.warn('fillBookMeta: metadata', e); }
+  try {
+    const url = await withTimeout(b.coverUrl(), 10000, 'cover');
+    if (url) rec.cover = await blobUrlToDataUrl(url);
+  } catch (e) { console.warn('fillBookMeta: cover', e); }
+  const cur = await dbGet('books', rec.id); // прогресс/фокус могли уже поменяться
+  if (cur) { cur.title = rec.title; cur.author = rec.author; cur.cover = rec.cover; await dbPut('books', cur); Object.assign(rec, cur); }
 }
 /* Массовый импорт: несколько файлов или целая папка. Идёт по одной (память), уже имеющиеся книги пропускает,
    показывает прогресс, в конце — итог. Книги не открываем: их десятки. */
@@ -2059,8 +2106,8 @@ function blobUrlToDataUrl(url) {
 }
 
 /* ════════════════════════ Reader ════════════════════════ */
-async function openBook(id) {
-  const rec = await dbGet('books', id);
+async function openBook(id, newRec) {
+  const rec = newRec || await dbGet('books', id);
   if (!rec) { toast('Book not found'); return; }
   const curated = curatedById(id);
   if (!rec.data && !(curated && curated.opf)) throw new Error('the book file is missing');
