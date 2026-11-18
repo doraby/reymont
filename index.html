@@ -1564,9 +1564,12 @@ const settings = {
 };
 
 let book = null, rendition = null, currentBookId = null, currentMeta = {}, currentPrompt = '';
-let fontSize = parseInt(localStorage.getItem(LS.fontSize) || '20', 10);
+// Десктоп (широкий экран + мышь): шрифт по умолчанию вдвое крупнее, чем на телефоне, и выше потолок для «+».
+const IS_DESKTOP = window.matchMedia('(min-width: 1024px) and (hover: hover) and (pointer: fine)').matches;
+const FONT_DEFAULT = IS_DESKTOP ? 40 : 20, FONT_MAX = IS_DESKTOP ? 56 : 28;
+let fontSize = parseInt(localStorage.getItem(LS.fontSize) || String(FONT_DEFAULT), 10);
 function changeFontSize(delta) {
-  fontSize = Math.max(14, Math.min(28, fontSize + delta));
+  fontSize = Math.max(14, Math.min(FONT_MAX, fontSize + delta));
   localStorage.setItem(LS.fontSize, fontSize);
   if (rendition) rendition.themes.fontSize(fontSize + 'px');
 }
