@@ -249,15 +249,15 @@
     position: absolute; top: 4px; left: 16px; right: 16px; max-width: 760px; margin: 0 auto; height: 32px;
     display: none; align-items: center; justify-content: center; gap: 10px; z-index: 5;
   }
-  #reader:has(#diagram-btn.pro) #page-tools { display: flex; }
-  #reader:has(#diagram-btn.pro) #viewer { top: 40px; }
+  #reader:has(.tool-btn.pro, .tool-btn.show) #page-tools { display: flex; }
+  #reader:has(.tool-btn.pro, .tool-btn.show) #viewer { top: 40px; }
   .tool-btn {
     display: none; width: 32px; height: 32px; padding: 0; border: none; background: transparent; cursor: pointer;
     color: var(--muted); align-items: center; justify-content: center; transition: color .15s;
   }
   .tool-btn:hover { color: var(--text); }
   .tool-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-  .tool-btn.pro { display: inline-flex; }
+  .tool-btn.pro, .tool-btn.show { display: inline-flex; }
   .tool-btn.busy { pointer-events: none; opacity: .55; animation: io-pulse 1.2s ease-in-out infinite; }
   @keyframes io-pulse { 50% { opacity: .25; } }
   /* Диаграмма на весь экран: поверх всего, с зумом и прокруткой (из iframe книги выйти за колонку нельзя) */
@@ -377,6 +377,8 @@
   #toc-list { overflow-y: auto; padding: 6px 10px 24px; }
   .note-item { padding: 11px 12px; border-radius: 10px; cursor: pointer; }
   .note-item:hover { background: var(--surface-2); }
+  .il-item { display: flex; gap: 12px; align-items: center; }
+  .il-item img { width: 46px; height: 62px; object-fit: cover; border-radius: 6px; flex: none; }
   .ni-io { font-style: normal; color: var(--accent); font-weight: 600; border-left-color: var(--accent); }
   .ni-text { font-size: 14px; font-style: italic; line-height: 1.4; border-left: 2px solid var(--accent-soft); padding-left: 9px; }
   .ni-demo-badge {
@@ -389,7 +391,8 @@
   .notes-empty { color: var(--muted); font-style: italic; font-size: 13.5px; padding: 14px 16px; line-height: 1.5; }
   .note-meta { font-size: 12px; color: var(--muted); font-style: italic; margin: -14px 0 18px; }
   .note-actions { display: flex; gap: 10px; margin-top: 26px; }
-  .note-actions .btn { font-size: 13px; padding: 7px 14px; }
+  .note-actions .btn { font-size: 13.5px; padding: 6px 4px; border: 0; background: transparent; color: var(--muted); }
+  .note-actions .btn:hover { color: var(--text); }
   .toc-item {
     display: block; width: 100%; text-align: left; border: none; background: none; cursor: pointer;
     padding: 9px 12px; font-size: 14.5px; border-radius: 8px; line-height: 1.4; color: var(--text);
@@ -401,7 +404,7 @@
   /* ───────────────── Right panel ───────────────── */
   #panel {
     position: fixed; top: 0; right: 0; bottom: 0; width: var(--panel-w); max-width: 100vw;
-    background: var(--surface); border-left: 1px solid var(--border);
+    background: var(--surface); box-shadow: -10px 0 40px rgba(0, 0, 0, 0.05);
     transform: translateX(100%); transition: transform .3s cubic-bezier(.4,0,.2,1);
     z-index: 50; display: flex; flex-direction: column;
   }
@@ -423,20 +426,23 @@
   /* Чат о хайлайте */
   .chat-sec { margin-top: 22px; }
   .chat-msg { margin: 10px 0; font-size: 14.5px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
-  .chat-msg.user { background: var(--accent-bg); border-radius: 12px; padding: 8px 12px; margin-left: 28px; }
+  .chat-msg.user { background: var(--surface-2); border-radius: 18px; padding: 8px 14px; margin-left: auto; max-width: 86%; width: fit-content; }
   .chat-msg.err { color: #B4432A; font-size: 13.5px; }
-  .chat-form {
-    position: sticky; bottom: 0; z-index: 3; display: flex; gap: 8px; align-items: flex-end;
-    background: var(--surface); padding: 10px 0 12px; margin-top: 12px;
+  /* Поле ввода — как в чате Claude: закреплено внизу панели, без рамок, мягкая «таблетка» с круглой кнопкой */
+  #chat-dock { flex: none; display: none; padding: 6px 16px calc(16px + env(safe-area-inset-bottom, 0px)); background: var(--surface); }
+  #panel.chat-on #chat-dock { display: block; }
+  .chat-box { display: flex; align-items: flex-end; gap: 8px; background: var(--surface-2); border-radius: 24px; padding: 6px 6px 6px 18px; }
+  .chat-box textarea {
+    flex: 1; resize: none; max-height: 140px; min-height: 28px; padding: 8px 0; border: 0; outline: none; background: transparent;
+    color: var(--text); font: inherit; font-size: 15px; line-height: 1.45;
   }
-  .chat-form textarea {
-    flex: 1; resize: none; max-height: 140px; min-height: 40px; padding: 9px 12px; border-radius: 12px;
-    border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; font-size: 14.5px; line-height: 1.4;
-  }
-  .chat-form textarea:focus { outline: none; border-color: var(--accent-soft); }
-  .chat-form .btn { flex: none; width: 40px; height: 40px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
-  .chat-form .btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  .chat-form .btn:disabled { opacity: .5; cursor: default; }
+  .chat-box textarea::placeholder { color: var(--muted); }
+  .chat-box button { flex: none; width: 34px; height: 34px; border: 0; border-radius: 50%; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+    background: var(--accent-soft); color: #fff; cursor: pointer; transition: opacity .15s, transform .05s; }
+  :root[data-theme="dusk"] .chat-box button { color: #232528; }
+  .chat-box button:active { transform: scale(0.94); }
+  .chat-box button:disabled { opacity: .4; cursor: default; }
+  .chat-box button svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
   .sel-quote {
     font-style: italic; font-size: 15.5px; line-height: 1.55; color: var(--text);
     border-left: 3px solid var(--accent-soft); padding: 2px 0 2px 14px; margin-bottom: 22px;
@@ -475,7 +481,7 @@
 
 
   .illus-card {
-    border: 1px solid var(--border); border-radius: 14px; overflow: hidden;
+    border-radius: 14px; overflow: hidden;
     background: var(--bg); margin-bottom: 10px;
   }
   .illus-card img { width: 100%; display: block; }
@@ -686,6 +692,9 @@
           <button class="tool-btn" id="interactive-btn" onclick="makeInteractive()" title="Interactive view of this page (Premium)" aria-label="Interactive view of this page">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>
           </button>
+          <button class="tool-btn" id="illustrate-btn" onclick="makeIllustration()" title="Illustrate this page" aria-label="Illustrate this page">
+            <svg viewBox="0 0 24 24"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor" stroke="none"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor" stroke="none"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor" stroke="none"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor" stroke="none"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+          </button>
         </div>
         <div id="viewer"></div>
         <button id="nav-prev" class="nav-btn" aria-label="Previous page">‹</button>
@@ -728,6 +737,12 @@
     <button id="panel-close-btn" class="icon-btn" onclick="closePanel()" aria-label="Close">✕</button>
   </div>
   <div id="panel-body"></div>
+  <div id="chat-dock">
+    <form class="chat-box" onsubmit="return sendChat(event)">
+      <textarea id="chat-in" rows="1" placeholder="Ask more about this passage…" onkeydown="chatKey(event)" oninput="chatGrow(this)"></textarea>
+      <button type="submit" id="chat-send" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg></button>
+    </form>
+  </div>
 </div>
 
 <!-- ════════ Diagram fullscreen ════════ -->
@@ -904,7 +919,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.103</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.104</div>
   </div>
 </div>
 
@@ -1009,7 +1024,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.103'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.104'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -1346,6 +1361,7 @@ async function fullSync() {
   await syncLastPosition();
   await syncInteractives(remoteAll);
   await syncDiagrams(remoteAll);
+  await syncIllustrations(remoteAll);
 }
 
 const LS = {
@@ -1356,6 +1372,7 @@ const LS = {
   last: 'reader.last', // {bookId, cfi, t} — последняя читаемая книга и место
   focusOnboarded: 'reader.focusOnboarded',
   interactives: id => 'reader.interactives.' + id, // [{cfi, html}] — интерактивные виды страниц
+  illustrations: id => 'reader.illustrations.' + id, // [{cfi, at, url, text, t}] — иллюстрации страниц
   diagrams: id => 'reader.diagrams.' + id, // [{cfi, svg}] — нарисованные диаграммы страниц книги
   firstSeen: 'reader.firstSeen', // когда читатель впервые открыл приложение (мс); 0 — пришёл до появления этой метки
   style: 'reader.style',       // classic | tufte | paper | dusk
@@ -2106,6 +2123,7 @@ async function openBook(id) {
     repairNotesInSection(contents); // до вставок: хайлайты чиним по чистому тексту главы
     injectIllustrations(contents);
     injectDiagrams(contents);
+    injectPageIllustrations(contents);
     injectInteractives(contents);
     refreshHighlights(contents);    // вставки появились — подсветки пересчитываем под них
     bindTouchSelectionFallback(contents);
@@ -2289,7 +2307,7 @@ document.addEventListener('click', e => {
   const cfi = mark.getAttribute('data-epubcfi');
   console.log('highlightTap(outer): clicked mark, cfi =', cfi);
   const note = bookNotes.find(n => n._live === cfi || n.cfiRange === cfi); // epub.js получает «живой» CFI (см. addHighlightIn)
-  if (note) { console.log('highlightTap(outer): MATCH — opening', note.id); showNote(note.id); }
+  if (note) { console.log('highlightTap(outer): MATCH — opening', note.id); showNote(note.id, true); }
   else console.log('highlightTap(outer): no matching note in bookNotes (', bookNotes.length, 'loaded)');
 });
 
@@ -2423,6 +2441,7 @@ function setPanelBody(html, isPromo) {
   body.classList.remove('io');
   $('panel').classList.remove('io-view');
   $('panel').classList.remove('note-view');
+  $('panel').classList.remove('chat-on');
   panelOwner = null; // любое другое содержимое отменяет «владение» панелью интерактивом
   body.innerHTML = html;
   body.scrollTop = 0;
@@ -2534,19 +2553,15 @@ const MAX_CHAT_STORED = 60, MAX_CHAT_SENT = 24;
 function setChatContext(note, text, para) {
   chatCtx = { note, text, para };
   $('panel').classList.toggle('note-view', !!(note && note.id && !note.demo)); // показывает «удалить» в шапке панели
+  $('panel').classList.toggle('chat-on', !(note && note.demo)); // поле «Ask more» внизу панели
 }
 function deleteCurrentNote() {
   const n = chatCtx && chatCtx.note;
   if (n && n.id && !n.demo && confirm('Delete this highlight?')) deleteNote(n.id);
 }
 function chatMsgHtml(m) { return `<div class="chat-msg ${m.role === 'user' ? 'user' : 'assistant'}">${esc(m.content)}</div>`; }
-function chatSectionHtml(note) {
-  return `<div class="chat-sec">
-    <div id="chat-thread">${(note.chat || []).map(chatMsgHtml).join('')}</div>
-    <form class="chat-form" onsubmit="return sendChat(event)">
-      <textarea id="chat-in" rows="1" placeholder="Ask more about this passage…" onkeydown="chatKey(event)" oninput="chatGrow(this)"></textarea>
-      <button type="submit" class="btn primary" id="chat-send" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg></button>
-    </form></div>`;
+function chatSectionHtml(note) { // в панели — только переписка; поле ввода закреплено внизу (#chat-dock)
+  return `<div class="chat-sec"><div id="chat-thread">${(note.chat || []).map(chatMsgHtml).join('')}</div></div>`;
 }
 function chatGrow(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 140) + 'px'; }
 function chatKey(e) { // Enter отправляет (Shift+Enter — новая строка); на тач-устройствах Enter — перенос строки
@@ -2743,13 +2758,8 @@ async function translate(text, gen, words, para, note) {
    Генерируется только через встроенный AI (серверный ключ) — доступ проверяет edge-функция
    по email. Кнопка показана всем вошедшим, сервер сам откажет, если не в списке. */
 function illusZoneInner(note) {
-  if (!note) return '';
-  if (note.illusUrl) {
-    return `<div class="illus-card"><img src="${note.illusUrl}" alt=""></div>` +
-      (note.demo ? '' : `<button class="btn" onclick="requestIllustration('${note.id}')">${ICON_REFRESH}Regenerate illustration</button>`);
-  }
-  if (note.demo) return ''; // демо без картинки — не даём анониму запускать генерацию за чужой счёт
-  return `<button class="btn" onclick="requestIllustration('${note.id}')">${ICON_PALETTE}Illustrate this scene</button>`;
+  if (!note || !note.illusUrl) return '';
+  return `<div class="illus-card"><img src="${note.illusUrl}" alt=""></div>`; // кнопка «Illustrate» теперь в панели инструментов над текстом
 }
 function illusSectionHtml(note) {
   if (!note) return '';
@@ -2980,7 +2990,7 @@ function addHighlightIn(contents, note) {
   note._live = live;
   const hl = styleHighlight(), fill = note.demo ? '#D4A017' : hl.fill;
   try {
-    rendition.annotations.add('highlight', live, {}, () => { console.log('addHighlight: epub.js own mark-click fired for', note.id); showNote(note.id); }, 'hl',
+    rendition.annotations.add('highlight', live, {}, () => { console.log('addHighlight: epub.js own mark-click fired for', note.id); showNote(note.id, true); }, 'hl',
       { 'fill': fill, 'fill-opacity': hl.opacity, 'mix-blend-mode': hl.blend });
   } catch (e) { console.warn('highlight failed to attach:', e); }
 }
@@ -3003,9 +3013,16 @@ const MERMAID_SRC = 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.mi
 const MAX_DIAGRAMS_PER_BOOK = 20;
 let isPro = false, proCheckedAt = 0, diagramBusy = false, mermaidP = null;
 
+let toolStripShown = false;
+function syncToolStrip() { // полоса инструментов над текстом занимает место → при появлении/исчезновении пересчитываем страницы
+  $('illustrate-btn').classList.toggle('show', !!(sb && isRealUser()));
+  const shown = !!document.querySelector('#page-tools .tool-btn.pro, #page-tools .tool-btn.show');
+  if (shown !== toolStripShown) { toolStripShown = shown; setTimeout(() => rendition && rendition.resize(), 60); }
+}
 async function refreshPro() {
   const btn = $('diagram-btn');
-  if (!sb || !isRealUser()) { isPro = false; btn.classList.remove('pro'); $('interactive-btn').classList.remove('pro'); return; }
+  if (!sb || !isRealUser()) { isPro = false; btn.classList.remove('pro'); $('interactive-btn').classList.remove('pro'); syncToolStrip(); return; }
+  syncToolStrip();
   if (Date.now() - proCheckedAt < 5 * 60 * 1000) return; // не чаще раза в 5 минут
   proCheckedAt = Date.now();
   try {
@@ -3013,10 +3030,9 @@ async function refreshPro() {
     if (!res.ok) throw new Error('HTTP ' + res.status);
     isPro = !!(await res.json()).pro;
   } catch (e) { console.warn('refreshPro:', e.message || e); isPro = false; }
-  const wasPro = btn.classList.contains('pro');
   btn.classList.toggle('pro', isPro);
   $('interactive-btn').classList.toggle('pro', isPro);
-  if (wasPro !== isPro) setTimeout(() => rendition && rendition.resize(), 60); // колонка текста сместилась под полосу кнопок
+  syncToolStrip();
   if (isPro) showDbgFab(); // подписчикам (новые функции) кнопка отладки видна сразу
 }
 function loadMermaid() {
@@ -3263,9 +3279,9 @@ function saveInteractive(bookId, rec) {
    не нужны. Такие строки не должны попадать в обычные хайлайты — они отсекаются в fullSync и в демо-списке.
    Флаг synced различает «ещё не загружен» (загружаем) и «был в облаке, а теперь его там нет» (удалён на другом
    устройстве — убираем и тут). */
-const IO_LANG = '__interactive__', DG_LANG = '__diagram__';
+const IO_LANG = '__interactive__', DG_LANG = '__diagram__', IL_LANG = '__illustration__';
 function isIoRow(r) { return r && r.lang === IO_LANG; }
-function isSideRow(r) { return r && (r.lang === IO_LANG || r.lang === DG_LANG); } // интерактив/диаграмма, а не хайлайт
+function isSideRow(r) { return r && (r.lang === IO_LANG || r.lang === DG_LANG || r.lang === IL_LANG); } // интерактив/диаграмма/иллюстрация, а не хайлайт
 function sideRowId(prefix, bookId, cfi) { let h = 5381; for (let i = 0; i < cfi.length; i++) h = ((h << 5) + h + cfi.charCodeAt(i)) | 0; return `${prefix}-${bookId}-${(h >>> 0).toString(36)}`; }
 function ioCloudOn() { return !!(sb && isRealUser()); }
 /* Два вида «боковых» записей, которые живут строками в highlights: интерактивы (код в web_html) и диаграммы (SVG в
@@ -3283,6 +3299,12 @@ const SIDE = {
     toRow: (rec) => ({ para: rec.at === 'start' ? 'start' : '' }), fromRow: r => Object.assign({ svg: r.web_html || '' }, r.para === 'start' ? { at: 'start' } : {}),
     inject: c => injectDiagrams(c),
   },
+  il: {
+    lang: IL_LANG, prefix: 'il', name: 'illustration', fallbackText: 'illustration', lsKey: id => LS.illustrations(id), max: () => MAX_ILLUSTRATIONS_PER_BOOK,
+    load: id => loadIllustrations(id), data: rec => rec.url, setData: (rec, v) => { rec.url = v; },
+    toRow: (rec) => ({ para: rec.at === 'start' ? 'start' : '' }), fromRow: r => ({ url: r.web_html || '', at: 'start' }),
+    inject: c => injectPageIllustrations(c),
+  },
 };
 function sideToRow(k, bookId, rec) {
   const t = rec.t || (k.name === 'diagram' ? 1 : Date.now());
@@ -3298,6 +3320,7 @@ function writeSide(k, bookId, list) {
 }
 function writeInteractives(bookId, list) { writeSide(SIDE.io, bookId, list); }
 function writeDiagrams(bookId, list) { writeSide(SIDE.dg, bookId, list); }
+function writeIllustrations(bookId, list) { writeSide(SIDE.il, bookId, list); }
 async function cloudUpsertSide(k, bookId, rec) {
   if (!ioCloudOn()) return;
   try {
@@ -3353,6 +3376,7 @@ async function syncSide(k, remoteAll) { // remoteAll — все строки hig
 }
 const syncInteractives = remoteAll => syncSide(SIDE.io, remoteAll);
 const syncDiagrams = remoteAll => syncSide(SIDE.dg, remoteAll);
+const syncIllustrations = remoteAll => syncSide(SIDE.il, remoteAll);
 const SNAPSHOT_CSP = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:">`;
 function snapshotDoc(snap) { // статичный снимок уже отрисованного интерактива — без скриптов
   const m = /<head[^>]*>/i.exec(snap);
@@ -3465,6 +3489,89 @@ function submitFeedback() {
 }
 /* Перейти на страницу интерактива: сначала по CFI; если он не разрешился — по главе; затем проверяем, что сама
    метка интерактива на показанной странице, и если нет — переходим к блоку, перед которым она стоит. */
+/* ═══════════ Иллюстрация страницы ═══════════
+   Третий инструмент рядом с диаграммой и интерактивом: рисует картинку по тексту ТЕКУЩЕЙ страницы и ставит её в начало
+   страницы. Лежит как остальные вставки: в браузере, в таблице highlights (lang = IL_LANG, ссылка на картинку в web_html),
+   виден в списке хайлайтов. Сервер — прежнее действие illustrate (картинки платные: для своих книг лимит, для каталога —
+   только владелец). Иллюстрации, сделанные раньше к отдельным хайлайтам, остаются на своих местах. */
+const MAX_ILLUSTRATIONS_PER_BOOK = 20;
+let illusBusy = false;
+function loadIllustrations(bookId) {
+  try { return JSON.parse(localStorage.getItem(LS.illustrations(bookId))) || []; } catch (e) { return []; }
+}
+const ICON_TRASH_SM = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:auto"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
+function placePageIllustration(contents, rec) {
+  const doc = contents.document, attr = 'data-reymont-pgillus';
+  const old = doc.querySelector(`[${attr}="${CSS.escape(rec.cfi)}"]`);
+  if (old) old.remove();
+  const block = anchorForPageStart(contents, rec.cfi, rec.text);
+  if (!block) return false;
+  const wrap = doc.createElement('div');
+  wrap.className = INS_CLASS;
+  wrap.setAttribute(attr, rec.cfi);
+  wrap.style.cssText = 'position:relative;margin:14px auto 22px;max-width:300px;border-radius:10px;overflow:hidden;line-height:0;'
+    + 'break-inside:avoid;-webkit-column-break-inside:avoid;page-break-inside:avoid;';
+  const img = doc.createElement('img');
+  img.src = rec.url; img.alt = '';
+  img.style.cssText = 'display:block;width:100%;height:auto;';
+  wrap.appendChild(img);
+  // Удаление — слушатель вешаем отсюда: в iframe книги скрипты выключены.
+  const del = doc.createElement('button');
+  del.title = 'Delete illustration'; del.setAttribute('aria-label', 'Delete illustration');
+  del.innerHTML = ICON_TRASH_SM;
+  del.style.cssText = 'position:absolute;top:8px;right:8px;width:34px;height:34px;border:none;border-radius:50%;background:rgba(255,255,255,.92);color:#6B6651;cursor:pointer;padding:0;';
+  del.addEventListener('click', e => { e.preventDefault(); deletePageIllustration(rec); });
+  wrap.appendChild(del);
+  block.insertAdjacentElement('beforebegin', wrap);
+  return true;
+}
+function injectPageIllustrations(contents) {
+  if (!contents || !contents.document || !currentBookId) return;
+  for (const rec of loadIllustrations(currentBookId)) {
+    if (contents.document.querySelector(`[data-reymont-pgillus="${CSS.escape(rec.cfi)}"]`)) continue;
+    placePageIllustration(contents, rec);
+  }
+}
+function deletePageIllustration(rec) {
+  if (!rec || !currentBookId || !confirm('Delete this illustration?')) return;
+  writeIllustrations(currentBookId, loadIllustrations(currentBookId).filter(x => x.cfi !== rec.cfi));
+  cloudDeleteSide(SIDE.il, currentBookId, rec.cfi);
+  try { rendition.getContents().forEach(c => c.document.querySelectorAll(`[data-reymont-pgillus="${CSS.escape(rec.cfi)}"]`).forEach(n => n.remove())); refreshAllHighlights(); } catch (e) { console.warn('deletePageIllustration (page):', e.message); }
+  renderNotesList();
+  toast('Illustration deleted');
+}
+async function makeIllustration() {
+  if (illusBusy || !rendition || !currentBookId) return; // повторный клик во время запроса — игнор
+  if (!isRealUser()) { toast('Sign in with email to generate illustrations'); return; }
+  const contents = rendition.getContents()[0], loc = rendition.currentLocation();
+  const text = currentPageText().slice(0, 3000);
+  if (!contents || !loc || !loc.start || text.length < 80) { toast('Not enough text on this page'); return; }
+  const bookId = currentBookId, cfi = realPageStartCfi(contents, loc);
+  if (loadIllustrations(bookId).some(x => x.cfi === cfi) && !confirm('This page already has an illustration. Paint a new one?')) return;
+  const btn = $('illustrate-btn');
+  illusBusy = true; btn.classList.add('busy');
+  toast('Painting the scene… this can take up to a minute');
+  try {
+    const noteId = 'pg' + Math.abs(hashStr(bookId + '|' + cfi)).toString(36);
+    const res = await aiProxy({ action: 'illustrate', text: text.slice(0, 400), para: text, chapter: '', title: currentMeta.title || '', author: currentMeta.author || '', noteId, bookId }, null, 150000);
+    if (res.status === 403) { toast('Illustrations for the built-in library are curated by the Reymont team only'); return; }
+    if (res.status === 402) { toast('You’ve used all your free illustrations'); return; }
+    if (!res.ok) { let m = 'HTTP ' + res.status; try { m = (await res.json()).error.message; } catch (e) {} throw new Error(m); }
+    const { url } = await res.json();
+    if (!url) throw new Error('No image returned');
+    if (currentBookId !== bookId) return;
+    const rec = { cfi, at: 'start', url, text: text.slice(0, 200), t: Date.now() };
+    writeIllustrations(bookId, loadIllustrations(bookId).filter(x => x.cfi !== cfi).concat(rec));
+    cloudUpsertSide(SIDE.il, bookId, rec);
+    const c = rendition.getContents()[0];
+    if (!c || !placePageIllustration(c, rec)) toast('Could not place the illustration on this page');
+    else { refreshAllHighlights(); toast('Illustration added at the top of the page ✓'); }
+    renderNotesList();
+  } catch (e) {
+    console.warn('makeIllustration:', e);
+    toast('Could not paint the illustration: ' + (e.message || e).toString().slice(0, 120));
+  } finally { illusBusy = false; btn.classList.remove('busy'); }
+}
 async function gotoInserted(rec, attr, injectFn) {
   try { await rendition.display(rec.cfi); }
   catch (e) {
@@ -3489,6 +3596,7 @@ async function gotoInserted(rec, attr, injectFn) {
 }
 const gotoInteractive = rec => gotoInserted(rec, 'data-reymont-interactive', injectInteractives);
 const gotoDiagram = rec => gotoInserted(rec, 'data-reymont-diagram', injectDiagrams);
+const gotoIllustration = rec => gotoInserted(rec, 'data-reymont-pgillus', injectPageIllustrations);
 function interactiveElapsed() { return Math.round((Date.now() - interactiveStartedAt) / 1000); }
 function tickInteractive() {
   const sec = interactiveElapsed();
@@ -3714,7 +3822,7 @@ function refreshInlineIllustrations() {
   try { rendition.getContents().forEach(injectIllustrations); refreshAllHighlights(); } catch (e) { console.warn('refreshInlineIllustrations:', e); }
 }
 
-function showNote(id) {
+function showNote(id, fromMark) {
   const note = bookNotes.find(n => n.id === id);
   if (!note) return;
   panelShowingList = false;
@@ -3722,7 +3830,7 @@ function showNote(id) {
   if (translateAbort) translateAbort.abort();
   setPanelBody(`
     <div class="sel-quote">${esc(note.text)}</div>
-    <div class="note-meta">${note.demo ? 'preview highlight · picked by the Reymont team' : 'saved ' + new Date(note.created).toLocaleDateString() + ' · shown from cache'}</div>
+    ${fromMark ? `<div class="note-meta">${note.demo ? 'preview highlight · picked by the Reymont team' : 'saved ' + new Date(note.created).toLocaleDateString()}</div>` : ''}
     <div class="p-section-title">Translation · ${esc(note.lang || '')}</div>
     <div id="trans-out">${esc(note.translation || '') || '<i>no translation</i>'}</div>
     ${illusSectionHtml(note)}
@@ -3757,7 +3865,8 @@ let panelShowingList = false; // true, пока в #panel открыт имен�
 function notesListHtml() {
   const ios = currentBookId ? loadInteractives(currentBookId).sort((a, b) => (b.t || 0) - (a.t || 0)) : [];
   const dgs = currentBookId ? loadDiagrams(currentBookId).sort((a, b) => (b.t || 0) - (a.t || 0)) : [];
-  if (!bookNotes.length && !ios.length && !dgs.length) return '<div class="notes-empty">Select text in the book — highlights with translations will appear here.</div>';
+  const ils = currentBookId ? loadIllustrations(currentBookId).sort((a, b) => (b.t || 0) - (a.t || 0)) : [];
+  if (!bookNotes.length && !ios.length && !dgs.length && !ils.length) return '<div class="notes-empty">Select text in the book — highlights with translations will appear here.</div>';
   const ioHtml = ios.map(r => `
     <div class="note-item io-item" data-cfi="${esc(r.cfi)}" title="Open this interactive view and go to its page">
       <div class="ni-text ni-io">✦ Interactive view</div>
@@ -3768,12 +3877,17 @@ function notesListHtml() {
       <div class="ni-text ni-io">◇ Diagram</div>
       ${d.text ? `<div class="ni-trans">${esc(d.text.slice(0, 90))}${d.text.length > 90 ? '…' : ''}</div>` : ''}
     </div>`).join('');
+  const ilHtml = ils.map(d => `
+    <div class="note-item il-item" data-cfi="${esc(d.cfi)}" title="Go to this illustration">
+      <img src="${esc(d.url)}" alt="" loading="lazy">
+      <div><div class="ni-text ni-io">▣ Illustration</div>${d.text ? `<div class="ni-trans">${esc(d.text.slice(0, 80))}${d.text.length > 80 ? '…' : ''}</div>` : ''}</div>
+    </div>`).join('');
   const notesHtml = bookNotes.map(n => `
     <div class="note-item" data-id="${n.id}">
       <div class="ni-text">${n.demo ? '<span class="ni-demo-badge">Preview</span> ' : ''}${esc(n.text.slice(0, 80))}${n.text.length > 80 ? '…' : ''}</div>
       ${n.translation ? `<div class="ni-trans">${esc(n.translation.split('\n')[0].slice(0, 90))}</div>` : ''}
     </div>`).join('');
-  return ioHtml + dgHtml + notesHtml;
+  return ioHtml + dgHtml + ilHtml + notesHtml;
 }
 function openHighlightsPanel() {
   panelShowingList = true;
@@ -3790,6 +3904,11 @@ function openHighlightsPanel() {
     if (!rec) return;
     await gotoInteractive(rec);
     showInteractiveInPanel(rec);
+  }));
+  // Иллюстрация из списка: переходим на её страницу.
+  $('panel-body').querySelectorAll('.il-item').forEach(el => el.addEventListener('click', async () => {
+    const d = loadIllustrations(currentBookId).find(x => x.cfi === el.dataset.cfi);
+    if (d) await gotoIllustration(d);
   }));
   // Диаграмма из списка: переходим на её страницу и открываем крупно.
   $('panel-body').querySelectorAll('.dg-item').forEach(el => el.addEventListener('click', async () => {
