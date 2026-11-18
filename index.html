@@ -479,6 +479,16 @@
     background: var(--bg); margin-bottom: 10px;
   }
   .illus-card img { width: 100%; display: block; }
+  /* Выбор стиля иллюстрации — тихие текстовые переключатели (Тафти): капитель, выбранный подчёркнут акцентом */
+  .illus-style { display: flex; flex-wrap: wrap; gap: 0 14px; margin: 0 0 8px; }
+  .illus-style button {
+    background: none; border: 0; padding: 10px 0; min-height: 40px; cursor: pointer;
+    font: inherit; font-size: 14px; font-variant: small-caps; letter-spacing: .04em; color: var(--muted);
+    text-decoration: underline transparent; text-underline-offset: 4px; text-decoration-thickness: 1px;
+    transition: color .15s, text-decoration-color .15s;
+  }
+  .illus-style button:hover { color: var(--text); }
+  .illus-style button.on { color: var(--accent); text-decoration-color: var(--accent); }
 
 
   #web-out { font-size: 14.5px; line-height: 1.62; }
@@ -2742,14 +2752,30 @@ async function translate(text, gen, words, para, note) {
 /* ════════════════════════ AI illustration (gpt-image-2, invite-only) ════════════════════════
    Генерируется только через встроенный AI (серверный ключ) — доступ проверяет edge-функция
    по email. Кнопка показана всем вошедшим, сервер сам откажет, если не в списке. */
+// Стиль иллюстрации — выбор читателя, запоминается в браузере. Описания стилей — на сервере (ILLUS_STYLES).
+const ILLUS_STYLES = [['artnouveau', 'Art Nouveau'], ['painting', 'Painting'], ['print', 'Linocut'], ['infographic', 'Infographic']];
+function getIllusStyle() {
+  try { const v = localStorage.getItem('reader.illusStyle'); if (ILLUS_STYLES.some(s => s[0] === v)) return v; } catch (e) {}
+  return 'artnouveau';
+}
+function setIllusStyle(v) {
+  try { localStorage.setItem('reader.illusStyle', v); } catch (e) {}
+  document.querySelectorAll('.illus-style button').forEach(b => b.classList.toggle('on', b.dataset.s === v));
+}
+function illusStylePicker() {
+  const cur = getIllusStyle();
+  return `<div class="illus-style" role="radiogroup" aria-label="Illustration style">` +
+    ILLUS_STYLES.map(([k, l]) => `<button type="button" data-s="${k}" class="${k === cur ? 'on' : ''}" onclick="setIllusStyle('${k}')">${l}</button>`).join('') +
+    `</div>`;
+}
 function illusZoneInner(note) {
   if (!note) return '';
   if (note.illusUrl) {
     return `<div class="illus-card"><img src="${note.illusUrl}" alt=""></div>` +
-      (note.demo ? '' : `<button class="btn" onclick="requestIllustration('${note.id}')">${ICON_REFRESH}Regenerate illustration</button>`);
+      (note.demo ? '' : illusStylePicker() + `<button class="btn" onclick="requestIllustration('${note.id}')">${ICON_REFRESH}Regenerate illustration</button>`);
   }
   if (note.demo) return ''; // демо без картинки — не даём анониму запускать генерацию за чужой счёт
-  return `<button class="btn" onclick="requestIllustration('${note.id}')">${ICON_PALETTE}Illustrate this scene</button>`;
+  return illusStylePicker() + `<button class="btn" onclick="requestIllustration('${note.id}')">${ICON_PALETTE}Illustrate this scene</button>`;
 }
 function illusSectionHtml(note) {
   if (!note) return '';
@@ -2771,7 +2797,7 @@ async function requestIllustration(noteId) {
     console.log('requestIllustration: chapter =', JSON.stringify(ctx.chapter), '| wideContext =', JSON.stringify(ctx.wideContext.slice(0, 200)) + '…');
     console.log('requestIllustration: calling aiProxy…');
     const res = await aiProxy({ action: 'illustrate', text: note.text, para: ctx.wideContext || note.para, chapter: ctx.chapter,
-      title: currentMeta.title, author: currentMeta.author, noteId: note.id, bookId: currentBookId }, illustrateAbort.signal, 120000);
+      title: currentMeta.title, author: currentMeta.author, noteId: note.id, bookId: currentBookId, style: getIllusStyle() }, illustrateAbort.signal, 120000);
     if (res.status === 403) {
       console.warn('requestIllustration: 403 — not invited');
       if (zone) zone.innerHTML = `<div class="ctx-pending">🎨 Illustrations for the built-in library are curated by the Reymont team only.</div>`;

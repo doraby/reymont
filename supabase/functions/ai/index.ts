@@ -84,6 +84,28 @@ const TUFTE_STYLE =
   `(9) Generous margins and a calm grid: content column about 60–65% wide with a margin column for notes on wide screens; on narrow screens notes drop under the item they belong to. ` +
   `Before finishing, review the result as Tufte would: remove any element that could be erased without loss of information, and check that every colour, line and word earns its place. `;
 
+// Стили иллюстраций (выбирает читатель). Без имён художников — только описание манеры.
+const ILLUS_STYLES: Record<string, string> = {
+  infographic:
+    `a clean, minimal explanatory infographic in the tradition of classic statistical-graphics books: warm off-white paper background, ` +
+    `fine black hairlines of even weight, at most one restrained accent colour (deep red), flat shapes, no gradients, no shadows, no 3D, no ornament. ` +
+    `Reduce the scene to a precise diagram-like drawing — a floor plan, map, cross-section, timeline strip or figure layout — that shows who and what is where and how they relate. ` +
+    `Maximum information, minimum ink, lots of calm white space; wordless, without labels.`,
+  artnouveau:
+    `the style of a decorative Art Nouveau / early Art Deco poster and book illustration: elegant flowing contour lines, ` +
+    `flat areas of soft muted colour (sage green, ochre, dusty rose, pale gold), stylised natural ornament — flowers, vines, ` +
+    `a halo-like circular motif framing the main figure — graceful idealised figures with long flowing hair and drapery, ` +
+    `a decorative border, and the slightly grainy raster texture of a colour lithograph print.`,
+  painting:
+    `the style of a 19th-century academic realist oil painting from the Eastern European landscape school: ` +
+    `meticulously observed nature — tall pine and oak forests, fields, rivers, sunlight filtering through trees, precise botanical detail — ` +
+    `calm naturalistic daylight, subdued earthy greens, browns and greys, fine visible brushwork on canvas, museum-quality realism; ` +
+    `people painted with the same sober naturalism and integrated into the landscape.`,
+  print:
+    `a black-and-white printmaking style — linocut or stone lithograph: pure black ink on off-white paper, bold carved shapes and gouge marks, ` +
+    `strong contrast, hatching and cross-hatching for tone, slightly uneven hand-printed texture; no colour and no smooth digital gradients.`,
+};
+
 async function callOpenAIImage(prompt: string): Promise<ImageResult> {
   // /v1/images/generations (в отличие от /v1/images/edits) принимает только JSON,
   // не multipart/form-data — тот формат был нужен только для загрузки файлов-референсов.
@@ -335,11 +357,12 @@ Deno.serve(async (req) => {
       const chapter = String(body.chapter ?? "").slice(0, 200);
       if (!text) return err("No text", 400, cors);
       console.log("illustrate: chapter=", JSON.stringify(chapter), "| para=", JSON.stringify(para.slice(0, 200)) + "…");
-      prompt = `Book illustration for a scene from the novel "${title}"${author ? " by " + author : ""}` +
+      prompt = `Illustration for a scene from the novel "${title}"${author ? " by " + author : ""}` +
         `${chapter ? ` (from the chapter/section "${chapter}")` : ""}.\n` +
         `Depicted moment (the reader's highlighted text): "${text}"\n` +
         (para ? `Surrounding passage — a couple of paragraphs before and after the highlighted moment, for accurate scene, character and setting detail:\n"""${para}"""\n` : "") +
-        `No text, letters, signatures or watermarks in the image.`;
+        `No text, letters, signatures or watermarks in the image. ` +
+        `Use ${ILLUS_STYLES[String(body.style)] ?? ILLUS_STYLES.artnouveau}`;
     } else {
       if (!title) return err("No title", 400, cors);
       const customPrompt = String(body.customPrompt ?? "").slice(0, 500).trim();
