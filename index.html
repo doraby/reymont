@@ -837,7 +837,7 @@
 <div id="add-overlay" onclick="if (event.target === this) closeAddMenu()">
   <div class="modal">
     <h2>Add books</h2>
-    <div class="m-sub">Pick one or many .epub files — or point to a folder (Downloads, Documents, a flash drive) and Reymont will find every EPUB inside it, including subfolders.</div>
+    <div class="m-sub">Pick one or many .epub files — or choose a folder (for example Downloads or Documents) and Reymont will find every EPUB inside it, including subfolders. Your browser can’t scan the whole disk by itself, so it needs to know where to look.</div>
     <div class="modal-actions" style="flex-direction:column;align-items:stretch;margin-top:8px">
       <button class="btn primary" onclick="addMenuFolder()" style="justify-content:center">Find all EPUBs in a folder…</button>
       <button class="btn" onclick="addMenuFiles()" style="justify-content:center">Choose files…</button>
@@ -931,7 +931,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.105</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.106</div>
   </div>
 </div>
 
@@ -1036,7 +1036,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.105'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.106'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -2037,8 +2037,6 @@ async function importMany(fileList) {
   toast(`Added ${added} book${added === 1 ? '' : 's'}` + (skipped ? ` · ${skipped} already on the shelf` : '') + (failed.length ? ` · ${failed.length} failed` : ''));
   if (failed.length) libError(`Couldn’t add ${failed.length} file${failed.length === 1 ? '' : 's'}: ${failed.slice(0, 5).join(', ')}${failed.length > 5 ? '…' : ''}`);
 }
-/* Папка с книгами. Браузер не даёт искать по всему устройству сам — выбираете папку (хоть «Документы»), мы ищем .epub в ней
-   и во всех вложенных. Chrome/Edge: showDirectoryPicker (листает только нужное); остальные десктопные: <input webkitdirectory>. */
 /* «+ Add books»: где браузер умеет читать папки (десктопные Chrome/Edge и др.) — выбор «файлы» или «найти все EPUB в папке»;
    на телефоне папки недоступны — сразу системный выбор файлов (можно отметить много). */
 function addBooksClick() {
@@ -2048,30 +2046,11 @@ function addBooksClick() {
 function closeAddMenu() { $('add-overlay').classList.remove('open'); }
 function addMenuFiles() { closeAddMenu(); $('file-input').click(); }
 function addMenuFolder() { closeAddMenu(); pickFolder(); }
-function canPickFolder() { return !IS_TOUCH && (!!window.showDirectoryPicker || 'webkitdirectory' in document.createElement('input')); }
-async function scanDir(dir, out, state, depth) {
-  if (depth > 12) return;
-  for await (const [name, h] of dir.entries()) {
-    if (name.startsWith('.')) continue;
-    state.seen++;
-    if (state.seen % 200 === 0) { $('lib-progress').style.display = 'block'; $('lib-progress').textContent = `Looking for books… found ${out.length}`; await new Promise(r => setTimeout(r, 0)); }
-    if (h.kind === 'directory') { if (!/^(node_modules|Library|AppData|\$RECYCLE\.BIN|System Volume Information)$/i.test(name)) await scanDir(h, out, state, depth + 1); }
-    else if (/\.epub$/i.test(name)) out.push(await h.getFile());
-  }
-}
-async function pickFolder() {
-  if (!window.showDirectoryPicker) { $('dir-input').click(); return; }
-  try {
-    const dir = await window.showDirectoryPicker({ mode: 'read' });
-    const out = [];
-    await scanDir(dir, out, { seen: 0 }, 0);
-    $('lib-progress').style.display = 'none';
-    await importMany(out);
-  } catch (e) {
-    $('lib-progress').style.display = 'none';
-    if (e && e.name !== 'AbortError') libError('Couldn’t read the folder: ' + (e.message || e));
-  }
-}
+/* Папка с книгами. showDirectoryPicker в Chrome отказывается открывать «Загрузки», «Документы» целиком, домашнюю папку и системные
+   («can't open this folder because it contains system files»), поэтому берём обычный выбор папки <input webkitdirectory>: он
+   открывает любую папку, включая «Загрузки» и «Документы», и отдаёт файлы со всеми вложенными папками — мы оставляем .epub. */
+function canPickFolder() { return !IS_TOUCH && 'webkitdirectory' in document.createElement('input'); }
+function pickFolder() { $('dir-input').click(); }
 /* Перетаскивание: файлы и папки. Записи (entries) нужно взять синхронно в обработчике drop, читать — уже асинхронно. */
 async function filesFromEntries(entries) {
   const out = [];
