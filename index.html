@@ -8,7 +8,7 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#F0EEE5">
-<script>try{var __s=localStorage.getItem('reader.style');if(__s==='taffeta')__s='dusk';if(__s&&/^(illuminated|tufte|paper|dusk)$/.test(__s))document.documentElement.setAttribute('data-theme',__s)}catch(e){}</script>
+<script>try{var __s=localStorage.getItem('reader.style');if(__s==='taffeta')__s='dusk';if(__s&&/^(tufte|paper|dusk)$/.test(__s))document.documentElement.setAttribute('data-theme',__s)}catch(e){}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
@@ -57,17 +57,6 @@
   /* ───────────────── Reading styles (Settings → Reading style) ─────────────────
      Классика — переменные выше. Остальные переопределяют их через :root[data-theme]. Книгу внутри iframe
      стилизует epub.js (см. bookRules в JS), здесь — оболочка приложения. */
-  :root[data-theme="illuminated"] {
-    --bg: #EBE0C4; --surface: #F6EED8; --surface-2: #E3D6B3; --border: #D2C092; --text: #2B2117; --muted: #7D6C50;
-    --accent: #8E2A1F; --accent-soft: #A8392B; --accent-bg: rgba(142, 42, 31, 0.10);
-    --shadow: 0 10px 40px rgba(60, 40, 10, 0.24); --serif: 'EB Garamond', Georgia, 'Times New Roman', serif;
-  }
-  :root[data-theme="illuminated"] body {
-    background:
-      radial-gradient(1100px 620px at 50% -12%, rgba(255, 248, 224, 0.9), transparent 68%),
-      radial-gradient(900px 500px at 100% 110%, rgba(190, 150, 80, 0.20), transparent 60%),
-      var(--bg);
-  }
   /* Tufte: тёплая слоновая кость, чёрные чернила, ничего лишнего — по мотивам книг Эдварда Тафти */
   :root[data-theme="tufte"] {
     --bg: #FFFFF8; --surface: #FFFFFC; --surface-2: #F4F3E7; --border: #E1E0D0; --text: #111111; --muted: #77746B;
@@ -915,7 +904,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.102</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.103</div>
   </div>
 </div>
 
@@ -1020,7 +1009,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.102'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.103'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -1369,7 +1358,7 @@ const LS = {
   interactives: id => 'reader.interactives.' + id, // [{cfi, html}] — интерактивные виды страниц
   diagrams: id => 'reader.diagrams.' + id, // [{cfi, svg}] — нарисованные диаграммы страниц книги
   firstSeen: 'reader.firstSeen', // когда читатель впервые открыл приложение (мс); 0 — пришёл до появления этой метки
-  style: 'reader.style',       // classic | illuminated | tufte | paper | dusk
+  style: 'reader.style',       // classic | tufte | paper | dusk
   dropcaps: 'reader.dropcaps', // '' (по умолчанию стиля) | '1' | '0'
   hintDone: 'reader.hintDone', // читатель уже сделал первую подсветку — подсказка больше не нужна
 };
@@ -1387,7 +1376,7 @@ const firstSeen = (() => {
 })();
 const HINT_DAYS_MS = 24 * 60 * 60 * 1000;
 /* ═══════════ Reading styles ═══════════
-   Четыре стиля: Classic (как было), Illuminated (пергамент и буквицы), Tufte (слоновая кость и чернила, капитель вместо
+   Стили: Classic (как было), Tufte (слоновая кость и чернила, капитель вместо
    буквицы), Paper (белый лист), Dusk (спокойный тёмный). Оболочку красит :root[data-theme] (CSS-переменные), книгу в iframe — epub.js-темы (bookRules).
    Буквицы — чистый CSS (p.rm-dc::first-letter): класс ставится только абзацу после заголовка, который начинается
    с буквы; DOM-узлы не добавляются, поэтому CFI хайлайтов и привязок не страдают. В iframe шрифты подключаются
@@ -1399,20 +1388,6 @@ const STYLES = {
     cap: { 'float': 'left', 'font-family': "'Playfair Display', 'Lora', Georgia, serif", 'font-weight': '800', 'font-size': '3.5em', 'line-height': '0.8', 'padding': '0.06em 0.1em 0 0', 'color': '#C15F3C' },
     hl: { fill: '#D97757', opacity: '0.22', blend: 'multiply' },
     preview: { bg: '#F0EEE5', ink: '#3D3929' },
-  },
-  illuminated: {
-    label: 'Illuminated', blurb: 'parchment', theme: '#EBE0C4', capsDefault: true,
-    fonts: 'family=EB+Garamond:ital,wght@0,400..700;1,400..700&family=Cinzel+Decorative:wght@400;700;900&family=Playfair+Display:wght@800',
-    book: { font: "'EB Garamond', Georgia, serif", ink: '#2B2117', head: '#8E2A1F', headWeight: '700', link: '#8E2A1F', sel: 'rgba(201,162,39,0.38)', lh: '1.62', scale: '1.14em' },
-    headRules: {
-      'h1, h2, h3': { 'font-family': "'Cinzel Decorative', 'EB Garamond', Georgia, serif !important", 'color': '#8E2A1F !important', 'text-align': 'center', 'letter-spacing': '0.05em', 'font-weight': '700' },
-      'h1::after, h2::after': { 'content': '"❦"', 'display': 'block', 'font-size': '0.62em', 'color': '#A8842B', 'letter-spacing': '0', 'margin-top': '0.3em' },
-    },
-    cap: { 'float': 'left', 'font-family': "'Cinzel Decorative', 'Playfair Display', Georgia, serif", 'font-weight': '700', 'font-size': '3.6em', 'line-height': '0.84',
-      'padding': '0.06em 0.17em 0.13em 0.1em', 'margin': '0.08em 0.14em 0 0', 'color': '#8E2A1F',
-      'background': 'linear-gradient(145deg, #F9ECC0, #E1C06A 55%, #F4E0A0)', 'border': '2px solid #A8842B', 'border-radius': '3px', 'box-shadow': 'inset 0 0 0 2px #F7E9B6' },
-    hl: { fill: '#C9A227', opacity: '0.38', blend: 'multiply' },
-    preview: { bg: '#F3EAD0', ink: '#2B2117' },
   },
   tufte: {
     label: 'Tufte', blurb: 'ivory, ink', theme: '#FFFFF8', capsDefault: true,
@@ -1533,7 +1508,7 @@ function applyStyle(id) {
   ensureFonts(document, id);
   if (typeof rendition !== 'undefined' && rendition) {
     try {
-      // epub.js не снимает стили прошлой темы (правила накапливаются и «протекают» — рамка буквицы из Illuminated
+      // epub.js не снимает стили прошлой темы (правила накапливаются и «протекают» — рамка буквицы прошлого стиля
       // оставалась в других стилях), поэтому убираем <style> остальных наших тем сами.
       const keep = 'epubjs-inserted-css-' + styleThemeName(id), ours = Object.keys(STYLES).map(k => 'epubjs-inserted-css-' + styleThemeName(k));
       rendition.getContents().forEach(c => ours.forEach(sid => { if (sid !== keep) { const n = c.document.getElementById(sid); if (n) n.remove(); } }));
