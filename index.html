@@ -255,11 +255,10 @@
   }
   #chrome-toggle-btn svg { transition: transform .2s; }
   /* Диаграмма и интерактив страницы (Premium) — простые иконки НАД текстом книги (не в меню и без кружков).
-     Полоса резервирует место над текстом только когда кнопки показаны (подписчикам). Справа оставляем
-     место под кнопку меню (шеврон). */
+     Полоса резервирует место над текстом только когда кнопки показаны (подписчикам). Иконки по центру страницы. */
   #page-tools {
     position: absolute; top: 4px; left: 16px; right: 16px; max-width: 760px; margin: 0 auto; height: 32px;
-    display: none; align-items: center; justify-content: flex-end; gap: 4px; padding-right: 46px; z-index: 5;
+    display: none; align-items: center; justify-content: center; gap: 10px; z-index: 5;
   }
   #reader:has(#diagram-btn.pro) #page-tools { display: flex; }
   #reader:has(#diagram-btn.pro) #viewer { top: 40px; }
@@ -914,7 +913,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.99</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.100</div>
   </div>
 </div>
 
@@ -1019,7 +1018,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
-const APP_VERSION = '3.99'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.100'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
