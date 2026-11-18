@@ -3028,8 +3028,29 @@ function loadMermaid() {
     el.onload = () => {
       // htmlLabels:false — подписи рисуются SVG-текстом: CSS книги (шрифт !important для div/span) не
       // меняет их ширину после замера, и текст не обрезается рамками узлов.
-      window.mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'neutral',
-        fontFamily: 'Georgia, serif', htmlLabels: false, flowchart: { htmlLabels: false } });
+      // Стиль Тафти: бумага, тонкие линии чернилами, без заливок и теней, один приглушённый акцент.
+      const TUFTE_FONT = 'et-book, Palatino, "Palatino Linotype", "Book Antiqua", Georgia, serif';
+      window.mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'base',
+        fontFamily: TUFTE_FONT, htmlLabels: false,
+        themeVariables: {
+          fontFamily: TUFTE_FONT, fontSize: '15px', background: 'transparent',
+          primaryColor: 'transparent', primaryTextColor: '#111', primaryBorderColor: '#777',
+          secondaryColor: 'transparent', tertiaryColor: 'transparent',
+          lineColor: '#555', textColor: '#111', mainBkg: 'transparent', nodeBorder: '#777',
+          clusterBkg: 'transparent', clusterBorder: '#bbb', titleColor: '#111',
+          edgeLabelBackground: '#FFFFF8',
+          actorBkg: 'transparent', actorBorder: '#777', actorTextColor: '#111', actorLineColor: '#bbb',
+          signalColor: '#333', signalTextColor: '#111', labelBoxBkgColor: 'transparent', labelBoxBorderColor: '#bbb',
+          noteBkgColor: 'transparent', noteBorderColor: '#bbb', noteTextColor: '#6b6b6b',
+          activationBkgColor: '#f0eee6', activationBorderColor: '#999', sequenceNumberColor: '#FFFFF8',
+          cScale0: '#FFFFF8', cScale1: '#FFFFF8', cScale2: '#FFFFF8', cScaleLabel0: '#111', cScaleLabel1: '#111', cScaleLabel2: '#111',
+        },
+        flowchart: { htmlLabels: false, curve: 'basis', nodeSpacing: 36, rankSpacing: 44, padding: 10 },
+        sequence: { mirrorActors: false, boxMargin: 8, noteMargin: 8, messageMargin: 32, actorMargin: 48 },
+        themeCSS: '.node rect,.node polygon,.node circle,.cluster rect,.actor{stroke-width:.75px!important;rx:0;ry:0}'
+          + '.edgePath path,.flowchart-link,.messageLine0,.messageLine1{stroke-width:.75px!important}'
+          + '.edgeLabel,.messageText,.noteText,.labelText{font-style:italic;fill:#333}'
+          + '.cluster-label,.cluster text{font-variant:small-caps;letter-spacing:.04em;fill:#6b6b6b}' });
       res(window.mermaid);
     };
     el.onerror = () => { mermaidP = null; el.remove(); rej(new Error('could not load the diagram library')); };
