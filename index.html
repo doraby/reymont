@@ -920,7 +920,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.108</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.109</div>
   </div>
 </div>
 
@@ -1026,7 +1026,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.108'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.109'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -1295,14 +1295,20 @@ async function resumeLastBook(state) {
     $('library').style.display = 'block';
   }
 }
-/* Старт: последняя читаемая книга, а при первом визите — сразу полка с каталогом
-   (public domain, без регистрации). На неудачу показываем её же. */
+/* Старт без экрана выбора: последняя читаемая книга, а при первом визите — первая книга
+   каталога (public domain) с демо-хайлайтами, без регистрации. Полка — за кнопкой «назад»;
+   на неудачу показываем её же. */
 async function startReading() {
   const showShelf = () => { $('library').style.display = 'block'; prefetchCuratedBooks(); };
   try {
     const last = readLastLocal();
     if (last && await dbGet('books', last.bookId)) { await openBook(last.bookId); return; }
-    showShelf(); // первый визит (в т.ч. без входа) — сразу каталог, без пустого экрана
+    // Первый визит (в т.ч. без входа) — сразу первая книга каталога с демо-хайлайтами.
+    // Она грузится лениво по главам из распакованной папки, так что открывается мгновенно.
+    const cb = CURATED_BOOKS[0];
+    if (!cb) return showShelf();
+    await ensureCuratedRecord(cb);
+    await openBook(cb.id);
   } catch (err) {
     console.error('startReading:', err);
     $('reader').classList.remove('open');
