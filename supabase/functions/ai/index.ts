@@ -212,7 +212,10 @@ Deno.serve(async (req) => {
         `Start straight with the interactive content itself. Labels inside the experience (characters, places, objects, events) are fine. ` +
         `Hard rules: output ONLY the complete HTML document starting with <!doctype html> — no markdown fences, no commentary. ` +
         `Fully self-contained: inline <style> and <script>; no external files, fonts, CDNs, images, network requests or localStorage. ` +
-        `All visible text in ${lang} (quotes stay in the original language). Use only facts from the passage; never invent events or details. At most about 400 lines. The JavaScript must be free of syntax errors and work without any setup.`;
+        `LANGUAGE: write the content (labels of characters, places, objects, events, phrases, quotes) in the ORIGINAL language of the passage, ` +
+        `and give each phrase its translation into ${lang} right next to it as a gloss — smaller, italic, grey (#6b6b6b), directly under or beside the original, never only in a tooltip. ` +
+        `Proper names stay as in the original without a gloss. Interface words (buttons, hints, step controls) are in ${lang}. ` +
+        `If the passage is already in ${lang}, write everything once in ${lang} with no glosses. Use only facts from the passage; never invent events or details. At most about 400 lines. The JavaScript must be free of syntax errors and work without any setup.`;
       // Доработка по отзыву читателя (👎): модель получает текущий код и жалобу и возвращает улучшенный
       // документ целиком. Один запрос, без цепочек.
       const improve = body.action === "diagram_html_improve";
@@ -302,8 +305,10 @@ Deno.serve(async (req) => {
       `In a sequenceDiagram every message arrow must be followed by a colon and NON-EMPTY text (never "A->>B:" with nothing after it); no semicolons. ` +
       `Keep it small and READABLE. Show only the 3 to 5 most important characters (never more than 5): declare each participant EXACTLY ONCE, with a short but distinct name (a first name, never a single letter), ` +
       `and declare ONLY participants that send or receive at least one message — no empty lifelines, no duplicates, no placeholder or minor characters. ` +
-      `Retell the passage as a brief summary: at most 10 messages, each a short phrase of up to 8 words in your own words (do NOT quote long lines verbatim); skip repeated or trivial exchanges. ` +
-      `At most 12 nodes. Write every label in ${lang}, always inside double quotes, without HTML, without parentheses or quotes inside labels. ` +
+      `Retell the passage as a brief summary: at most 10 messages, each a short phrase of up to 6 words (plus its translation) in your own words (do NOT quote long lines verbatim); skip repeated or trivial exchanges. ` +
+      `At most 12 nodes. LANGUAGE: write every label and message in the ORIGINAL language of the passage, followed by its translation into ${lang} after " · " ` +
+      `(e.g. "Original phrase · translated phrase"); names of characters and places stay in the original without translation; if the passage is already in ${lang}, write each label once. ` +
+      `Every label always inside double quotes, without HTML, without parentheses or quotes inside labels. ` +
       `Use only what the passage actually says; do not invent facts. Do not use click, link or style directives. ` +
       `Follow Edward Tufte's principles: every node and arrow must carry information — no decorative nodes, no labels that repeat what the structure already shows, ` +
       `no generic words like "Start", "End", "Scene" or "Event"; prefer specific, concrete labels (names, places, objects, quoted key words).`;

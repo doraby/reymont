@@ -253,7 +253,7 @@
   #float-back-btn:hover { color: var(--text); }
   #reader.chrome-hidden #float-back-btn { display: flex; }
   /* Диаграмма и интерактив страницы (Premium) — простые иконки НАД текстом книги (не в меню и без кружков).
-     Полоса резервирует место над текстом только когда кнопки показаны (подписчикам). Иконки по центру страницы. */
+     Полоса резервирует место над текстом только когда кнопки показаны (всем вошедшим; без Premium — приглушены, клик открывает пейволл). Иконки по центру страницы. */
   #page-tools {
     position: absolute; top: 4px; left: 16px; right: 16px; max-width: 760px; margin: 0 auto; height: 32px;
     display: none; align-items: center; justify-content: center; gap: 10px; z-index: 5;
@@ -267,6 +267,9 @@
   .tool-btn:hover { color: var(--text); }
   .tool-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
   .tool-btn.pro, .tool-btn.show { display: inline-flex; }
+  /* Без Premium кнопки диаграммы/интерактива видны, но приглушены и по клику открывают предложение Premium */
+  .tool-btn.locked { opacity: .45; }
+  .tool-btn.locked:hover { opacity: 1; }
   .tool-btn.busy { pointer-events: none; opacity: .55; animation: io-pulse 1.2s ease-in-out infinite; }
   @keyframes io-pulse { 50% { opacity: .25; } }
   /* Диаграмма на весь экран: поверх всего, с зумом и прокруткой (из iframe книги выйти за колонку нельзя) */
@@ -815,13 +818,14 @@
 <div id="pay-overlay">
   <div class="modal">
     <h2>Reymont Premium</h2>
-    <div class="m-sub">You’ve used all 10 free highlights. Keep going with Premium:</div>
+    <div class="m-sub" id="pay-sub">You’ve used all 10 free highlights. Keep going with Premium:</div>
     <div id="pay-offer">
       <div class="pay-price">$10<span>/month</span></div>
       <ul class="pay-list">
         <li>📚 3 hand-picked classic books, ready to read</li>
         <li>🖍 Unlimited highlights with AI translation and web context</li>
         <li>☁️ Sync across all your devices</li>
+        <li>🧭 Diagrams and interactive views of any page</li>
       </ul>
       <div class="pay-fine" id="pay-manual">Payment isn’t automated yet: tap “Request Premium” and we’ll email you a payment link.</div>
       <div class="pay-fine">Cancel anytime. Refunds: one per customer, for the most recent
@@ -948,7 +952,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.109</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.110</div>
   </div>
 </div>
 
@@ -1054,7 +1058,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.109'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.110'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -1188,7 +1192,14 @@ async function aiProxy(payload, signal, timeoutMs) {
 function aiAvailable() { return !!settings.key || !!(sb && sbUser); }
 
 /* Пейволл: сервер вернул 402 — бесплатные 10 хайлайтов закончились */
-function showPaywall() {
+const PAYWALL_REASONS = {
+  highlights: 'You’ve used all 10 free highlights. Keep going with Premium:',
+  illustrations: 'You’ve used all your free illustrations. Keep going with Premium:',
+  diagram: 'Diagrams of the page are a Premium feature:',
+  interactive: 'Interactive views of the page are a Premium feature:',
+};
+function showPaywall(reason) {
+  $('pay-sub').textContent = PAYWALL_REASONS[reason] || PAYWALL_REASONS.highlights;
   $('pay-offer').style.display = '';
   $('pay-sent').style.display = 'none';
   $('pay-paid').style.display = 'none';
@@ -2664,7 +2675,7 @@ async function sendChat(e) {
     } else {
       res = await aiProxy({ action: 'chat', text, para, wide: info.wide, chapter: info.chapter, translation, messages: history,
         lang: settings.lang, title: currentMeta.title || '', author: currentMeta.author || '', extra: currentPrompt }, null, 90000);
-      if (res.status === 402) { showPaywall(); throw new Error('Free limit reached'); }
+      if (res.status === 402) { showPaywall('highlights'); throw new Error('Free limit reached'); }
       if (res.status === 403 && sbUser && sbUser.is_anonymous) throw new Error('Sign in with email to continue the conversation.');
     }
     if (!res.ok) { let m = 'HTTP ' + res.status; try { m = (await res.json()).error.message; } catch (er) {} console.error('[chat] failed:', m); throw new Error(m); }
@@ -2874,7 +2885,9 @@ async function requestIllustration(noteId) {
     }
     if (res.status === 402) {
       console.warn('requestIllustration: 402 — quota reached');
-      if (zone) zone.innerHTML = `<div class="ctx-pending">🎨 You’ve used all 3 free illustrations.</div>`;
+      if (zone) zone.innerHTML = `<div class="ctx-pending">🎨 You’ve used all 3 free illustrations.
+        <button class="btn primary" style="margin-top:10px;display:block" onclick="showPaywall('illustrations')">Upgrade to Premium</button></div>`;
+      showPaywall('illustrations');
       return;
     }
     if (!res.ok) {
@@ -2909,7 +2922,7 @@ async function generateCover(bookId, btn, customPrompt) {
     console.log('generateCover: calling aiProxy for', rec.title);
     const res = await aiProxy({ action: 'illustrate_cover', title: rec.title, author: rec.author, bookId, customPrompt: customPrompt || '' }, undefined, 120000);
     if (res.status === 403) { console.warn('generateCover: 403 — not invited'); toast('Only the Reymont team can set covers for built-in library books'); return; }
-    if (res.status === 402) { console.warn('generateCover: 402 — quota reached'); toast('You’ve used all 3 free illustrations'); return; }
+    if (res.status === 402) { console.warn('generateCover: 402 — quota reached'); toast('You’ve used all 3 free illustrations'); showPaywall('illustrations'); return; }
     if (!res.ok) {
       let msg = 'HTTP ' + res.status;
       try { msg = (await res.json()).error.message; } catch (e) { console.warn('generateCover: could not parse error body:', e); }
@@ -3101,7 +3114,14 @@ let isPro = false, proCheckedAt = 0, diagramBusy = false, mermaidP = null;
 
 let toolStripShown = false;
 function syncToolStrip() { // полоса инструментов над текстом занимает место → при появлении/исчезновении пересчитываем страницы
-  $('illustrate-btn').classList.toggle('show', !!(sb && isRealUser()));
+  const signedIn = !!(sb && isRealUser());
+  $('illustrate-btn').classList.toggle('show', signedIn);
+  for (const id of ['diagram-btn', 'interactive-btn']) {
+    const b = $(id), locked = signedIn && !isPro;
+    b.classList.toggle('show', signedIn);
+    b.classList.toggle('locked', locked);
+    b.title = (id === 'diagram-btn' ? 'Diagram of this page' : 'Interactive view of this page') + (locked ? ' — Upgrade to Premium' : '');
+  }
   const shown = !!document.querySelector('#page-tools .tool-btn.pro, #page-tools .tool-btn.show');
   if (shown !== toolStripShown) { toolStripShown = shown; setTimeout(() => safeResize(), 60); }
 }
@@ -3662,7 +3682,7 @@ async function makeIllustration() {
     const noteId = 'pg' + Math.abs(hashStr(bookId + '|' + cfi)).toString(36);
     const res = await aiProxy({ action: 'illustrate', text: text.slice(0, 400), para: text, chapter: '', title: currentMeta.title || '', author: currentMeta.author || '', noteId, bookId, style: getIllusStyle() }, null, 150000);
     if (res.status === 403) { toast('Illustrations for the built-in library are curated by the Reymont team only'); return; }
-    if (res.status === 402) { toast('You’ve used all your free illustrations'); return; }
+    if (res.status === 402) { showPaywall('illustrations'); return; }
     if (!res.ok) { let m = 'HTTP ' + res.status; try { m = (await res.json()).error.message; } catch (e) {} throw new Error(m); }
     const { url } = await res.json();
     if (!url) throw new Error('No image returned');
@@ -3728,6 +3748,7 @@ async function makeInteractive() {
   const cfi = realPageStartCfi(rendition.getContents()[0], loc);
   const have = loadInteractives(currentBookId).find(x => x.cfi === cfi);
   if (have) { showInteractiveInPanel(have); return; } // уже строили для этой страницы — без нового запроса
+  if (!isPro && proCheckedAt) { showPaywall('interactive'); return; }
   buildInteractive('diagram_html', cfi, text, null, '');
 }
 /* Общий путь для «построить» и «улучшить по отзыву»: один запрос за раз, без автоповторов. */
@@ -3752,7 +3773,7 @@ async function buildInteractive(action, cfi, text, prevRec, feedback) {
     if (improving) { payload.html = prevRec.html; payload.feedback = feedback; }
     console.log(`[interactive] ${action} → page ${text.length} chars` + (improving ? `, current code ${prevRec.html.length} chars, feedback ${JSON.stringify(feedback)}` : ''));
     const res = await aiProxy(payload, null, 170000); // Claude с длинным ответом может думать дольше минуты
-    if (res.status === 403) { isPro = false; $('diagram-btn').classList.remove('pro'); $('interactive-btn').classList.remove('pro'); closePanel(); showPaywall(); return; }
+    if (res.status === 403) { isPro = false; $('diagram-btn').classList.remove('pro'); $('interactive-btn').classList.remove('pro'); syncToolStrip(); closePanel(); showPaywall('interactive'); return; }
     if (!res.ok) {
       let m = 'HTTP ' + res.status; try { m = (await res.json()).error.message; } catch (e) {}
       console.error(`[interactive] ${action} failed: HTTP ${res.status} — ${m}`);
@@ -3817,6 +3838,7 @@ async function renderMermaidSafe(mermaid, code) {
 }
 async function makeDiagram() {
   if (diagramBusy || !rendition || !currentBookId) return; // повторный клик во время запроса — игнор
+  if (!isPro && proCheckedAt) { showPaywall('diagram'); return; }
   const btn = $('diagram-btn');
   const bookId = currentBookId;
   const loc = rendition.currentLocation();
@@ -3827,7 +3849,7 @@ async function makeDiagram() {
   try {
     const res = await aiProxy({ action: 'diagram', text, lang: settings.lang,
       title: currentMeta.title || '', author: currentMeta.author || '' }, null, 45000);
-    if (res.status === 403) { isPro = false; btn.classList.remove('pro'); showPaywall(); return; }
+    if (res.status === 403) { isPro = false; btn.classList.remove('pro'); $('interactive-btn').classList.remove('pro'); syncToolStrip(); showPaywall('diagram'); return; }
     if (!res.ok) { let m = 'HTTP ' + res.status; try { m = (await res.json()).error.message; } catch (e) {} throw new Error(m); }
     const { code } = await res.json();
     const mermaid = await loadMermaid();
