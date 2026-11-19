@@ -70,6 +70,42 @@ function err(message: string, status: number, cors: Record<string, string>) {
 
 type ImageResult = { b64?: string; error?: string; status?: number };
 
+// Единый визуальный язык интерактивов — принципы Эдварда Тафти. Меняется только здесь.
+const TUFTE_STYLE =
+  `VISUAL STYLE — follow Edward Tufte's principles strictly; the result should look like a page from "The Visual Display of Quantitative Information" or "Envisioning Information", not like an app UI. ` +
+  `(1) Maximise the data-ink ratio: every drop of ink must carry information about the passage. Erase everything else — no cards, panels, boxes around content, badges, pills, gradients, drop shadows, glows, rounded "chip" buttons, background textures, icons for decoration, emoji. ` +
+  `(2) No chartjunk: no 3D, no heavy gridlines, no thick borders, no ornamental frames. Structure is made with whitespace, alignment and thin hairlines (0.5–1px, ink at 30–50% opacity), never with filled boxes. ` +
+  `(3) Paper and ink: background #FFFFF8 (warm off-white paper), text and lines #111 / #333, secondary text #6b6b6b. ONE restrained accent colour (deep red #a00000 or a muted ochre/indigo that fits the mood) used sparingly, only to mark what the reader must notice — the selected element, the current step. Other distinctions use grey values, line weight, italic, small caps — not extra hues. Never more than 3 colours besides ink and grey. ` +
+  `(4) Typography carries the design: a serif book face — font-family: et-book, Palatino, "Palatino Linotype", "Book Antiqua", Georgia, serif — for ALL text including controls; body 15–17px, line-height 1.4–1.5; labels in small italic or small caps (font-variant: small-caps; letter-spacing: .04em); old-style numerals (font-variant-numeric: oldstyle-nums). No bold blocks of text, no all-caps headings, no sans-serif UI font. ` +
+  `(5) Label directly: put names right next to the lines, points and figures they describe instead of legends, keys or tooltips-only information. Use sidenotes in the margin for commentary and verbatim quotes (italic, smaller, grey), like Tufte's margin notes. ` +
+  `(6) Small multiples and layering: when comparing states, moments or points of view, show them side by side at the same scale rather than hiding them behind tabs; separate layers by value (light grey context, dark ink foreground). Show the data at several levels of detail at once — the overview and the fine structure. ` +
+  `(7) Integrate words, images and numbers: annotations sit inside the graphic, next to what they explain; text and picture are one composition. Prefer high information density: many small precise marks over a few big decorative ones. ` +
+  `(8) Interaction is quiet: controls look like text — an underlined or small-caps word, a thin-ruled slider, a ‹ › step marker; hover/focus/active states shown by the accent colour or an underline, never by bouncing, scaling, shadows or glowing. Transitions short (≤200ms) and only where they show a change of state. Touch targets still at least 40px (use padding, not visible boxes). ` +
+  `(9) Generous margins and a calm grid: content column about 60–65% wide with a margin column for notes on wide screens; on narrow screens notes drop under the item they belong to. ` +
+  `Before finishing, review the result as Tufte would: remove any element that could be erased without loss of information, and check that every colour, line and word earns its place. `;
+
+// Стили иллюстраций (выбирает читатель). Без имён художников — только описание манеры.
+const ILLUS_STYLES: Record<string, string> = {
+  infographic:
+    `a clean, minimal explanatory infographic in the tradition of classic statistical-graphics books: warm off-white paper background, ` +
+    `fine black hairlines of even weight, at most one restrained accent colour (deep red), flat shapes, no gradients, no shadows, no 3D, no ornament. ` +
+    `Reduce the scene to a precise diagram-like drawing — a floor plan, map, cross-section, timeline strip or figure layout — that shows who and what is where and how they relate. ` +
+    `Maximum information, minimum ink, lots of calm white space; wordless, without labels.`,
+  artnouveau:
+    `the style of a decorative Art Nouveau / early Art Deco poster and book illustration: elegant flowing contour lines, ` +
+    `flat areas of soft muted colour (sage green, ochre, dusty rose, pale gold), stylised natural ornament — flowers, vines, ` +
+    `a halo-like circular motif framing the main figure — graceful idealised figures with long flowing hair and drapery, ` +
+    `a decorative border, and the slightly grainy raster texture of a colour lithograph print.`,
+  painting:
+    `the style of a 19th-century academic realist oil painting from the Eastern European landscape school: ` +
+    `meticulously observed nature — tall pine and oak forests, fields, rivers, sunlight filtering through trees, precise botanical detail — ` +
+    `calm naturalistic daylight, subdued earthy greens, browns and greys, fine visible brushwork on canvas, museum-quality realism; ` +
+    `people painted with the same sober naturalism and integrated into the landscape.`,
+  print:
+    `a black-and-white printmaking style — linocut or stone lithograph: pure black ink on off-white paper, bold carved shapes and gouge marks, ` +
+    `strong contrast, hatching and cross-hatching for tone, slightly uneven hand-printed texture; no colour and no smooth digital gradients.`,
+};
+
 async function callOpenAIImage(prompt: string): Promise<ImageResult> {
   // /v1/images/generations (в отличие от /v1/images/edits) принимает только JSON,
   // не multipart/form-data — тот формат был нужен только для загрузки файлов-референсов.
@@ -169,8 +205,7 @@ Deno.serve(async (req) => {
         `Do NOT build a character-relationship graph (nodes and edges between people) — the app already has a separate diagram for relations and events. ` +
         `Do NOT default to a set of tabs; use tabs or multiple views only when the idea genuinely needs them. One strong, focused idea beats many generic views. Surprise the reader. ` +
         `It must be genuinely interactive (hover, click, drag, play/step, sliders — whatever suits the idea) and reward exploration; where it helps, reveal a short verbatim quote from the passage (max 15 words, original language) or a one-line explanation. ` +
-        `Build it with inline SVG + CSS + vanilla JavaScript. Smooth transitions, visible hover/focus states, touch targets of at least 40px, soft shadows, refined and original — never like a default form. ` +
-        `Suggested palette (adapt freely to the mood of the passage): background #FAF9F5, ink #3D3929, accent #C15F3C plus harmonious muted colours; Georgia for headings, system-ui for UI. ` +
+        `Build it with inline SVG + CSS + vanilla JavaScript. ` + TUFTE_STYLE +
         `Layout works from 320px to 900px wide and fills the height (html, body { height: 100% }), no horizontal scroll. ` +
         `NO HEADER BLOCK AT ALL: the document must not contain a title, kicker/eyebrow, subtitle or caption that names the book, the author, the chapter or describes the passage ` +
         `(never anything like "Book title · Evening scene" or "A fragment of a conversation about…") — the reader already knows the book and the page. ` +
@@ -188,7 +223,7 @@ Deno.serve(async (req) => {
         ? sysHtml + ` You are given the CURRENT version of the document and the reader's feedback on it. ` +
           `If the current document has a title, kicker, subtitle or any text naming the book or describing the passage, REMOVE it. ` +
           `Return an improved COMPLETE document that fixes what the reader disliked (if the feedback is empty, fix the most obvious weaknesses: ` +
-          `emptiness, unreadable text, broken interactions, weak layout). Keep what already works. The same hard rules apply.`
+          `emptiness, unreadable text, broken interactions, weak layout). Also bring the whole document in line with the VISUAL STYLE above — strip shadows, cards, gradients, sans-serif UI and extra colours. Keep what already works. The same hard rules apply.`
         : sysHtml;
       const inputFinal = improve
         ? `${userMsgHtml}\n<reader_feedback>${feedback || "(no comment — improve the visualisation in general)"}</reader_feedback>\n<current_html>${currentHtml}</current_html>`
@@ -269,7 +304,9 @@ Deno.serve(async (req) => {
       `and declare ONLY participants that send or receive at least one message — no empty lifelines, no duplicates, no placeholder or minor characters. ` +
       `Retell the passage as a brief summary: at most 10 messages, each a short phrase of up to 8 words in your own words (do NOT quote long lines verbatim); skip repeated or trivial exchanges. ` +
       `At most 12 nodes. Write every label in ${lang}, always inside double quotes, without HTML, without parentheses or quotes inside labels. ` +
-      `Use only what the passage actually says; do not invent facts. Do not use click, link or style directives.`;
+      `Use only what the passage actually says; do not invent facts. Do not use click, link or style directives. ` +
+      `Follow Edward Tufte's principles: every node and arrow must carry information — no decorative nodes, no labels that repeat what the structure already shows, ` +
+      `no generic words like "Start", "End", "Scene" or "Event"; prefer specific, concrete labels (names, places, objects, quoted key words).`;
     const r = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },
@@ -320,11 +357,12 @@ Deno.serve(async (req) => {
       const chapter = String(body.chapter ?? "").slice(0, 200);
       if (!text) return err("No text", 400, cors);
       console.log("illustrate: chapter=", JSON.stringify(chapter), "| para=", JSON.stringify(para.slice(0, 200)) + "…");
-      prompt = `Book illustration for a scene from the novel "${title}"${author ? " by " + author : ""}` +
+      prompt = `Illustration for a scene from the novel "${title}"${author ? " by " + author : ""}` +
         `${chapter ? ` (from the chapter/section "${chapter}")` : ""}.\n` +
         `Depicted moment (the reader's highlighted text): "${text}"\n` +
         (para ? `Surrounding passage — a couple of paragraphs before and after the highlighted moment, for accurate scene, character and setting detail:\n"""${para}"""\n` : "") +
-        `No text, letters, signatures or watermarks in the image.`;
+        `No text, letters, signatures or watermarks in the image. ` +
+        `Use ${ILLUS_STYLES[String(body.style)] ?? ILLUS_STYLES.artnouveau}`;
     } else {
       if (!title) return err("No title", 400, cors);
       const customPrompt = String(body.customPrompt ?? "").slice(0, 500).trim();

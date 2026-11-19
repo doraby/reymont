@@ -243,6 +243,15 @@
     z-index: 220; align-items: center; justify-content: center;
   }
   #chrome-toggle-btn svg { transition: transform .2s; }
+  /* «Назад» при свёрнутом меню — та же круглая кнопка, зеркально в левом верхнем углу. */
+  #float-back-btn {
+    display: none; position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); left: 12px;
+    width: 38px; height: 38px; border-radius: 50%; border: none; cursor: pointer; padding: 0;
+    background: var(--surface); color: var(--muted);
+    z-index: 220; align-items: center; justify-content: center;
+  }
+  #float-back-btn:hover { color: var(--text); }
+  #reader.chrome-hidden #float-back-btn { display: flex; }
   /* Диаграмма и интерактив страницы (Premium) — простые иконки НАД текстом книги (не в меню и без кружков).
      Полоса резервирует место над текстом только когда кнопки показаны (подписчикам). Иконки по центру страницы. */
   #page-tools {
@@ -485,6 +494,22 @@
     background: var(--bg); margin-bottom: 10px;
   }
   .illus-card img { width: 100%; display: block; }
+  /* Выбор стиля иллюстрации — тихие текстовые переключатели (Тафти): капитель, выбранный подчёркнут акцентом */
+  .illus-style { display: flex; flex-wrap: wrap; gap: 0 14px; margin: 0 0 8px; }
+  .illus-style button {
+    background: none; border: 0; padding: 10px 0; min-height: 40px; cursor: pointer;
+    font: inherit; font-size: 14px; font-variant: small-caps; letter-spacing: .04em; color: var(--muted);
+    text-decoration: underline transparent; text-underline-offset: 4px; text-decoration-thickness: 1px;
+    transition: color .15s, text-decoration-color .15s;
+  }
+  .illus-style button:hover { color: var(--text); }
+  .illus-style button.on { color: var(--accent); text-decoration-color: var(--accent); }
+  #illus-menu {
+    display: none; position: fixed; z-index: 400; flex-direction: column; gap: 0; margin: 0;
+    width: 180px; padding: 4px 14px; background: var(--bg); border: 1px solid var(--border);
+  }
+  #illus-menu.open { display: flex; }
+  #illus-menu button { text-align: left; }
 
 
   #web-out { font-size: 14.5px; line-height: 1.62; }
@@ -669,6 +694,9 @@
   <button id="chrome-toggle-btn" onclick="toggleChrome()" title="Show/hide menu" aria-label="Show/hide menu">
     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
   </button>
+  <button id="float-back-btn" onclick="backToLibrary()" title="Back to library" aria-label="Back to library">
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+  </button>
   <div id="topbar">
     <button class="icon-btn" onclick="backToLibrary()" title="Back to library" aria-label="Back to library">
       <svg viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
@@ -693,7 +721,7 @@
           <button class="tool-btn" id="interactive-btn" onclick="makeInteractive()" title="Interactive view of this page (Premium)" aria-label="Interactive view of this page">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>
           </button>
-          <button class="tool-btn" id="illustrate-btn" onclick="makeIllustration()" title="Illustrate this page" aria-label="Illustrate this page">
+          <button class="tool-btn" id="illustrate-btn" onclick="toggleIllusMenu()" title="Illustrate this page" aria-label="Illustrate this page">
             <svg viewBox="0 0 24 24"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor" stroke="none"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor" stroke="none"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor" stroke="none"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor" stroke="none"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
           </button>
         </div>
@@ -1575,9 +1603,12 @@ const settings = {
 };
 
 let book = null, rendition = null, currentBookId = null, currentMeta = {}, currentPrompt = '';
-let fontSize = parseInt(localStorage.getItem(LS.fontSize) || '20', 10);
+// Десктоп (широкий экран + мышь): шрифт по умолчанию вдвое крупнее, чем на телефоне, и выше потолок для «+».
+const IS_DESKTOP = window.matchMedia('(min-width: 1024px) and (hover: hover) and (pointer: fine)').matches;
+const FONT_DEFAULT = IS_DESKTOP ? 40 : 20, FONT_MAX = IS_DESKTOP ? 56 : 28;
+let fontSize = parseInt(localStorage.getItem(LS.fontSize) || String(FONT_DEFAULT), 10);
 function changeFontSize(delta) {
-  fontSize = Math.max(14, Math.min(28, fontSize + delta));
+  fontSize = Math.max(14, Math.min(FONT_MAX, fontSize + delta));
   localStorage.setItem(LS.fontSize, fontSize);
   if (rendition) rendition.themes.fontSize(fontSize + 'px');
 }
@@ -2779,6 +2810,38 @@ async function translate(text, gen, words, para, note) {
 /* ════════════════════════ AI illustration (gpt-image-2, invite-only) ════════════════════════
    Генерируется только через встроенный AI (серверный ключ) — доступ проверяет edge-функция
    по email. Кнопка показана всем вошедшим, сервер сам откажет, если не в списке. */
+// Стиль иллюстрации — выбор читателя, запоминается в браузере. Описания стилей — на сервере (ILLUS_STYLES).
+const ILLUS_STYLES = [['artnouveau', 'Art Nouveau'], ['painting', 'Painting'], ['print', 'Linocut'], ['infographic', 'Infographic']];
+function getIllusStyle() {
+  try { const v = localStorage.getItem('reader.illusStyle'); if (ILLUS_STYLES.some(s => s[0] === v)) return v; } catch (e) {}
+  return 'artnouveau';
+}
+function setIllusStyle(v) {
+  try { localStorage.setItem('reader.illusStyle', v); } catch (e) {}
+  document.querySelectorAll('.illus-style button').forEach(b => b.classList.toggle('on', b.dataset.s === v));
+}
+// Кнопка-палитра в панели над текстом открывает меню стилей; выбор стиля сразу запускает генерацию.
+function toggleIllusMenu(force) {
+  let menu = $('illus-menu');
+  const open = force ?? !(menu && menu.classList.contains('open'));
+  if (!open) { if (menu) menu.classList.remove('open'); return; }
+  if (illusBusy) return;
+  if (!menu) {
+    menu = document.createElement('div');
+    menu.id = 'illus-menu'; menu.className = 'illus-style'; menu.setAttribute('role', 'menu');
+    document.body.appendChild(menu);
+    document.addEventListener('pointerdown', ev => {
+      if (!ev.target.closest('#illus-menu, #illustrate-btn')) toggleIllusMenu(false);
+    });
+  }
+  const cur = getIllusStyle();
+  menu.innerHTML = ILLUS_STYLES.map(([k, l]) =>
+    `<button type="button" role="menuitem" data-s="${k}" class="${k === cur ? 'on' : ''}" onclick="setIllusStyle('${k}'); toggleIllusMenu(false); makeIllustration()">${l}</button>`).join('');
+  const r = $('illustrate-btn').getBoundingClientRect();
+  menu.style.top = (r.bottom + 6) + 'px';
+  menu.style.left = Math.max(8, Math.min(window.innerWidth - 200, r.left + r.width / 2 - 90)) + 'px';
+  menu.classList.add('open');
+}
 function illusZoneInner(note) {
   if (!note || !note.illusUrl) return '';
   return `<div class="illus-card"><img src="${note.illusUrl}" alt=""></div>`; // кнопка «Illustrate» теперь в панели инструментов над текстом
@@ -2803,7 +2866,7 @@ async function requestIllustration(noteId) {
     console.log('requestIllustration: chapter =', JSON.stringify(ctx.chapter), '| wideContext =', JSON.stringify(ctx.wideContext.slice(0, 200)) + '…');
     console.log('requestIllustration: calling aiProxy…');
     const res = await aiProxy({ action: 'illustrate', text: note.text, para: ctx.wideContext || note.para, chapter: ctx.chapter,
-      title: currentMeta.title, author: currentMeta.author, noteId: note.id, bookId: currentBookId }, illustrateAbort.signal, 120000);
+      title: currentMeta.title, author: currentMeta.author, noteId: note.id, bookId: currentBookId, style: getIllusStyle() }, illustrateAbort.signal, 120000);
     if (res.status === 403) {
       console.warn('requestIllustration: 403 — not invited');
       if (zone) zone.innerHTML = `<div class="ctx-pending">🎨 Illustrations for the built-in library are curated by the Reymont team only.</div>`;
@@ -3067,8 +3130,29 @@ function loadMermaid() {
     el.onload = () => {
       // htmlLabels:false — подписи рисуются SVG-текстом: CSS книги (шрифт !important для div/span) не
       // меняет их ширину после замера, и текст не обрезается рамками узлов.
-      window.mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'neutral',
-        fontFamily: 'Georgia, serif', htmlLabels: false, flowchart: { htmlLabels: false } });
+      // Стиль Тафти: бумага, тонкие линии чернилами, без заливок и теней, один приглушённый акцент.
+      const TUFTE_FONT = 'et-book, Palatino, "Palatino Linotype", "Book Antiqua", Georgia, serif';
+      window.mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'base',
+        fontFamily: TUFTE_FONT, htmlLabels: false,
+        themeVariables: {
+          fontFamily: TUFTE_FONT, fontSize: '15px', background: 'transparent',
+          primaryColor: 'transparent', primaryTextColor: '#111', primaryBorderColor: '#777',
+          secondaryColor: 'transparent', tertiaryColor: 'transparent',
+          lineColor: '#555', textColor: '#111', mainBkg: 'transparent', nodeBorder: '#777',
+          clusterBkg: 'transparent', clusterBorder: '#bbb', titleColor: '#111',
+          edgeLabelBackground: '#FFFFF8',
+          actorBkg: 'transparent', actorBorder: '#777', actorTextColor: '#111', actorLineColor: '#bbb',
+          signalColor: '#333', signalTextColor: '#111', labelBoxBkgColor: 'transparent', labelBoxBorderColor: '#bbb',
+          noteBkgColor: 'transparent', noteBorderColor: '#bbb', noteTextColor: '#6b6b6b',
+          activationBkgColor: '#f0eee6', activationBorderColor: '#999', sequenceNumberColor: '#FFFFF8',
+          cScale0: '#FFFFF8', cScale1: '#FFFFF8', cScale2: '#FFFFF8', cScaleLabel0: '#111', cScaleLabel1: '#111', cScaleLabel2: '#111',
+        },
+        flowchart: { htmlLabels: false, curve: 'basis', nodeSpacing: 36, rankSpacing: 44, padding: 10 },
+        sequence: { mirrorActors: false, boxMargin: 8, noteMargin: 8, messageMargin: 32, actorMargin: 48 },
+        themeCSS: '.node rect,.node polygon,.node circle,.cluster rect,.actor{stroke-width:.75px!important;rx:0;ry:0}'
+          + '.edgePath path,.flowchart-link,.messageLine0,.messageLine1{stroke-width:.75px!important}'
+          + '.edgeLabel,.messageText,.noteText,.labelText{font-style:italic;fill:#333}'
+          + '.cluster-label,.cluster text{font-variant:small-caps;letter-spacing:.04em;fill:#6b6b6b}' });
       res(window.mermaid);
     };
     el.onerror = () => { mermaidP = null; el.remove(); rej(new Error('could not load the diagram library')); };
@@ -3576,7 +3660,7 @@ async function makeIllustration() {
   toast('Painting the scene… this can take up to a minute');
   try {
     const noteId = 'pg' + Math.abs(hashStr(bookId + '|' + cfi)).toString(36);
-    const res = await aiProxy({ action: 'illustrate', text: text.slice(0, 400), para: text, chapter: '', title: currentMeta.title || '', author: currentMeta.author || '', noteId, bookId }, null, 150000);
+    const res = await aiProxy({ action: 'illustrate', text: text.slice(0, 400), para: text, chapter: '', title: currentMeta.title || '', author: currentMeta.author || '', noteId, bookId, style: getIllusStyle() }, null, 150000);
     if (res.status === 403) { toast('Illustrations for the built-in library are curated by the Reymont team only'); return; }
     if (res.status === 402) { toast('You’ve used all your free illustrations'); return; }
     if (!res.ok) { let m = 'HTTP ' + res.status; try { m = (await res.json()).error.message; } catch (e) {} throw new Error(m); }
@@ -3828,12 +3912,16 @@ function injectIllustrations(contents) {
       // Умеренный размер, как книжная иллюстрация-плашка, а не полностраничная вставка —
       // картинки у нас портретные (2:3) и на всю ширину колонки просто не влезли бы в одну
       // страницу пагинации. break-inside:avoid просит не резать саму картинку между страницами.
-      wrap.style.cssText = 'margin:22px auto;max-width:340px;border-radius:10px;overflow:hidden;'
+      // На десктопе (шире 900px, как брейкпоинт в CSS) — вдвое крупнее: 680px вместо 340px.
+      // max-height по высоте страницы iframe не даёт портретной картинке вылезти за страницу:
+      // при width/height auto браузер сохраняет пропорции при обоих ограничениях.
+      const maxW = window.matchMedia('(min-width: 901px)').matches ? 680 : 340;
+      wrap.style.cssText = 'margin:22px auto;width:fit-content;max-width:100%;border-radius:10px;overflow:hidden;'
         + 'box-shadow:0 4px 16px rgba(61,57,41,.18);break-inside:avoid;-webkit-column-break-inside:avoid;page-break-inside:avoid;';
       const img = doc.createElement('img');
       img.src = note.illusUrl;
       img.alt = '';
-      img.style.cssText = 'display:block;width:100%;height:auto;';
+      img.style.cssText = `display:block;width:auto;height:auto;max-width:min(${maxW}px,100%);max-height:85vh;`;
       wrap.appendChild(img);
       block.insertAdjacentElement('afterend', wrap);
     } catch (e) { console.warn('inline illustration failed for', note.id, ':', e); }
