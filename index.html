@@ -508,11 +508,19 @@
   .illus-style button:hover { color: var(--text); }
   .illus-style button.on { color: var(--accent); text-decoration-color: var(--accent); }
   #illus-menu {
-    display: none; position: fixed; z-index: 400; flex-direction: column; gap: 0; margin: 0;
-    width: 180px; padding: 4px 14px; background: var(--bg); border: 1px solid var(--border);
+    display: none; position: fixed; z-index: 400; margin: 0;
+    width: 300px; max-width: calc(100vw - 16px); padding: 12px 14px; background: var(--bg); border: 1px solid var(--border);
   }
-  #illus-menu.open { display: flex; }
-  #illus-menu button { text-align: left; }
+  #illus-menu.open { display: block; }
+  #illus-menu .im-head { font-style: italic; color: var(--muted); font-size: 14px; margin: 0 0 8px; }
+  /* Выбор стиля иллюстрации с превью: картинка + подпись капителью; выбранный — подпись акцентом. */
+  .illus-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 14px; margin: 0; }
+  .illus-grid button { display: block; padding: 0; text-align: left; }
+  .illus-grid .ip-img { display: block; width: 100%; aspect-ratio: 3 / 4; object-fit: cover; object-position: top;
+    border: 1px solid var(--border); background: var(--surface); }
+  .illus-grid button.on .ip-img { border-color: var(--accent); }
+  .illus-grid .ip-name { display: block; margin-top: 4px; }
+  #illus-style-picker { max-width: 420px; }
 
 
   #web-out { font-size: 14.5px; line-height: 1.62; }
@@ -724,7 +732,7 @@
           <button class="tool-btn" id="interactive-btn" onclick="makeInteractive()" title="Interactive view of this page (Premium)" aria-label="Interactive view of this page">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>
           </button>
-          <button class="tool-btn" id="illustrate-btn" onclick="toggleIllusMenu()" title="Illustrate this page" aria-label="Illustrate this page">
+          <button class="tool-btn" id="illustrate-btn" onclick="illustrateClick()" title="Illustrate this page" aria-label="Illustrate this page">
             <svg viewBox="0 0 24 24"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor" stroke="none"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor" stroke="none"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor" stroke="none"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor" stroke="none"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
           </button>
         </div>
@@ -923,6 +931,11 @@
       <div class="note">Changes the look of the whole app and the book text. Applies immediately.</div>
     </div>
     <div class="field">
+      <label>Illustration style</label>
+      <div id="illus-style-picker"></div>
+      <div class="note">Used by the palette button above the text.</div>
+    </div>
+    <div class="field">
       <label for="in-key">OpenAI API key (optional)</label>
       <div class="key-row">
         <input type="password" id="in-key" placeholder="sk-...">
@@ -952,7 +965,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.111</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.112</div>
   </div>
 </div>
 
@@ -1058,7 +1071,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.111'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.112'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -1585,6 +1598,7 @@ function setDropcaps(on) {
   renderStylePicker();
 }
 function renderStylePicker() {
+  if (typeof renderIllusStylePicker === 'function') renderIllusStylePicker();
   const box = document.getElementById('style-picker');
   const cb = document.getElementById('in-dropcaps');
   if (cb) cb.checked = dropcapsOn();
@@ -2821,6 +2835,32 @@ async function translate(text, gen, words, para, note) {
    по email. Кнопка показана всем вошедшим, сервер сам откажет, если не в списке. */
 // Стиль иллюстрации — выбор читателя, запоминается в браузере. Описания стилей — на сервере (ILLUS_STYLES).
 const ILLUS_STYLES = [['artnouveau', 'Art Nouveau'], ['painting', 'Painting'], ['print', 'Linocut'], ['infographic', 'Infographic']];
+// Превью стилей (пример картинки в этом стиле). Пустая строка — превью пока нет.
+const ILLUS_PREVIEWS = {
+  infographic: 'https://onetabmtufauhulgjaxv.supabase.co/storage/v1/object/public/illustrations/3fab6e07-a1ae-45c6-8566-bdea64d462f8/notes/pgqhx0r7.png?v=1795119256532',
+};
+// Выбирал ли читатель стиль явно: меню у палитры показываем только до первого выбора, дальше — в Settings.
+function illusStyleChosen() {
+  try { const v = localStorage.getItem('reader.illusStyle'); return ILLUS_STYLES.some(s => s[0] === v); } catch (e) { return false; }
+}
+function illusStyleGrid(onPick) {
+  const cur = getIllusStyle();
+  return `<div class="illus-grid illus-style">` + ILLUS_STYLES.map(([k, l]) => {
+    const src = ILLUS_PREVIEWS[k];
+    return `<button type="button" role="menuitem" data-s="${k}" class="${k === cur ? 'on' : ''}" onclick="${onPick.replace(/%s/g, k)}">` +
+      (src ? `<img class="ip-img" src="${src}" alt="" loading="lazy">` : `<span class="ip-img"></span>`) +
+      `<span class="ip-name">${l}</span></button>`;
+  }).join('') + `</div>`;
+}
+function renderIllusStylePicker() {
+  const box = document.getElementById('illus-style-picker');
+  if (box) box.innerHTML = illusStyleGrid("setIllusStyle('%s')");
+}
+// Клик по палитре: стиль уже выбран — сразу рисуем; иначе один раз показываем выбор стиля.
+function illustrateClick() {
+  if (illusStyleChosen()) { toggleIllusMenu(false); makeIllustration(); }
+  else toggleIllusMenu();
+}
 function getIllusStyle() {
   try { const v = localStorage.getItem('reader.illusStyle'); if (ILLUS_STYLES.some(s => s[0] === v)) return v; } catch (e) {}
   return 'artnouveau';
@@ -2834,7 +2874,7 @@ function toggleIllusMenu(force) {
   let menu = $('illus-menu');
   const open = force ?? !(menu && menu.classList.contains('open'));
   if (!open) { if (menu) menu.classList.remove('open'); return; }
-  if (illusBusy) return;
+  if (illusBusy) { console.warn('[illustrate] menu not opened: an illustration is still being painted'); toast('Still painting the previous illustration…'); return; }
   if (!menu) {
     menu = document.createElement('div');
     menu.id = 'illus-menu'; menu.className = 'illus-style'; menu.setAttribute('role', 'menu');
@@ -2843,12 +2883,11 @@ function toggleIllusMenu(force) {
       if (!ev.target.closest('#illus-menu, #illustrate-btn')) toggleIllusMenu(false);
     });
   }
-  const cur = getIllusStyle();
-  menu.innerHTML = ILLUS_STYLES.map(([k, l]) =>
-    `<button type="button" role="menuitem" data-s="${k}" class="${k === cur ? 'on' : ''}" onclick="setIllusStyle('${k}'); toggleIllusMenu(false); makeIllustration()">${l}</button>`).join('');
-  const r = $('illustrate-btn').getBoundingClientRect();
+  menu.innerHTML = `<div class="im-head">Choose an illustration style — you can change it later in Settings.</div>` +
+    illusStyleGrid("setIllusStyle('%s'); toggleIllusMenu(false); makeIllustration()");
+  const r = $('illustrate-btn').getBoundingClientRect(), w = Math.min(300, window.innerWidth - 16);
   menu.style.top = (r.bottom + 6) + 'px';
-  menu.style.left = Math.max(8, Math.min(window.innerWidth - 200, r.left + r.width / 2 - 90)) + 'px';
+  menu.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + 'px';
   menu.classList.add('open');
 }
 function illusZoneInner(note) {
@@ -3145,8 +3184,8 @@ async function refreshPro() {
     isPro = !!me.pro;
     if (typeof me.used === 'number') freeUsed = me.used;
     if (typeof me.limit === 'number') freeLimit = me.limit;
-    console.log(`%c[Reymont] subscription: ${isPro ? 'Premium — no limits' : 'Free'} · generations used: ${freeUsed}` +
-      (isPro ? '' : ` of ${freeLimit} (left ${freeLeft()})`) + ` · ${sbUser && sbUser.email || ''}`, 'font-weight:bold');
+    console.log(`[Reymont] subscription: ${isPro ? 'Premium — no limits' : 'Free'} · generations used: ${freeUsed}` +
+      (isPro ? '' : ` of ${freeLimit} (left ${freeLeft()})`) + ` · ${sbUser && sbUser.email || ''}`);
   } catch (e) { console.warn('refreshPro:', e.message || e); isPro = false; proCheckedAt = 0; }
   btn.classList.toggle('pro', isPro);
   $('interactive-btn').classList.toggle('pro', isPro);
@@ -3680,23 +3719,27 @@ function deletePageIllustration(rec) {
   toast('Illustration deleted');
 }
 async function makeIllustration() {
-  if (illusBusy || !rendition || !currentBookId) return; // повторный клик во время запроса — игнор
-  if (!isRealUser()) { toast('Sign in with email to generate illustrations'); return; }
+  console.log(`[illustrate] click: style=${getIllusStyle()} busy=${illusBusy} book=${currentBookId || '—'}`);
+  if (illusBusy) { console.warn('[illustrate] stopped: previous illustration is still being painted'); toast('Still painting the previous illustration…'); return; }
+  if (!rendition || !currentBookId) { console.warn('[illustrate] stopped: no book open'); return; }
+  if (!isRealUser()) { console.warn('[illustrate] stopped: not signed in with email'); toast('Sign in with email to generate illustrations'); return; }
   const contents = rendition.getContents()[0], loc = rendition.currentLocation();
   const text = currentPageText().slice(0, 3000);
-  if (!contents || !loc || !loc.start || text.length < 80) { toast('Not enough text on this page'); return; }
+  if (!contents || !loc || !loc.start || text.length < 80) { console.warn(`[illustrate] stopped: not enough text on this page (${text.length} chars)`); toast('Not enough text on this page'); return; }
   const bookId = currentBookId, cfi = realPageStartCfi(contents, loc);
-  if (loadIllustrations(bookId).some(x => x.cfi === cfi) && !confirm('This page already has an illustration. Paint a new one?')) return;
+  if (loadIllustrations(bookId).some(x => x.cfi === cfi) && !confirm('This page already has an illustration. Paint a new one?')) { console.warn('[illustrate] stopped: page already has an illustration, repaint cancelled'); return; }
+  console.log(`[illustrate] sending: ${text.length} chars of page text`);
   const btn = $('illustrate-btn');
   illusBusy = true; btn.classList.add('busy');
   toast('Painting the scene… this can take up to a minute');
   try {
     const noteId = 'pg' + Math.abs(hashStr(bookId + '|' + cfi)).toString(36);
     const res = await aiProxy({ action: 'illustrate', text: text.slice(0, 400), para: text, chapter: '', title: currentMeta.title || '', author: currentMeta.author || '', noteId, bookId, style: getIllusStyle() }, null, 150000);
-    if (res.status === 403) { toast('Illustrations for the built-in library are curated by the Reymont team only'); return; }
-    if (res.status === 402) { showPaywall('generations'); return; }
+    if (res.status === 403) { console.warn('[illustrate] 403: built-in library book — curator only'); toast('Illustrations for the built-in library are curated by the Reymont team only'); return; }
+    if (res.status === 402) { console.warn('[illustrate] 402: free limit reached'); showPaywall('generations'); return; }
     if (!res.ok) { let m = 'HTTP ' + res.status; try { m = (await res.json()).error.message; } catch (e) {} throw new Error(m); }
     const { url } = await res.json();
+    console.log('[illustrate] done:', url);
     if (!url) throw new Error('No image returned');
     if (currentBookId !== bookId) return;
     afterGeneration();
