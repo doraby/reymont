@@ -105,17 +105,16 @@ const ILLUS_STYLES: Record<string, string> = {
     `Maximum information, minimum ink, lots of calm white space; wordless, without labels.`,
   artnouveau:
     `the style of a decorative Art Nouveau / early Art Deco poster and book illustration: elegant flowing contour lines, ` +
-    `flat areas of soft muted colour (sage green, ochre, dusty rose, pale gold), stylised natural ornament — flowers, vines, ` +
-    `a halo-like circular motif framing the main figure — graceful idealised figures with long flowing hair and drapery, ` +
-    `a decorative border, and the slightly grainy raster texture of a colour lithograph print.`,
+    `flat areas of soft muted colour (sage green, ochre, dusty rose, pale gold), stylised natural ornament, ` +
+    `graceful idealised figures with long flowing hair and drapery, a decorative border.`,
   painting:
-    `the style of a 19th-century academic realist oil painting from the Eastern European landscape school: ` +
-    `meticulously observed nature — tall pine and oak forests, fields, rivers, sunlight filtering through trees, precise botanical detail — ` +
+    `the style of a 19th-century academic realist oil painting from the European school: ` +
     `calm naturalistic daylight, subdued earthy greens, browns and greys, fine visible brushwork on canvas, museum-quality realism; ` +
-    `people painted with the same sober naturalism and integrated into the landscape.`,
+    `people painted with the same sober naturalism.`,
   print:
-    `a black-and-white printmaking style — linocut or stone lithograph: pure black ink on off-white paper, bold carved shapes and gouge marks, ` +
-    `strong contrast, hatching and cross-hatching for tone, slightly uneven hand-printed texture; no colour and no smooth digital gradients.`,
+    `clean printmaking style — linocut: pure black ink on off-white paper, large elements, absence of small details, clean energetic composition, ` +
+    `bold carved shapes and gouge marks, strong contrast, hatching and cross-hatching for tone, slightly uneven hand-printed texture; ` +
+    `no colour and no smooth digital gradients.`,
 };
 
 async function callOpenAIImage(prompt: string): Promise<ImageResult> {
@@ -379,11 +378,10 @@ Deno.serve(async (req) => {
       const chapter = String(body.chapter ?? "").slice(0, 200);
       if (!text) return err("No text", 400, cors);
       console.log("illustrate: chapter=", JSON.stringify(chapter), "| para=", JSON.stringify(para.slice(0, 200)) + "…");
-      prompt = `Illustration for a scene from the novel "${title}"${author ? " by " + author : ""}` +
+      prompt = `illustrate me this scene from the book "${title}"${author ? " by " + author : ""}` +
         `${chapter ? ` (from the chapter/section "${chapter}")` : ""}.\n` +
         `Depicted moment (the reader's highlighted text): "${text}"\n` +
-        (para ? `Surrounding passage — a couple of paragraphs before and after the highlighted moment, for accurate scene, character and setting detail:\n"""${para}"""\n` : "") +
-        `No text, letters, signatures or watermarks in the image. ` +
+        (para ? `Context — a couple of paragraphs before and after the highlighted moment:\n"""${para}"""\n` : "") +
         `Use ${ILLUS_STYLES[String(body.style)] ?? ILLUS_STYLES.artnouveau}`;
     } else {
       if (!title) return err("No title", 400, cors);
