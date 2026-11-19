@@ -511,6 +511,7 @@
   }
   #illus-menu.open { display: flex; }
   #illus-menu button { text-align: left; }
+  .illus-menu-note { font-size: 12.5px; font-style: italic; color: var(--muted); line-height: 1.35; padding: 8px 0 4px; }
 
 
   #web-out { font-size: 14.5px; line-height: 1.62; }
@@ -722,7 +723,7 @@
           <button class="tool-btn" id="interactive-btn" onclick="makeInteractive()" title="Interactive view of this page (Premium)" aria-label="Interactive view of this page">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>
           </button>
-          <button class="tool-btn" id="illustrate-btn" onclick="toggleIllusMenu()" title="Illustrate this page" aria-label="Illustrate this page">
+          <button class="tool-btn" id="illustrate-btn" onclick="onIllustrateClick()" title="Illustrate this page" aria-label="Illustrate this page">
             <svg viewBox="0 0 24 24"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor" stroke="none"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor" stroke="none"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor" stroke="none"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor" stroke="none"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
           </button>
         </div>
@@ -918,6 +919,16 @@
       <div id="style-picker" class="style-grid"></div>
       <label class="check-row"><input type="checkbox" id="in-dropcaps" onchange="setDropcaps(this.checked)"> Drop caps — decorative first letters</label>
       <div class="note">Changes the look of the whole app and the book text. Applies immediately.</div>
+    </div>
+    <div class="field">
+      <label for="in-illus-style">Illustration style</label>
+      <select id="in-illus-style" onchange="setIllusStyle(this.value)">
+        <option value="artnouveau">Art Nouveau — decorative poster</option>
+        <option value="painting">Painting — realist oil landscape</option>
+        <option value="print">Linocut — black-and-white print</option>
+        <option value="infographic">Infographic — minimal, Tufte-style</option>
+      </select>
+      <div class="note">Used for every new illustration. Applies immediately.</div>
     </div>
     <div class="field">
       <label for="in-key">OpenAI API key (optional)</label>
@@ -2813,13 +2824,18 @@ async function translate(text, gen, words, para, note) {
    по email. Кнопка показана всем вошедшим, сервер сам откажет, если не в списке. */
 // Стиль иллюстрации — выбор читателя, запоминается в браузере. Описания стилей — на сервере (ILLUS_STYLES).
 const ILLUS_STYLES = [['artnouveau', 'Art Nouveau'], ['painting', 'Painting'], ['print', 'Linocut'], ['infographic', 'Infographic']];
-function getIllusStyle() {
+// Стиль выбирается один раз (меню при первом нажатии на палитру), дальше — только в Settings.
+function savedIllusStyle() {
   try { const v = localStorage.getItem('reader.illusStyle'); if (ILLUS_STYLES.some(s => s[0] === v)) return v; } catch (e) {}
-  return 'artnouveau';
+  return null;
 }
+function getIllusStyle() { return savedIllusStyle() || 'artnouveau'; }
 function setIllusStyle(v) {
   try { localStorage.setItem('reader.illusStyle', v); } catch (e) {}
-  document.querySelectorAll('.illus-style button').forEach(b => b.classList.toggle('on', b.dataset.s === v));
+  const sel = $('in-illus-style'); if (sel) sel.value = v;
+}
+function onIllustrateClick() {
+  if (savedIllusStyle()) makeIllustration(); else toggleIllusMenu();
 }
 // Кнопка-палитра в панели над текстом открывает меню стилей; выбор стиля сразу запускает генерацию.
 function toggleIllusMenu(force) {
@@ -2836,7 +2852,7 @@ function toggleIllusMenu(force) {
     });
   }
   const cur = getIllusStyle();
-  menu.innerHTML = ILLUS_STYLES.map(([k, l]) =>
+  menu.innerHTML = `<div class="illus-menu-note">Pick a style once — change it later in Settings</div>` + ILLUS_STYLES.map(([k, l]) =>
     `<button type="button" role="menuitem" data-s="${k}" class="${k === cur ? 'on' : ''}" onclick="setIllusStyle('${k}'); toggleIllusMenu(false); makeIllustration()">${l}</button>`).join('');
   const r = $('illustrate-btn').getBoundingClientRect();
   menu.style.top = (r.bottom + 6) + 'px';
@@ -4084,6 +4100,7 @@ function openSettings(openSignIn) {
   renderStylePicker();
   $('in-key').value = settings.key;
   $('in-lang').value = settings.lang;
+  $('in-illus-style').value = getIllusStyle();
   $('overlay').classList.add('open');
   if (openSignIn) authClick();
 }
