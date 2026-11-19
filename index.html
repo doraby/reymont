@@ -238,16 +238,17 @@
      тач: ховер на десктопе раньше сам открывал/закрывал топбар, что мешало читать. */
   #chrome-toggle-btn {
     display: flex; position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); right: 12px;
-    width: 38px; height: 38px; border-radius: 50%; border: none; cursor: pointer;
-    background: var(--surface); color: var(--muted);
+    width: 38px; height: 38px; border: none; cursor: pointer; padding: 0;
+    background: transparent; color: var(--muted);
     z-index: 220; align-items: center; justify-content: center;
   }
+  #chrome-toggle-btn:hover { color: var(--text); }
   #chrome-toggle-btn svg { transition: transform .2s; }
   /* «Назад» при свёрнутом меню — та же круглая кнопка, зеркально в левом верхнем углу. */
   #float-back-btn {
     display: none; position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); left: 12px;
-    width: 38px; height: 38px; border-radius: 50%; border: none; cursor: pointer; padding: 0;
-    background: var(--surface); color: var(--muted);
+    width: 38px; height: 38px; border: none; cursor: pointer; padding: 0;
+    background: transparent; color: var(--muted);
     z-index: 220; align-items: center; justify-content: center;
   }
   #float-back-btn:hover { color: var(--text); }
@@ -312,11 +313,11 @@
   }
   #reader.chrome-hidden #font-controls { display: none; }
   .font-btn {
-    width: 38px; height: 38px; border-radius: 50%; border: none; cursor: pointer;
-    background: var(--surface); color: var(--text); font-size: 17px; font-weight: 600;
+    width: 38px; height: 38px; border: none; cursor: pointer; padding: 0;
+    background: transparent; color: var(--muted); font-size: 20px;
     display: flex; align-items: center; justify-content: center;
   }
-  .font-btn:hover { background: var(--surface-2); }
+  .font-btn:hover { color: var(--text); }
 
   #main { flex: 1; position: relative; display: flex; min-height: 0; }
   #reading-col { flex: 1; position: relative; min-width: 0; display: flex; flex-direction: column; transition: margin-right .3s cubic-bezier(.4,0,.2,1); }
