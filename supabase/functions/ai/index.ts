@@ -8,8 +8,20 @@ const CORS_ORIGINS = ["https://reymont.app", "https://www.reymont.app", "https:/
 const ILLUSTRATIONS_BUCKET = "illustrations";
 // Держим в синхроне со списком CURATED_BOOKS в index.html.
 const CURATED_BOOK_IDS = new Set(["curated-chlopi", "curated-propaganda", "curated-crystallizing"]);
-// Бесплатный лимит AI-иллюстраций/обложек на книги читателя (не на каталог — там куратор без лимита).
+// Бесплатный лимит генераций: иллюстрации, обложки, диаграммы и интерактивы — один общий счётчик
+// (таблица image_quota). У Premium (pro_users) лимита нет и счётчик не растёт. Куратор каталога — тоже без лимита.
 const IMAGE_QUOTA_LIMIT = 3;
+async function getQuotaUsed(userId: string): Promise<number> {
+  const { data } = await storageAdmin().from("image_quota").select("count").eq("user_id", userId).maybeSingle();
+  return data?.count ?? 0;
+}
+// Счётчик растёт только после успешной генерации — деньги уже потрачены.
+async function bumpQuota(userId: string) {
+  const used = await getQuotaUsed(userId);
+  const { error } = await storageAdmin().from("image_quota")
+    .upsert({ user_id: userId, count: used + 1, updated_at: new Date().toISOString() });
+  if (error) console.error("image_quota upsert failed:", error.message);
+}
 // Модель для перевода, веб-поиска и схем Mermaid (секрет TEXT_MODEL в Supabase перекрывает). Линейка gpt-5:
 // без temperature, лимит ответа — max_completion_tokens (в него входят и токены рассуждений).
 const TEXT_MODEL = Deno.env.get("TEXT_MODEL") ?? "gpt-5.4-nano";
@@ -177,11 +189,16 @@ Deno.serve(async (req) => {
     return json({ ok: true }, 200, cors);
   }
 
-  // Premium-статус для клиента: показывает кнопку диаграмм только подписчикам.
+  // Premium-статус и счётчик бесплатных генераций для клиента; диаграммы/интерактив — в общем лимите.
   if (body.action === "me" || body.action === "diagram" || body.action === "diagram_html" || body.action === "diagram_html_improve") {
     const { data: pro } = await supa.from("pro_users").select("user_id").eq("user_id", user.id).maybeSingle();
-    if (body.action === "me") return json({ pro: !!pro }, 200, cors);
-    if (!pro) return err("Diagrams are a Premium feature", 403, cors);
+    const used = await getQuotaUsed(user.id);
+    if (body.action === "me") return json({ pro: !!pro, used, limit: IMAGE_QUOTA_LIMIT }, 200, cors);
+    if (!pro) {
+      if (user.is_anonymous) return err("Sign in with email to generate diagrams", 403, cors);
+      if (used >= IMAGE_QUOTA_LIMIT) return err(`You’ve used all ${IMAGE_QUOTA_LIMIT} free generations`, 402, cors);
+    }
+    const countIt = async () => { if (!pro) await bumpQuota(user.id); };
 
     // Один запрос — одна диаграмма: без стрима, без ретраев и без цепочек вызовов.
     const pageText = String(body.text ?? "").slice(0, 4000);
@@ -265,6 +282,7 @@ Deno.serve(async (req) => {
           const html = clean(msg.content.filter((b: { type: string }) => b.type === "text").map((b: { text: string }) => b.text).join(""));
           if (!/<html|<!doctype/i.test(html)) return err("Empty interactive diagram", 502, cors);
           console.log(`[interactive] ${body.action} ok: provider=anthropic model=${msg.model ?? claudeModel} html=${html.length} chars` + (improve ? ` feedback=${JSON.stringify(feedback)} unchanged=${html === currentHtml.trim()}` : ""));
+          await countIt();
           return json({ html, model: msg.model ?? claudeModel, provider: "anthropic" }, 200, cors);
         } catch (e) {
           const m = e instanceof Error ? e.message : String(e);
@@ -296,6 +314,7 @@ Deno.serve(async (req) => {
       const html = clean(parts.join(""));
       if (!/<html|<!doctype/i.test(html)) return err("Empty interactive diagram", 502, cors);
       console.log(`[interactive] ${body.action} ok: model=${htmlModel} html=${html.length} chars` + (improve ? ` feedback=${JSON.stringify(feedback)} unchanged=${html === currentHtml.trim()}` : ""));
+      await countIt();
       return json({ html, model: htmlModel, provider: "openai" }, 200, cors);
     }
     const sys = `You turn a passage from a book into ONE Mermaid diagram that helps the reader visualise it. ` +
@@ -326,6 +345,7 @@ Deno.serve(async (req) => {
     let code = String(j.choices?.[0]?.message?.content ?? "").trim();
     code = code.replace(/^```(?:mermaid)?\s*/i, "").replace(/```\s*$/, "").trim();
     if (!code) return err("Empty diagram", 502, cors);
+    await countIt();
     return json({ code }, 200, cors);
   }
 
@@ -342,15 +362,12 @@ Deno.serve(async (req) => {
       if (!ILLUSTRATOR_EMAIL || (user.email ?? "").toLowerCase() !== ILLUSTRATOR_EMAIL) {
         return err("Illustrations for the built-in library are curated by the Reymont team only", 403, cors);
       }
-    } else {
-      // Каждый образ стоит денег (gpt-image-2) — на книги читателя лимит в 3 штуки навсегда.
-      // Куратор (владелец, ветка выше) в этот лимит не упирается.
-      const { data: quotaRow } = await storageAdmin().from("image_quota")
-        .select("count").eq("user_id", user.id).maybeSingle();
-      const used = quotaRow?.count ?? 0;
-      if (used >= IMAGE_QUOTA_LIMIT) {
-        return err(`You’ve used all ${IMAGE_QUOTA_LIMIT} free illustrations`, 402, cors);
-      }
+    }
+    // Каждый образ стоит денег (gpt-image-2) — бесплатным 3 генерации на всё вместе, Premium без лимита.
+    const { data: proRow } = await supa.from("pro_users").select("user_id").eq("user_id", user.id).maybeSingle();
+    const countsToQuota = !isCurated && !proRow;
+    if (countsToQuota && (await getQuotaUsed(user.id)) >= IMAGE_QUOTA_LIMIT) {
+      return err(`You’ve used all ${IMAGE_QUOTA_LIMIT} free generations`, 402, cors);
     }
     const title = String(body.title ?? "").slice(0, 200);
     const author = String(body.author ?? "").slice(0, 200);
@@ -390,13 +407,7 @@ Deno.serve(async (req) => {
     if (!result.b64) return err("No image returned", 502, cors);
 
     // Счётчик — сразу после успешной генерации, деньги уже потрачены независимо от аплоада ниже.
-    if (!isCurated) {
-      const { data: quotaRow } = await storageAdmin().from("image_quota")
-        .select("count").eq("user_id", user.id).maybeSingle();
-      const { error: quotaErr } = await storageAdmin().from("image_quota")
-        .upsert({ user_id: user.id, count: (quotaRow?.count ?? 0) + 1, updated_at: new Date().toISOString() });
-      if (quotaErr) console.error("image_quota upsert failed:", quotaErr.message);
-    }
+    if (countsToQuota) await bumpQuota(user.id);
 
     const path = body.action === "illustrate"
       ? `${user.id}/notes/${String(body.noteId ?? "unknown").replace(/[^a-zA-Z0-9_-]/g, "")}.png`
