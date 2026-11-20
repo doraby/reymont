@@ -229,7 +229,7 @@ Deno.serve(async (req) => {
         `Hard rules: output ONLY the complete HTML document starting with <!doctype html> — no markdown fences, no commentary. ` +
         `Fully self-contained: inline <style> and <script>; no external files, fonts, CDNs, images, network requests or localStorage. ` +
         `LANGUAGE: write the content (labels of characters, places, objects, events, phrases, quotes) in the ORIGINAL language of the passage, ` +
-        `and give each phrase its translation into ${lang} right next to it as a gloss — smaller, italic, grey (#6b6b6b), directly under or beside the original, never only in a tooltip. ` +
+        `and give each phrase its translation into ${lang}${lang.toLowerCase() === "english" ? "" : " (NOT English)"} right next to it as a gloss — smaller, italic, grey (#6b6b6b), directly under or beside the original, never only in a tooltip. ` +
         `Proper names stay as in the original without a gloss. Interface words (buttons, hints, step controls) are in ${lang}. ` +
         `If the passage is already in ${lang}, write everything once in ${lang} with no glosses. Use only facts from the passage; never invent events or details. At most about 400 lines. The JavaScript must be free of syntax errors and work without any setup.`;
       // Доработка по отзыву читателя (👎): модель получает текущий код и жалобу и возвращает улучшенный
@@ -329,7 +329,8 @@ Deno.serve(async (req) => {
       `Every label always inside double quotes, without HTML, without parentheses or quotes inside labels. ` +
       `Use only what the passage actually says; do not invent facts. Do not use click, link or style directives. ` +
       `Every id must be unique: never give a subgraph the same id as a node or another subgraph, and never reuse a node id for a different thing ` +
-      `(e.g. use subgraph izbaRoom["Izba · hut"] and a separate node stove["Piec · stove"], never subgraph Izba with a node Izba inside). ` +
+      `(e.g. use subgraph izbaRoom["<place in the original> · <its ${lang} translation>"] and a separate node stove["<object in the original> · <its ${lang} translation>"], never subgraph Izba with a node Izba inside). ` +
+      `The translation after " · " MUST be in ${lang}${lang.toLowerCase() === "english" ? "" : ", NOT in English"}. ` +
       `Ids are short ASCII words without spaces or diacritics; the visible text goes only in the quoted label. ` +
       `Follow Edward Tufte's principles: every node and arrow must carry information — no decorative nodes, no labels that repeat what the structure already shows, ` +
       `no generic words like "Start", "End", "Scene" or "Event"; prefer specific, concrete labels (names, places, objects, quoted key words).`;
