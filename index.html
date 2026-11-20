@@ -965,7 +965,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.114</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.115</div>
   </div>
 </div>
 
@@ -3433,10 +3433,20 @@ const MAX_INTERACTIVES_PER_BOOK = 8;
 let interactiveBusy = false, interactiveTimer = null, interactiveStartedAt = 0;
 let panelOwner = null; // кому сейчас принадлежит #panel-body (любой setPanelBody сбрасывает)
 
-function withCsp(html) {
-  if (/<head[^>]*>/i.test(html)) return html.replace(/<head[^>]*>/i, m => m + INTERACTIVE_CSP);
-  if (/<html[^>]*>/i.test(html)) return html.replace(/<html[^>]*>/i, m => m + '<head>' + INTERACTIVE_CSP + '</head>');
-  return '<!doctype html><html><head>' + INTERACTIVE_CSP + '<meta charset="utf-8"></head><body>' + html + '</body></html>';
+// d3 лежит в vendor/ и вставляется в документ интерактива готовым скриптом: сети в рамке нет, подгрузить его оттуда нельзя.
+let d3Src = null;
+async function loadD3Src() {
+  if (d3Src === null) {
+    try { d3Src = (await (await fetch('vendor/d3.min.js')).text()).replace(/<\/script/gi, '<\\/script'); }
+    catch (e) { console.warn('d3 not loaded:', e.message); d3Src = ''; }
+  }
+  return d3Src;
+}
+function withCsp(html, lib) {
+  const head = INTERACTIVE_CSP + (lib ? '<script>' + lib + '</script>' : '');
+  if (/<head[^>]*>/i.test(html)) return html.replace(/<head[^>]*>/i, m => m + head);
+  if (/<html[^>]*>/i.test(html)) return html.replace(/<html[^>]*>/i, m => m + '<head>' + head + '</head>');
+  return '<!doctype html><html><head>' + head + '<meta charset="utf-8"></head><body>' + html + '</body></html>';
 }
 function loadInteractives(bookId) {
   try { return JSON.parse(localStorage.getItem(LS.interactives(bookId))) || []; } catch (e) { return []; }
@@ -3638,7 +3648,8 @@ function showInteractiveInPanel(rec, notice) {
     <iframe id="interactive-frame" sandbox="allow-scripts" title="Interactive view"></iframe>`, false);
   $('panel-body').classList.add('io');
   $('panel').classList.add('io-view'); // показывает 👎 в шапке панели
-  $('interactive-frame').srcdoc = withCsp(rec.snap ? rec.html : withSnapshotScript(rec.html));
+  const frame = $('interactive-frame');
+  loadD3Src().then(lib => { if (frame.isConnected) frame.srcdoc = withCsp(rec.snap ? rec.html : withSnapshotScript(rec.html), lib); });
   panelOwner = 'io-view';
   openPanel(true);
 }

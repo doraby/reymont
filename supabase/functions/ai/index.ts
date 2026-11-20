@@ -204,7 +204,7 @@ Deno.serve(async (req) => {
         `Not a relationship graph, and no tabs unless the idea really needs them. ` +
         `Style (Edward Tufte): looks like a book page, not an app. Background #FFFFF8, text #111, secondary #6b6b6b, one accent #a00000 only for what matters. ` +
         `Serif font (Palatino, Georgia) everywhere, including controls, which look like plain text. Thin hairlines; no cards, shadows, gradients, icons or emoji. Labels sit right next to what they describe. ` +
-        `Technical: inline SVG + CSS + vanilla JS, no external files or network, works from 320 to 900px wide, no horizontal scroll, html and body height 100%. ` +
+        `Technical: inline SVG + CSS + vanilla JS, no external files or network. The d3 library (v7) is already loaded as the global "d3" — do not import or load it; use it when a chart helps (timelines, counts, distributions, scales, force or hierarchy layouts), drawn only from data in the passage, with direct labels instead of a legend. Layout: works from 320 to 900px wide, no horizontal scroll, html and body height 100%. ` +
         `No title or caption naming the book, author or passage — start straight with the content. ` +
         `Output ONLY the full HTML starting with <!doctype html>, no markdown. ` +
         `Language: write the content in the original language of the passage and put its translation into ${lang}${lang.toLowerCase() === "english" ? "" : " (not English)"} next to it, smaller, italic, grey. ` +
