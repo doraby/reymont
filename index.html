@@ -965,7 +965,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.115</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.116</div>
   </div>
 </div>
 
@@ -1071,7 +1071,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.114'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.116'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -3490,7 +3490,7 @@ async function loadD3Src() {
   return d3Src;
 }
 function withCsp(html, lib) {
-  const head = INTERACTIVE_CSP + (lib ? '<script>' + lib + '</script>' : '');
+  const head = INTERACTIVE_CSP + (lib ? '<script>' + lib + '<\/script>' : '');
   if (/<head[^>]*>/i.test(html)) return html.replace(/<head[^>]*>/i, m => m + head);
   if (/<html[^>]*>/i.test(html)) return html.replace(/<html[^>]*>/i, m => m + '<head>' + head + '</head>');
   return '<!doctype html><html><head>' + head + '<meta charset="utf-8"></head><body>' + html + '</body></html>';
