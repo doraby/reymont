@@ -82,20 +82,6 @@ function err(message: string, status: number, cors: Record<string, string>) {
 
 type ImageResult = { b64?: string; error?: string; status?: number };
 
-// Единый визуальный язык интерактивов — принципы Эдварда Тафти. Меняется только здесь.
-const TUFTE_STYLE =
-  `VISUAL STYLE — follow Edward Tufte's principles strictly; the result should look like a page from "The Visual Display of Quantitative Information" or "Envisioning Information", not like an app UI. ` +
-  `(1) Maximise the data-ink ratio: every drop of ink must carry information about the passage. Erase everything else — no cards, panels, boxes around content, badges, pills, gradients, drop shadows, glows, rounded "chip" buttons, background textures, icons for decoration, emoji. ` +
-  `(2) No chartjunk: no 3D, no heavy gridlines, no thick borders, no ornamental frames. Structure is made with whitespace, alignment and thin hairlines (0.5–1px, ink at 30–50% opacity), never with filled boxes. ` +
-  `(3) Paper and ink: background #FFFFF8 (warm off-white paper), text and lines #111 / #333, secondary text #6b6b6b. ONE restrained accent colour (deep red #a00000 or a muted ochre/indigo that fits the mood) used sparingly, only to mark what the reader must notice — the selected element, the current step. Other distinctions use grey values, line weight, italic, small caps — not extra hues. Never more than 3 colours besides ink and grey. ` +
-  `(4) Typography carries the design: a serif book face — font-family: et-book, Palatino, "Palatino Linotype", "Book Antiqua", Georgia, serif — for ALL text including controls; body 15–17px, line-height 1.4–1.5; labels in small italic or small caps (font-variant: small-caps; letter-spacing: .04em); old-style numerals (font-variant-numeric: oldstyle-nums). No bold blocks of text, no all-caps headings, no sans-serif UI font. ` +
-  `(5) Label directly: put names right next to the lines, points and figures they describe instead of legends, keys or tooltips-only information. Use sidenotes in the margin for commentary and verbatim quotes (italic, smaller, grey), like Tufte's margin notes. ` +
-  `(6) Small multiples and layering: when comparing states, moments or points of view, show them side by side at the same scale rather than hiding them behind tabs; separate layers by value (light grey context, dark ink foreground). Show the data at several levels of detail at once — the overview and the fine structure. ` +
-  `(7) Integrate words, images and numbers: annotations sit inside the graphic, next to what they explain; text and picture are one composition. Prefer high information density: many small precise marks over a few big decorative ones. ` +
-  `(8) Interaction is quiet: controls look like text — an underlined or small-caps word, a thin-ruled slider, a ‹ › step marker; hover/focus/active states shown by the accent colour or an underline, never by bouncing, scaling, shadows or glowing. Transitions short (≤200ms) and only where they show a change of state. Touch targets still at least 40px (use padding, not visible boxes). ` +
-  `(9) Generous margins and a calm grid: content column about 60–65% wide with a margin column for notes on wide screens; on narrow screens notes drop under the item they belong to. ` +
-  `Before finishing, review the result as Tufte would: remove any element that could be erased without loss of information, and check that every colour, line and word earns its place. `;
-
 // Стили иллюстраций (выбирает читатель). Без имён художников — только описание манеры.
 const ILLUS_STYLES: Record<string, string> = {
   infographic:
@@ -212,26 +198,18 @@ Deno.serve(async (req) => {
       // Интерактивная версия: один самодостаточный HTML-документ. Клиент запускает его в
       // изолированной рамке (sandbox без allow-same-origin + CSP без сети), поэтому внешних
       // ресурсов в нём быть не должно.
-      const sysHtml = `You are a creative front-end designer and interactive storyteller. Turn the passage from a book into ONE self-contained, single-file HTML experience that makes THIS particular passage come alive for the reader — something they could not get from just reading the text. ` +
-        `Find the single most illuminating idea for this specific passage and execute it with craft. Examples of the kind of thing you might invent (do NOT default to any of them; each passage deserves its own idea): ` +
-        `a floor plan or map of the place where you can move the characters around; an animated stage where the dialogue plays out line by line; a "who stands where" tableau at the key moment; ` +
-        `a mood or atmosphere scene (light, weather, time of day, sound words) the reader can tweak; a physical object or document shown close up with hotspots; ` +
-        `a cause-and-effect chain the reader can trigger step by step; a word-by-word reveal of a loaded phrase or dialect with its meaning; a tiny game or puzzle built from what happens; ` +
-        `a clock/calendar/route showing how time or movement unfolds; a comparison of two points of view; or something entirely different that fits. ` +
-        `Do NOT build a character-relationship graph (nodes and edges between people) — the app already has a separate diagram for relations and events. ` +
-        `Do NOT default to a set of tabs; use tabs or multiple views only when the idea genuinely needs them. One strong, focused idea beats many generic views. Surprise the reader. ` +
-        `It must be genuinely interactive (hover, click, drag, play/step, sliders — whatever suits the idea) and reward exploration; where it helps, reveal a short verbatim quote from the passage (max 15 words, original language) or a one-line explanation. ` +
-        `Build it with inline SVG + CSS + vanilla JavaScript. ` + TUFTE_STYLE +
-        `Layout works from 320px to 900px wide and fills the height (html, body { height: 100% }), no horizontal scroll. ` +
-        `NO HEADER BLOCK AT ALL: the document must not contain a title, kicker/eyebrow, subtitle or caption that names the book, the author, the chapter or describes the passage ` +
-        `(never anything like "Book title · Evening scene" or "A fragment of a conversation about…") — the reader already knows the book and the page. ` +
-        `Start straight with the interactive content itself. Labels inside the experience (characters, places, objects, events) are fine. ` +
-        `Hard rules: output ONLY the complete HTML document starting with <!doctype html> — no markdown fences, no commentary. ` +
-        `Fully self-contained: inline <style> and <script>; no external files, fonts, CDNs, images, network requests or localStorage. ` +
-        `LANGUAGE: write the content (labels of characters, places, objects, events, phrases, quotes) in the ORIGINAL language of the passage, ` +
-        `and give each phrase its translation into ${lang}${lang.toLowerCase() === "english" ? "" : " (NOT English)"} right next to it as a gloss — smaller, italic, grey (#6b6b6b), directly under or beside the original, never only in a tooltip. ` +
-        `Proper names stay as in the original without a gloss. Interface words (buttons, hints, step controls) are in ${lang}. ` +
-        `If the passage is already in ${lang}, write everything once in ${lang} with no glosses. Use only facts from the passage; never invent events or details. At most about 400 lines. The JavaScript must be free of syntax errors and work without any setup.`;
+      const sysHtml =
+        `Turn the passage from a book into ONE self-contained HTML page that makes THIS passage come alive — something the reader can't get from the text alone. ` +
+        `Pick one strong idea that fits the passage (a map you can move characters on, a scene that plays out step by step, a cause-and-effect chain, a close-up object with hotspots, a small puzzle…) and make it genuinely interactive. ` +
+        `Not a relationship graph, and no tabs unless the idea really needs them. ` +
+        `Style (Edward Tufte): looks like a book page, not an app. Background #FFFFF8, text #111, secondary #6b6b6b, one accent #a00000 only for what matters. ` +
+        `Serif font (Palatino, Georgia) everywhere, including controls, which look like plain text. Thin hairlines; no cards, shadows, gradients, icons or emoji. Labels sit right next to what they describe. ` +
+        `Technical: inline SVG + CSS + vanilla JS, no external files or network, works from 320 to 900px wide, no horizontal scroll, html and body height 100%. ` +
+        `No title or caption naming the book, author or passage — start straight with the content. ` +
+        `Output ONLY the full HTML starting with <!doctype html>, no markdown. ` +
+        `Language: write the content in the original language of the passage and put its translation into ${lang}${lang.toLowerCase() === "english" ? "" : " (not English)"} next to it, smaller, italic, grey. ` +
+        `Interface words (buttons, hints) are in ${lang}. Proper names need no translation. If the passage is already in ${lang}, write everything once, with no translations. ` +
+        `Use only facts from the passage. Up to about 400 lines, no JavaScript errors.`;
       // Доработка по отзыву читателя (👎): модель получает текущий код и жалобу и возвращает улучшенный
       // документ целиком. Один запрос, без цепочек.
       const improve = body.action === "diagram_html_improve";
@@ -242,7 +220,7 @@ Deno.serve(async (req) => {
         ? sysHtml + ` You are given the CURRENT version of the document and the reader's feedback on it. ` +
           `If the current document has a title, kicker, subtitle or any text naming the book or describing the passage, REMOVE it. ` +
           `Return an improved COMPLETE document that fixes what the reader disliked (if the feedback is empty, fix the most obvious weaknesses: ` +
-          `emptiness, unreadable text, broken interactions, weak layout). Also bring the whole document in line with the VISUAL STYLE above — strip shadows, cards, gradients, sans-serif UI and extra colours. Keep what already works. The same hard rules apply.`
+          `emptiness, unreadable text, broken interactions, weak layout). Also bring the whole document in line with the Tufte style above — strip shadows, cards, gradients, sans-serif UI and extra colours. Keep what already works. The same hard rules apply.`
         : sysHtml;
       const inputFinal = improve
         ? `${userMsgHtml}\n<reader_feedback>${feedback || "(no comment — improve the visualisation in general)"}</reader_feedback>\n<current_html>${currentHtml}</current_html>`
@@ -316,24 +294,14 @@ Deno.serve(async (req) => {
       await countIt();
       return json({ html, model: htmlModel, provider: "openai" }, 200, cors);
     }
-    const sys = `You turn a passage from a book into ONE Mermaid diagram that helps the reader visualise it. ` +
-      `Pick the form that fits the passage best: the staging of a scene (who stands where, places, objects — flowchart with subgraphs), ` +
-      `the interaction between characters (flowchart or sequenceDiagram: who does or says what to whom), or the sequence of events (timeline or sequenceDiagram). ` +
-      `Rules: output ONLY valid Mermaid code — no markdown fences, no comments, no explanations. ` +
-      `In a sequenceDiagram every message arrow must be followed by a colon and NON-EMPTY text (never "A->>B:" with nothing after it); no semicolons. ` +
-      `Keep it small and READABLE. Show only the 3 to 5 most important characters (never more than 5): declare each participant EXACTLY ONCE, with a short but distinct name (a first name, never a single letter), ` +
-      `and declare ONLY participants that send or receive at least one message — no empty lifelines, no duplicates, no placeholder or minor characters. ` +
-      `Retell the passage as a brief summary: at most 10 messages, each a short phrase of up to 6 words (plus its translation) in your own words (do NOT quote long lines verbatim); skip repeated or trivial exchanges. ` +
-      `At most 12 nodes. LANGUAGE: write every label and message in the ORIGINAL language of the passage, followed by its translation into ${lang} after " · " ` +
-      `(e.g. "Original phrase · translated phrase"); names of characters and places stay in the original without translation; if the passage is already in ${lang}, write each label once. ` +
-      `Every label always inside double quotes, without HTML, without parentheses or quotes inside labels. ` +
-      `Use only what the passage actually says; do not invent facts. Do not use click, link or style directives. ` +
-      `Every id must be unique: never give a subgraph the same id as a node or another subgraph, and never reuse a node id for a different thing ` +
-      `(e.g. use subgraph izbaRoom["<place in the original> · <its ${lang} translation>"] and a separate node stove["<object in the original> · <its ${lang} translation>"], never subgraph Izba with a node Izba inside). ` +
-      `The translation after " · " MUST be in ${lang}${lang.toLowerCase() === "english" ? "" : ", NOT in English"}. ` +
-      `Ids are short ASCII words without spaces or diacritics; the visible text goes only in the quoted label. ` +
-      `Follow Edward Tufte's principles: every node and arrow must carry information — no decorative nodes, no labels that repeat what the structure already shows, ` +
-      `no generic words like "Start", "End", "Scene" or "Event"; prefer specific, concrete labels (names, places, objects, quoted key words).`;
+    const sys =
+      `Turn the passage from a book into ONE small Mermaid diagram: a scene (flowchart with subgraphs), who does or says what to whom (sequenceDiagram), or a sequence of events (timeline). ` +
+      `Output ONLY valid Mermaid code — no fences, comments or explanations. ` +
+      `At most 12 nodes, at most 5 characters, at most 10 messages of up to 6 words each, retold in your own words. Every sequenceDiagram message has non-empty text after the colon. ` +
+      `Every id is unique, short ASCII, with no spaces; a subgraph never shares an id with a node. Every label is in double quotes, with no HTML, parentheses or quotes inside. No click, link or style directives. ` +
+      `Language: each label is the original text of the passage, then " · ", then its translation into ${lang}${lang.toLowerCase() === "english" ? "" : " (not English)"}. ` +
+      `Names of characters and places are not translated. If the passage is already in ${lang}, write each label once. ` +
+      `Use only what the passage says. Every node and arrow carries information: specific names, places and objects, no "Start", "End" or "Scene".`;
     const r = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },

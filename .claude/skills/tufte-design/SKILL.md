@@ -53,8 +53,8 @@ description: Визуальный язык Reymont в духе Эдварда Т
 
 ## Где это живёт в коде
 
-- `supabase/functions/ai/index.ts`: константа `TUFTE_STYLE` подставляется в промпт
-  интерактивов (`diagram_html` / `diagram_html_improve`). Правила меняются только там.
+- `supabase/functions/ai/index.ts`: правила стиля Тафти встроены в промпт
+  интерактивов (`diagram_html` / `diagram_html_improve`). Правила меняются только там (в `sysHtml`).
 - `supabase/functions/ai/index.ts`: промпт Mermaid (`diagram`) требует, чтобы каждый узел нёс смысл.
 - `index.html`, `loadMermaid()`: тема `base` с `themeVariables`/`themeCSS`
   (прозрачные узлы, линии 0.75px, курсивные подписи, капитель у групп).
