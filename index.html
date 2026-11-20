@@ -516,7 +516,7 @@
   /* Выбор стиля иллюстрации с превью: картинка + подпись капителью; выбранный — подпись акцентом. */
   .illus-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 14px; margin: 0; }
   .illus-grid button { display: block; padding: 0; text-align: left; }
-  .illus-grid .ip-img { display: block; width: 100%; aspect-ratio: 3 / 4; object-fit: cover; object-position: top;
+  .illus-grid .ip-img { display: block; width: 100%; aspect-ratio: 3 / 2; object-fit: cover; object-position: top;
     border: 1px solid var(--border); background: var(--surface); }
   .illus-grid button.on .ip-img { border-color: var(--accent); }
   .illus-grid .ip-name { display: block; margin-top: 4px; }
@@ -965,7 +965,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.117</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.118</div>
   </div>
 </div>
 
@@ -1071,7 +1071,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.117'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.118'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 

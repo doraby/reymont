@@ -103,13 +103,13 @@ const ILLUS_STYLES: Record<string, string> = {
     `no colour and no smooth digital gradients.`,
 };
 
-async function callOpenAIImage(prompt: string): Promise<ImageResult> {
+async function callOpenAIImage(prompt: string, size: string): Promise<ImageResult> {
   // /v1/images/generations (в отличие от /v1/images/edits) принимает только JSON,
   // не multipart/form-data — тот формат был нужен только для загрузки файлов-референсов.
   const r = await fetch("https://api.openai.com/v1/images/generations", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },
-    body: JSON.stringify({ model: "gpt-image-2", prompt, size: "1024x1536", quality: "medium" }),
+    body: JSON.stringify({ model: "gpt-image-2", prompt, size, quality: "medium" }),
   });
   if (!r.ok) {
     const t = await r.text();
@@ -121,9 +121,9 @@ async function callOpenAIImage(prompt: string): Promise<ImageResult> {
   return { b64 };
 }
 
-async function generateImage(prompt: string): Promise<ImageResult> {
+async function generateImage(prompt: string, size = "1536x1024"): Promise<ImageResult> {
   try {
-    return await callOpenAIImage(prompt);
+    return await callOpenAIImage(prompt, size);
   } catch (e) {
     return { error: "Illustration error: " + (e instanceof Error ? e.message : String(e)), status: 500 };
   }
@@ -373,7 +373,8 @@ Deno.serve(async (req) => {
         `No other text, captions or watermarks in the image.`;
     }
 
-    const result = await generateImage(prompt);
+    // сцены — горизонтальные, обложки — вертикальные
+    const result = await generateImage(prompt, body.action === "illustrate_cover" ? "1024x1536" : "1536x1024");
     if (result.error) return err(result.error, result.status ?? 500, cors);
     if (!result.b64) return err("No image returned", 502, cors);
 
