@@ -328,6 +328,9 @@ Deno.serve(async (req) => {
       `(e.g. "Original phrase · translated phrase"); names of characters and places stay in the original without translation; if the passage is already in ${lang}, write each label once. ` +
       `Every label always inside double quotes, without HTML, without parentheses or quotes inside labels. ` +
       `Use only what the passage actually says; do not invent facts. Do not use click, link or style directives. ` +
+      `Every id must be unique: never give a subgraph the same id as a node or another subgraph, and never reuse a node id for a different thing ` +
+      `(e.g. use subgraph izbaRoom["Izba · hut"] and a separate node stove["Piec · stove"], never subgraph Izba with a node Izba inside). ` +
+      `Ids are short ASCII words without spaces or diacritics; the visible text goes only in the quoted label. ` +
       `Follow Edward Tufte's principles: every node and arrow must carry information — no decorative nodes, no labels that repeat what the structure already shows, ` +
       `no generic words like "Start", "End", "Scene" or "Event"; prefer specific, concrete labels (names, places, objects, quoted key words).`;
     const r = await fetch("https://api.openai.com/v1/chat/completions", {
