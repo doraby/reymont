@@ -965,7 +965,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.112</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.113</div>
   </div>
 </div>
 
@@ -1071,7 +1071,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.112'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.113'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -3884,8 +3884,22 @@ function tidySequence(code) {
     seen.add(m[1]); return true;
   }).join('\n');
 }
+/* Модель иногда даёт подграфу тот же id, что и узлу внутри него (subgraph Izba … Izba["Izba"]), —
+   Mermaid падает с «Setting Izba as parent of Izba would create a cycle». Даём подграфам свои id (sg1, sg2…),
+   подпись сохраняем. */
+function uniqueSubgraphIds(code) {
+  if (!/^\s*(?:flowchart|graph)\b/m.test(code)) return code;
+  let i = 0;
+  return code.split('\n').map(line => {
+    const m = /^(\s*)subgraph\s+([^\s\["]+)\s*(\[.*\])?\s*$/.exec(line);
+    if (!m) return line;
+    i++;
+    const label = m[3] || `["${m[2]}"]`;
+    return `${m[1]}subgraph sg${i}${label}`;
+  }).join('\n');
+}
 async function renderMermaidSafe(mermaid, code) {
-  code = tidySequence(code);
+  code = uniqueSubgraphIds(tidySequence(code));
   try { return await mermaid.render('rm-diagram-' + Date.now(), code); }
   catch (e) {
     const fixed = sanitizeMermaid(code);
