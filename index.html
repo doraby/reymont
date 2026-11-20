@@ -965,7 +965,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.116</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.117</div>
   </div>
 </div>
 
@@ -1071,7 +1071,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.116'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.117'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -2885,6 +2885,7 @@ const ILLUS_STYLES = [['artnouveau', 'Art Nouveau'], ['painting', 'Painting'], [
 // Превью стилей (пример картинки в этом стиле). Пустая строка — превью пока нет.
 const ILLUS_PREVIEWS = {
   infographic: 'https://onetabmtufauhulgjaxv.supabase.co/storage/v1/object/public/illustrations/3fab6e07-a1ae-45c6-8566-bdea64d462f8/notes/pgqhx0r7.png?v=1795119256532',
+  print: 'https://onetabmtufauhulgjaxv.supabase.co/storage/v1/object/public/illustrations/3fab6e07-a1ae-45c6-8566-bdea64d462f8/notes/pg5542p2.png?v=1795209718138',
 };
 // Выбирал ли читатель стиль явно: меню у палитры показываем только до первого выбора, дальше — в Settings.
 function illusStyleChosen() {

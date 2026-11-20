@@ -354,6 +354,7 @@ Deno.serve(async (req) => {
         `${chapter ? ` (from the chapter/section "${chapter}")` : ""}.\n` +
         `Depicted moment (the reader's highlighted text): "${text}"\n` +
         (para ? `Context — a couple of paragraphs before and after the highlighted moment:\n"""${para}"""\n` : "") +
+        `Do not draw any text in the image: no quotations or fragments of the book, no captions, titles, lettering, signs, speech bubbles or watermarks — purely visual.\n` +
         `Use ${ILLUS_STYLES[String(body.style)] ?? ILLUS_STYLES.artnouveau}`;
     } else {
       if (!title) return err("No title", 400, cors);
