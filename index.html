@@ -296,7 +296,7 @@
     padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--surface); }
   .io-notice { flex: none; padding: 10px 16px; font-size: 13.5px; background: #FFF4DC; color: #7A5B14; border-bottom: 1px solid #EBD9A8; }
   .io-tools .btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 13.5px; }
-  #interactive-frame { flex: 1; width: 100%; border: 0; background: #f4f2e9; }
+  #interactive-frame { flex: 1; width: 100%; border: 0; background: #fff; }
   .io-loading { margin: auto; padding: 24px 28px; max-width: 360px; text-align: center; }
   .io-loading .spinner { margin: 0 auto 18px; }
   .io-title { font-size: 18px; font-weight: 600; color: var(--text); }
@@ -965,7 +965,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.120</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.121</div>
   </div>
 </div>
 
@@ -1071,7 +1071,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.120'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.121'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
