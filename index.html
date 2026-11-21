@@ -375,6 +375,16 @@
     pointer-events: none; transition: opacity .4s;
   }
   #hint.hide { opacity: 0; }
+  /* Титр серии: «Сезон 2 · серия 3 из 5» при входе в серию и «Конец серии» на её последней странице. */
+  #ep-card {
+    position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); width: max-content; max-width: calc(100% - 32px);
+    text-align: center; font-size: 13px; line-height: 1.45; color: var(--muted);
+    background: var(--bg); border: 1px solid var(--border); padding: 7px 16px; border-radius: 100px;
+    z-index: 6; transition: opacity .5s; cursor: pointer;
+  }
+  #ep-card b { color: var(--text); font-weight: 600; }
+  #ep-card.hide { opacity: 0; pointer-events: none; }
+  #reader:not(.chrome-hidden) #ep-card { bottom: calc(var(--bottombar-h) + 14px); }
 
   /* ───────────────── TOC drawer ───────────────── */
   #toc {
@@ -740,6 +750,7 @@
         <button id="nav-prev" class="nav-btn" aria-label="Previous page">‹</button>
         <button id="nav-next" class="nav-btn" aria-label="Next page">›</button>
         <div id="hint" class="hide">Select any phrase to get an illustrated explanation</div>
+        <div id="ep-card" class="hide" onclick="epCardClick()"></div>
       </div>
       <div id="bottombar" onclick="toggleToc(true)" title="Contents" role="button" aria-label="Contents">
         <span id="chapter-label"></span>
@@ -918,6 +929,7 @@
         <button class="btn" onclick="authClick()">Sign out</button>
       </div>
       <div class="note">Signed in — your highlights sync across devices, and built-in AI translation works without an OpenAI key.</div>
+      <label class="check-row"><input type="checkbox" id="in-daily" onchange="setDailyEmail(this.checked)"> Email me the next episode every morning</label>
     </div>
     <div id="signin-field" class="field" style="display:none">
       <label>Account</label>
@@ -965,7 +977,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.116</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.117</div>
   </div>
 </div>
 
@@ -1071,7 +1083,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.116'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.117'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -1330,8 +1342,16 @@ function saveLastPosition(bookId, cfi) {
   clearTimeout(lastPosTimer); // листание — частое, в облако пишем только когда остановились
   lastPosTimer = setTimeout(async () => {
     try {
-      const { error } = await sb.from('reading_state').upsert(
-        { user_id: sbUser.id, book_id: state.bookId, cfi: state.cfi, updated: state.t });
+      const row = { user_id: sbUser.id, book_id: state.bookId, cfi: state.cfi, updated: state.t };
+      // Следующая непрочитанная серия — для утреннего письма (daily-episode). Структура серий не хранится, только она.
+      if (nextEpForCloud && nextEpForCloud.book_id === state.bookId) row.next_ep = nextEpForCloud;
+      const daily = localStorage.getItem(LS.daily);
+      if (daily !== null) row.email_daily = daily === '1';
+      let { error } = await sb.from('reading_state').upsert(row);
+      if (error && /next_ep|email_daily/.test(error.message || '')) { // миграция daily_episode.sql ещё не применена
+        delete row.next_ep; delete row.email_daily;
+        ({ error } = await sb.from('reading_state').upsert(row));
+      }
       if (error) throw error;
     } catch (e) { console.warn('saveLastPosition:', e.message || e); }
   }, 1500);
@@ -1351,6 +1371,17 @@ async function resumeLastBook(state) {
 async function startReading() {
   const showShelf = () => { $('library').style.display = 'block'; prefetchCuratedBooks(); };
   try {
+    // Ссылка из утреннего письма: ?book=<id>&at=<cfi начала серии>
+    const qp = new URLSearchParams(location.search), qBook = qp.get('book'), qAt = qp.get('at');
+    if (qBook) {
+      history.replaceState(null, '', location.pathname);
+      const qc = curatedById(qBook);
+      if (qc) await ensureCuratedRecord(qc);
+      if (await dbGet('books', qBook)) {
+        if (qAt) localStorage.setItem(LS.pos(qBook), qAt);
+        await openBook(qBook); return;
+      }
+    }
     const last = readLastLocal();
     if (last && await dbGet('books', last.bookId)) { await openBook(last.bookId); return; }
     // Первый визит (в т.ч. без входа) — сразу первая книга каталога с демо-хайлайтами.
@@ -1369,9 +1400,10 @@ async function startReading() {
 async function syncLastPosition() {
   if (!sb || !isRealUser()) return;
   try {
-    const { data: r, error } = await sb.from('reading_state').select('book_id,cfi,updated')
+    const { data: r, error } = await sb.from('reading_state').select('book_id,cfi,updated,email_daily')
       .eq('user_id', sbUser.id).maybeSingle();
     if (error) throw error;
+    if (r && localStorage.getItem(LS.daily) === null && r.email_daily != null) localStorage.setItem(LS.daily, r.email_daily ? '1' : '0');
     const local = readLastLocal();
     if (!r) { if (local) saveLastPosition(local.bookId, local.cfi); return; }
     if (local && local.t >= Number(r.updated)) return;
@@ -1432,6 +1464,7 @@ const LS = {
   style: 'reader.style',       // classic | tufte | paper | dusk
   dropcaps: 'reader.dropcaps', // '' (по умолчанию стиля) | '1' | '0'
   hintDone: 'reader.hintDone', // читатель уже сделал первую подсветку — подсказка больше не нужна
+  daily: 'reader.dailyEmail',  // '1' | '0' — письмо со следующей серией каждое утро (не задано — как в облаке)
 };
 /* Подсказка про выделение нужна только новому читателю и только первые сутки. Тем, кто пользовался приложением
    раньше (есть сохранённое место чтения или подсказка уже гасла), метку ставим 0 — для них она не покажется. */
@@ -2166,6 +2199,7 @@ async function openBook(id, newRec) {
   const curated = curatedById(id);
   if (!rec.data && !(curated && curated.opf)) throw new Error('the book file is missing');
   currentBookId = id;
+  episodes = null; epShownN = 0; nextEpForCloud = null;
   // Демо-хайлайты тянем параллельно с открытием книги, а не после него.
   const demoP = curated ? loadDemoHighlights(id) : null;
   currentMeta = { title: rec.title, author: rec.author };
@@ -2236,7 +2270,8 @@ async function openBook(id, newRec) {
   book.opened.then(() => book.locations.generate(800)).then(() => {
     const loc = rendition.currentLocation();
     if (loc && loc.start) updateProgress(loc);
-  }).catch(e => console.warn('locations:', e));
+  }).catch(e => console.warn('locations:', e))
+    .then(() => buildEpisodes(id)).catch(e => console.warn('episodes:', e));
 
   rendition.on('relocated', loc => {
     localStorage.setItem(LS.pos(id), loc.start.cfi);
@@ -2266,8 +2301,153 @@ function updateProgress(loc) {
   $('percent-label').textContent = Math.round(pct * 100) + '%';
   const ch = findChapter(loc.start.href);
   $('chapter-label').textContent = ch || '';
+  updateEpisode(loc);
   markTocActive(loc.start.href);
   if (currentBookId) dbGet('books', currentBookId).then(rec => { if (rec) { rec.progress = pct; dbPut('books', rec); } });
+}
+
+/* ═══════════ Серии: книга как сериал ═══════════
+   Сезон — глава (линейная секция spine с текстом), серия — около EP_WORDS слов; граница сдвигается
+   вперёд до конца предложения. Без AI и без хранения: всё считается в памяти при открытии книги. */
+const EP_WORDS = 2200;  // ≈10 минут при READ_WPM
+const READ_WPM = 220;
+let episodes = null;    // [{n, season, seasonTitle, e, of, idx, cfi, min, teaser}] — серии открытой книги
+let epShownN = 0;       // какую серию последней объявляли титром
+let nextEpForCloud = null; // следующая непрочитанная серия → reading_state.next_ep (для письма)
+let epCardTimer = null, epCardAction = null;
+const EP_BLOCK = /^(p|div|h[1-6]|li|blockquote|pre|dd|dt|td|th|section|article|figcaption|aside)$/i;
+const SENT_END = /[.!?…]+["'»”’)\]]*(?=\s|$)/g;
+const wordCount = t => (t.match(/\S+/g) || []).length;
+// Сплошной текст секции и карта «смещение → текстовый узел»; абзацы разделены \n\n.
+function sectionText(doc) {
+  const nodes = []; let text = '', lastBlock = null;
+  const root = doc.body || doc.documentElement;
+  const w = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  for (let nd; (nd = w.nextNode());) {
+    if (!nd.nodeValue.trim() || /^(script|style)$/i.test(nd.parentNode.localName)) continue;
+    let b = nd.parentNode;
+    while (b && b !== root && !EP_BLOCK.test(b.localName)) b = b.parentNode;
+    if (lastBlock && b !== lastBlock) text += '\n\n';
+    lastBlock = b;
+    nodes.push({ node: nd, start: text.length });
+    text += nd.nodeValue;
+  }
+  return { text, nodes };
+}
+function rangeAt(doc, map, off) {
+  let i = map.nodes.length - 1;
+  while (i > 0 && map.nodes[i].start > off) i--;
+  let { node, start } = map.nodes[i];
+  let o = off - start;
+  if (o >= node.nodeValue.length && map.nodes[i + 1]) { node = map.nodes[i + 1].node; o = 0; } // попали в разделитель абзацев
+  const r = doc.createRange();
+  r.setStart(node, Math.max(0, Math.min(o, node.nodeValue.length)));
+  r.collapse(true);
+  return r;
+}
+function sentenceEndAfter(text, from) {
+  SENT_END.lastIndex = from;
+  const m = SENT_END.exec(text);
+  if (!m) return -1;
+  let k = m.index + m[0].length;
+  while (k < text.length && /\s/.test(text[k])) k++;
+  return k;
+}
+// Начало серии для письма: ~700 знаков, обрезано по концу предложения.
+function teaserFrom(text, off) {
+  const chunk = text.slice(off, off + 700).replace(/[ \t]+/g, ' ').trim();
+  if (off + 700 >= text.length) return chunk;
+  let cut = -1;
+  for (const m of chunk.matchAll(SENT_END)) if (m.index > 250) cut = m.index + m[0].length;
+  return cut > 0 ? chunk.slice(0, cut) : chunk.replace(/\s+\S*$/, '') + '…';
+}
+async function buildEpisodes(bookId) {
+  const bk = book, list = [];
+  let season = 0;
+  for (const sec of (bk.spine.spineItems || []).filter(s => s.linear)) {
+    if (book !== bk) return; // книгу успели сменить
+    const wasLoaded = !!sec.contents;
+    try { await sec.load(bk.load.bind(bk)); } catch (e) { continue; }
+    const doc = sec.document;
+    const map = doc ? sectionText(doc) : { text: '', nodes: [] };
+    const words = wordCount(map.text);
+    if (words >= 30 && map.nodes.length) {
+      season++;
+      const n = Math.max(1, Math.round(words / EP_WORDS));
+      const starts = [0];
+      for (let k = 1; k < n; k++) {
+        const b = sentenceEndAfter(map.text, Math.round(map.text.length * k / n));
+        if (b > starts[starts.length - 1] && b < map.text.length - 200) starts.push(b);
+      }
+      const seasonTitle = findChapter(sec.href) || 'Chapter ' + season;
+      starts.forEach((off, k) => list.push({
+        season, seasonTitle, e: k + 1, of: starts.length, idx: sec.index,
+        cfi: sec.cfiFromRange(rangeAt(doc, map, off)),
+        min: Math.max(1, Math.round(wordCount(map.text.slice(off, starts[k + 1] ?? map.text.length)) / READ_WPM)),
+        teaser: teaserFrom(map.text, off),
+      }));
+    }
+    if (!wasLoaded) sec.unload();
+  }
+  if (book !== bk || currentBookId !== bookId) return;
+  list.forEach((ep, i) => { ep.n = i + 1; });
+  episodes = list;
+  console.log(`episodes: ${list.length} in ${season} seasons`);
+  const loc = rendition && rendition.currentLocation();
+  if (loc && loc.start) { updateProgress(loc); saveLastPosition(bookId, loc.start.cfi); }
+}
+function episodeAt(cfi, index) {
+  if (!episodes) return null;
+  const C = new ePub.CFI();
+  let cur = null;
+  for (const ep of episodes) {
+    if (ep.idx !== index) { if (cur) break; continue; }
+    if (!cur || C.compare(ep.cfi, cfi) <= 0) cur = ep; else break;
+  }
+  return cur;
+}
+function showEpCard(html, ms, action) {
+  const el = $('ep-card');
+  el.innerHTML = html;
+  el.classList.remove('hide');
+  epCardAction = action || null;
+  clearTimeout(epCardTimer);
+  if (ms) epCardTimer = setTimeout(() => el.classList.add('hide'), ms);
+}
+function epCardClick() {
+  $('ep-card').classList.add('hide');
+  if (epCardAction) epCardAction();
+}
+function updateEpisode(loc) {
+  const cur = loc && loc.start && episodeAt(loc.start.cfi, loc.start.index);
+  if (!cur) { $('ep-card').classList.add('hide'); return; }
+  const total = episodes.length, next = episodes[cur.n] || null; // n — с единицы, так что episodes[n] — следующая
+  const seasons = episodes[total - 1].season;
+  $('chapter-label').textContent = `S${cur.season} · E${cur.e}/${cur.of} · ${cur.seasonTitle}`;
+  $('percent-label').textContent = `${cur.n}/${total}`;
+  nextEpForCloud = next && {
+    book_id: currentBookId, title: currentMeta.title || '', author: currentMeta.author || '',
+    n: next.n, total, season: next.season, seasons, season_title: next.seasonTitle,
+    e: next.e, of: next.of, min: next.min, cfi: next.cfi, teaser: next.teaser,
+  };
+  // Конец серии на этой странице: начало следующей уже на экране или кончилась глава.
+  const C = new ePub.CFI(), end = loc.end || loc.start;
+  const endsHere = next && (next.idx === end.index ? C.compare(next.cfi, end.cfi) <= 0
+    : !!(end.displayed && end.displayed.page >= end.displayed.total));
+  if (endsHere) {
+    epShownN = next.n;
+    showEpCard(`End of S${cur.season}·E${cur.e} · <b>next: S${next.season}·E${next.e}</b> · ${next.min} min ›`,
+      0, () => rendition.next());
+  } else if (cur.n !== epShownN) {
+    epShownN = cur.n;
+    showEpCard(`<b>Season ${cur.season} · episode ${cur.e} of ${cur.of}</b> · ${cur.min} min · ${cur.n} of ${total}`, 3500);
+  } else $('ep-card').classList.add('hide');
+}
+function setDailyEmail(on) {
+  localStorage.setItem(LS.daily, on ? '1' : '0');
+  const last = readLastLocal();
+  if (last) saveLastPosition(last.bookId, last.cfi); // запишет email_daily вместе с местом чтения
+  toast(on ? 'You’ll get the next episode every morning' : 'Daily email off');
 }
 
 /* Служебные страницы в начале книги (обложка, титул, «Spis treści», лицензия Gutenberg). */
@@ -4237,6 +4417,7 @@ function openSettings(openSignIn) {
   renderStylePicker();
   $('in-key').value = settings.key;
   $('in-lang').value = settings.lang;
+  $('in-daily').checked = localStorage.getItem(LS.daily) === '1';
   $('overlay').classList.add('open');
   if (openSignIn) authClick();
 }
