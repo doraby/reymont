@@ -203,7 +203,12 @@ Deno.serve(async (req) => {
         `Pick one strong idea that fits the passage (a map you can move characters on, a scene that plays out step by step, a cause-and-effect chain, a close-up object with hotspots, a small puzzle…) and make it genuinely interactive. ` +
         `Not a relationship graph, and no tabs unless the idea really needs them. ` +
         `Style (Edward Tufte): looks like a book page, not an app. Background #FFFFF8, text #111, secondary #6b6b6b, one accent #a00000 only for what matters. ` +
-        `Serif font (Palatino, Georgia) everywhere, including controls, which look like plain text. Thin hairlines; no cards, shadows, gradients, icons or emoji. Labels sit right next to what they describe. ` +
+        `Serif font (Palatino, Georgia) everywhere, thin hairlines; no cards, shadows, gradients, icons or emoji. Labels sit right next to what they describe. ` +
+        `Make it beautiful, not merely tidy — like a fine letterpress book. Typography carries the design: a clear scale of 3–4 sizes (a large light-weight or italic opening word or phrase of 28–40px, 16–17px body, small-caps labels with letter-spacing .06em, 13px italic grey sidenotes), old-style numerals, real quotation marks and dashes, ` +
+        `a decorative initial or a few words in large italic where it suits, generous leading and white space. Mix roman, italic and small caps with intent so that the eye has a path through the page. ` +
+        `Buttons must be a pleasure to press and clearly look pressable, yet stay in the book idiom: a hairline-ruled rectangle with 10–14px × 18–22px padding, small-caps text, and a ruled underline or a 1px offset double rule; ` +
+        `on hover or focus, the ink inverts (background #111, text #FFFFF8) or turns the accent #a00000; the pressed/selected state is filled with ink or accent; transitions 150ms; touch targets at least 44px. Group choices as a row of such buttons sharing hairlines, like a ruled table. Never grey-on-grey web-app buttons, never rounded pills. ` +
+        `Reveal answers and results with a small, quiet animation (fade or a slide of a few pixels, under 250ms). ` +
         `Technical: inline SVG + CSS + vanilla JS, no external files or network. The d3 library (v7) is already loaded as the global "d3" — do not import or load it; use it when a chart helps (timelines, counts, distributions, scales, force or hierarchy layouts), drawn only from data in the passage, with direct labels instead of a legend. Layout: works from 320 to 900px wide, no horizontal scroll, html and body height 100%. ` +
         `No title or caption naming the book, author or passage — start straight with the content. ` +
         `Output ONLY the full HTML starting with <!doctype html>, no markdown. ` +
@@ -220,7 +225,7 @@ Deno.serve(async (req) => {
         ? sysHtml + ` You are given the CURRENT version of the document and the reader's feedback on it. ` +
           `If the current document has a title, kicker, subtitle or any text naming the book or describing the passage, REMOVE it. ` +
           `Return an improved COMPLETE document that fixes what the reader disliked (if the feedback is empty, fix the most obvious weaknesses: ` +
-          `emptiness, unreadable text, broken interactions, weak layout). Also bring the whole document in line with the Tufte style above — strip shadows, cards, gradients, sans-serif UI and extra colours. Keep what already works. The same hard rules apply.`
+          `emptiness, unreadable text, broken interactions, weak layout). Also bring the whole document in line with the Tufte style above — strip shadows, cards, gradients, sans-serif UI and extra colours, and give it expressive typography and well-crafted ruled buttons as described above (plain underlined-text controls are too dull). Keep what already works. The same hard rules apply.`
         : sysHtml;
       const inputFinal = improve
         ? `${userMsgHtml}\n<reader_feedback>${feedback || "(no comment — improve the visualisation in general)"}</reader_feedback>\n<current_html>${currentHtml}</current_html>`
