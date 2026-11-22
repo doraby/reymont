@@ -965,7 +965,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.121</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.122</div>
   </div>
 </div>
 
@@ -1071,7 +1071,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.121'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.122'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -3643,7 +3643,7 @@ function placeInteractiveLabel(contents, rec) {
     frame.srcdoc = snapshotDoc(rec.snap);
     frame.style.cssText = 'position:absolute;top:0;left:0;width:800px;height:480px;border:0;pointer-events:none;transform-origin:0 0;';
     const pill = doc.createElement('div');
-    pill.textContent = '✦ Open interactive';
+    pill.textContent = 'Open';
     pill.style.cssText = 'position:absolute;left:50%;bottom:10px;transform:translateX(-50%);padding:6px 16px;border-radius:100px;'
       + 'background:#C15F3C;color:#fff;font:600 13px Georgia,serif;white-space:nowrap;';
     card.appendChild(frame); card.appendChild(pill);
