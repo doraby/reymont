@@ -385,6 +385,20 @@
   #ep-card b { color: var(--text); font-weight: 600; }
   #ep-card.hide { opacity: 0; pointer-events: none; }
   #reader:not(.chrome-hidden) #ep-card { bottom: calc(var(--bottombar-h) + 14px); }
+  /* Уведомление при входе: что в следующей серии (то же, что будет в утреннем письме). */
+  #ep-notice {
+    position: absolute; left: 50%; bottom: 0; width: min(560px, 100%); z-index: 40;
+    transform: translate(-50%, 110%); transition: transform .4s ease;
+    background: var(--bg); border: 1px solid var(--border); border-bottom: 0; border-radius: 14px 14px 0 0;
+    box-shadow: 0 -10px 34px rgba(0,0,0,.14); padding: 20px 22px calc(18px + env(safe-area-inset-bottom, 0px));
+  }
+  #ep-notice.open { transform: translate(-50%, 0); }
+  #ep-notice .en-kicker { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  #ep-notice .en-title { font-size: 20px; line-height: 1.25; margin: 4px 0 10px; color: var(--text); }
+  #ep-notice .en-hook { font-size: 16.5px; line-height: 1.5; font-style: italic; color: var(--text); min-height: 4.5em; margin: 0; }
+  #ep-notice .en-hook.wait { color: var(--muted); }
+  #ep-notice .en-actions { display: flex; gap: 10px; margin-top: 16px; }
+  #ep-notice .en-actions .btn { flex: 1; }
 
   /* ───────────────── TOC drawer ───────────────── */
   #toc {
@@ -751,6 +765,15 @@
         <button id="nav-next" class="nav-btn" aria-label="Next page">›</button>
         <div id="hint" class="hide">Select any phrase to get an illustrated explanation</div>
         <div id="ep-card" class="hide" onclick="epCardClick()"></div>
+        <div id="ep-notice" role="dialog" aria-label="Next episode">
+          <div class="en-kicker" id="en-kicker"></div>
+          <div class="en-title" id="en-title"></div>
+          <p class="en-hook wait" id="en-hook"></p>
+          <div class="en-actions">
+            <button class="btn" onclick="closeEpNotice()">Not now</button>
+            <button class="btn primary" onclick="epNoticeStart()">Start episode ›</button>
+          </div>
+        </div>
       </div>
       <div id="bottombar" onclick="toggleToc(true)" title="Contents" role="button" aria-label="Contents">
         <span id="chapter-label"></span>
@@ -943,6 +966,11 @@
       <div class="note">Changes the look of the whole app and the book text. Applies immediately.</div>
     </div>
     <div class="field">
+      <label>Episodes</label>
+      <button class="btn" onclick="closeSettings(); showEpNotice(true)">Preview next-episode notification</button>
+      <div class="note">What you’ll see when you open the app — and what the morning email says.</div>
+    </div>
+    <div class="field">
       <label>Illustration style</label>
       <div id="illus-style-picker"></div>
       <div class="note">Used by the palette button above the text.</div>
@@ -977,7 +1005,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.118</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.119</div>
   </div>
 </div>
 
@@ -1083,7 +1111,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.118'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.119'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -1375,6 +1403,7 @@ async function startReading() {
     const qp = new URLSearchParams(location.search), qBook = qp.get('book'), qAt = qp.get('at');
     if (qBook) {
       history.replaceState(null, '', location.pathname);
+      epLaunchNotice = false; // пришёл из письма — он уже в начале серии
       const qc = curatedById(qBook);
       if (qc) await ensureCuratedRecord(qc);
       if (await dbGet('books', qBook)) {
@@ -2347,12 +2376,18 @@ function rangeAt(doc, map, off) {
   return r;
 }
 function sentenceEndAfter(text, from) {
+  // Лучшее место — начало абзаца (если он недалеко): серия не начнётся с реплики-продолжения.
+  const para = text.indexOf('\n\n', from);
+  if (para >= 0 && para - from < 1500) return para + 2;
   SENT_END.lastIndex = from;
-  const m = SENT_END.exec(text);
-  if (!m) return -1;
-  let k = m.index + m[0].length;
-  while (k < text.length && /\s/.test(text[k])) k++;
-  return k;
+  for (let m; (m = SENT_END.exec(text));) {
+    let k = m.index + m[0].length;
+    while (k < text.length && /\s/.test(text[k])) k++;
+    // «...» посреди фразы (дальше строчная буква) — не конец предложения
+    if (k < text.length && text[k] !== text[k].toUpperCase()) continue; // строчная буква — это не новое предложение
+    return k;
+  }
+  return -1;
 }
 // Начало серии для письма: ~700 знаков, обрезано по концу предложения.
 function teaserFrom(text, off) {
@@ -2398,6 +2433,10 @@ async function buildEpisodes(bookId) {
   console.log(`episodes: ${list.length} in ${season} seasons`);
   const loc = rendition && rendition.currentLocation();
   if (loc && loc.start) { updateProgress(loc); saveLastPosition(bookId, loc.start.cfi); }
+  if (epLaunchNotice) {
+    epLaunchNotice = false;
+    if (nextEpForCloud && nextEpForCloud.n > 2) showEpNotice(); // не на первой серии: новичку «следующая серия» ни к чему
+  }
 }
 function episodeAt(cfi, index) {
   if (!episodes) return null;
@@ -2446,6 +2485,61 @@ function updateEpisode(loc) {
     epShownN = cur.n;
     showEpCard(`<b>Season ${cur.season} · episode ${cur.e} of ${cur.of}</b> · ${cur.min} min · ${cur.n} of ${total}`, 3500);
   } else $('ep-card').classList.add('hide');
+}
+
+/* ═══════════ Уведомление «в следующей серии» при входе ═══════════
+   Тот же текст, что пойдёт в утреннее письмо. Тизер пишет AI (свой ключ — напрямую, иначе через прокси);
+   без AI показываем первые строки серии. Готовый тизер кешируется в localStorage по книге и серии. */
+let epLaunchNotice = true; // один раз за запуск приложения
+let epNoticeN = 0;
+const EP_TEASER_SYS = lang => `You write the "next time on…" line for a book read as a TV series. ` +
+  `From the episode text, write 2–3 short sentences in ${lang} that make the reader want to open it right now: ` +
+  `who is in it, what is at stake, what question hangs open. Present tense, concrete names and details from the text. ` +
+  `Never reveal how the episode ends or resolves anything. No quotes from the text, no title, no "In this episode", no emoji. ` +
+  `Reply with the sentences only.`;
+async function epTeaserText(ep) {
+  const ck = `reader.teaser.${ep.book_id}.${ep.n}.${ep.lang}`;
+  try { const c = localStorage.getItem(ck); if (c) return c; } catch (e) {}
+  const info = `Book: "${ep.title}"${ep.author ? ' by ' + ep.author : ''}. Season ${ep.season} (${ep.season_title}), episode ${ep.e} of ${ep.of}.`;
+  let text = '';
+  if (settings.key) {
+    const r = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + settings.key },
+      body: JSON.stringify({ model: 'gpt-5.4-nano', reasoning_effort: 'low', max_completion_tokens: 1500,
+        messages: [{ role: 'system', content: EP_TEASER_SYS(ep.lang) },
+                   { role: 'user', content: `${info}\n<episode>${ep.excerpt}</episode>` }] }),
+    });
+    if (!r.ok) throw new Error('teaser HTTP ' + r.status);
+    text = ((await r.json()).choices?.[0]?.message?.content || '').trim();
+  } else if (sb && isRealUser()) {
+    const r = await aiProxy({ action: 'teaser', title: ep.title, author: ep.author, season: ep.season, season_title: ep.season_title,
+      e: ep.e, of: ep.of, lang: ep.lang, excerpt: ep.excerpt }, null, 30000);
+    if (!r.ok) throw new Error('teaser HTTP ' + r.status);
+    text = String((await r.json()).text || '').trim();
+  }
+  if (text) try { localStorage.setItem(ck, text); } catch (e) {}
+  return text;
+}
+async function showEpNotice(force) {
+  const ep = nextEpForCloud;
+  if (!ep) { if (force) toast('No next episode yet'); return; }
+  epNoticeN = ep.n;
+  $('en-kicker').textContent = `Next episode · S${ep.season}·E${ep.e} · ${ep.min} min · ${ep.n} of ${ep.total}`;
+  $('en-title').textContent = ep.season_title + (ep.of > 1 ? ` — part ${ep.e} of ${ep.of}` : '');
+  const hook = $('en-hook');
+  hook.className = 'en-hook wait'; hook.textContent = '…';
+  $('ep-notice').classList.add('open');
+  let text = '';
+  try { text = await epTeaserText(ep); } catch (e) { console.warn('episode teaser:', e.message || e); }
+  if (epNoticeN !== ep.n) return; // уведомление уже закрыли
+  hook.className = 'en-hook' + (text ? '' : ' wait');
+  hook.textContent = text || ep.teaser.replace(/\s+/g, ' ').slice(0, 260).replace(/\s+\S*$/, '') + '…';
+}
+function closeEpNotice() { epNoticeN = 0; $('ep-notice').classList.remove('open'); }
+function epNoticeStart() {
+  const ep = nextEpForCloud;
+  closeEpNotice();
+  if (ep && rendition) rendition.display(ep.cfi);
 }
 function setDailyEmail(on) {
   localStorage.setItem(LS.daily, on ? '1' : '0');
@@ -2519,6 +2613,7 @@ function markTocActive(href) {
 }
 
 function backToLibrary() {
+  closeEpNotice();
   stopSelectionPoll();
   closePanel();
   toggleToc(false);

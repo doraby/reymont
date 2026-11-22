@@ -461,6 +461,33 @@ Deno.serve(async (req) => {
     return new Response(rc.body, { status: rc.status, headers: { ...cors, "Content-Type": "text/event-stream" } });
   }
 
+  // Тизер «в следующей серии» для уведомления при входе: без квоты, но не для анонимных сессий.
+  if (body.action === "teaser") {
+    if (user.is_anonymous) return err("Sign in with email", 403, cors);
+    const excerpt = String(body.excerpt ?? "").slice(0, 6000);
+    if (!excerpt.trim()) return err("No text", 400, cors);
+    const lang = String(body.lang ?? "English").slice(0, 30);
+    const sys = `You write the "next time on…" line for a book read as a TV series. ` +
+      `From the episode text, write 2–3 short sentences in ${lang} that make the reader want to open it right now: ` +
+      `who is in it, what is at stake, what question hangs open. Present tense, concrete names and details from the text. ` +
+      `Never reveal how the episode ends or resolves anything. No quotes from the text, no title, no "In this episode", no emoji. ` +
+      `Reply with the sentences only.`;
+    const info = `Book: "${String(body.title ?? "").slice(0, 200)}"${body.author ? " by " + String(body.author).slice(0, 200) : ""}. ` +
+      `Season ${Number(body.season) || 1} (${String(body.season_title ?? "").slice(0, 200)}), episode ${Number(body.e) || 1} of ${Number(body.of) || 1}.`;
+    const r = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },
+      body: JSON.stringify({
+        model: TEXT_MODEL, reasoning_effort: "low", max_completion_tokens: 1500,
+        messages: [{ role: "system", content: sys }, { role: "user", content: `${info}\n<episode>${excerpt}</episode>` }],
+      }),
+    });
+    await logOpenAIFailure("teaser", TEXT_MODEL, r);
+    if (!r.ok) return err("Teaser failed", 502, cors);
+    const j = await r.json();
+    return json({ text: String(j.choices?.[0]?.message?.content ?? "").trim().slice(0, 600) }, 200, cors);
+  }
+
   if (body.action === "translate") {
     console.log("translate: text=", JSON.stringify(text), "para=", JSON.stringify(para.slice(0, 80)), "lang=", lang, "extra=", JSON.stringify(extra));
     const sys = `You are an expert literary translator. Translate the text inside <text> tags into ${lang}. Output ONLY the translation, no comments, tags or quotes.` +
