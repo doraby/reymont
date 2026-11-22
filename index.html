@@ -977,7 +977,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.117</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.118</div>
   </div>
 </div>
 
@@ -1083,7 +1083,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.117'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.118'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -2311,7 +2311,8 @@ function updateProgress(loc) {
    вперёд до конца предложения. Без AI и без хранения: всё считается в памяти при открытии книги. */
 const EP_WORDS = 2200;  // ≈10 минут при READ_WPM
 const READ_WPM = 220;
-let episodes = null;    // [{n, season, seasonTitle, e, of, idx, cfi, min, teaser}] — серии открытой книги
+const EP_EXCERPT = 6000; // сколько текста серии отдаём на тизер (знаков)
+let episodes = null;    // [{n, season, seasonTitle, e, of, idx, cfi, min, teaser, excerpt}] — серии открытой книги
 let epShownN = 0;       // какую серию последней объявляли титром
 let nextEpForCloud = null; // следующая непрочитанная серия → reading_state.next_ep (для письма)
 let epCardTimer = null, epCardAction = null;
@@ -2385,6 +2386,8 @@ async function buildEpisodes(bookId) {
         cfi: sec.cfiFromRange(rangeAt(doc, map, off)),
         min: Math.max(1, Math.round(wordCount(map.text.slice(off, starts[k + 1] ?? map.text.length)) / READ_WPM)),
         teaser: teaserFrom(map.text, off),
+        // Текст серии (начало) — по нему AI пишет тизер в утреннем письме.
+        excerpt: map.text.slice(off, Math.min(starts[k + 1] ?? map.text.length, off + EP_EXCERPT)),
       }));
     }
     if (!wasLoaded) sec.unload();
@@ -2429,6 +2432,7 @@ function updateEpisode(loc) {
     book_id: currentBookId, title: currentMeta.title || '', author: currentMeta.author || '',
     n: next.n, total, season: next.season, seasons, season_title: next.seasonTitle,
     e: next.e, of: next.of, min: next.min, cfi: next.cfi, teaser: next.teaser,
+    excerpt: next.excerpt, lang: settings.lang || 'English',
   };
   // Конец серии на этой странице: начало следующей уже на экране или кончилась глава.
   const C = new ePub.CFI(), end = loc.end || loc.start;

@@ -1,6 +1,7 @@
 -- Утреннее письмо «следующая серия» (функция daily-episode).
 -- next_ep клиент пишет вместе с местом чтения: начало следующей непрочитанной серии
--- ({book_id, title, author, n, total, season, seasons, season_title, e, of, min, cfi, teaser}).
+-- ({book_id, title, author, n, total, season, seasons, season_title, e, of, min, cfi, teaser, excerpt, lang};
+-- ai_teaser дописывает функция — AI-тизер «в следующей серии», чтобы не генерировать его повторно).
 alter table public.reading_state
   add column if not exists next_ep jsonb,
   add column if not exists email_daily boolean not null default false,
