@@ -4,6 +4,8 @@
 // (next_ep пишет клиент, когда листает книгу). GET ?unsub=<user_id>&sig=<hmac> — отписка из письма.
 // Деплой: supabase functions deploy daily-episode --no-verify-jwt
 // Секреты: RESEND_API_KEY, CRON_SECRET, EMAIL_FROM (адрес на домене, подтверждённом в Resend),
+// EMAIL_MODE: пока не "live" — режим теста, письма уходят только на адреса из TEST_EMAILS (через запятую),
+// а без TEST_EMAILS — никому. POST {"dry": true} ничего не шлёт, а возвращает готовые письма (subject, to, html).
 // OPENAI_API_KEY (тот же, что у функции ai) — для тизера «в следующей серии»; TEASER_MODEL / TEXT_MODEL — модель.
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -11,6 +13,8 @@ const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
 const CRON_SECRET = Deno.env.get("CRON_SECRET") ?? "";
 const EMAIL_FROM = Deno.env.get("EMAIL_FROM") ?? "Reymont <episodes@reymont.app>";
 const APP_URL = "https://reymont.app/";
+const LIVE = (Deno.env.get("EMAIL_MODE") ?? "").trim().toLowerCase() === "live";
+const TEST_EMAILS = new Set((Deno.env.get("TEST_EMAILS") ?? "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean));
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 const TEASER_MODEL = Deno.env.get("TEASER_MODEL") ?? Deno.env.get("TEXT_MODEL") ?? "gpt-5.4-nano";
 const FN_URL = Deno.env.get("SUPABASE_URL") + "/functions/v1/daily-episode";
@@ -91,7 +95,9 @@ Deno.serve(async (req) => {
   if (!CRON_SECRET || req.headers.get("Authorization") !== `Bearer ${CRON_SECRET}`) {
     return new Response("Forbidden", { status: 403 });
   }
-  if (!RESEND_API_KEY) return new Response("RESEND_API_KEY is not set", { status: 500 });
+  let dry = false;
+  try { dry = !!(await req.json())?.dry; } catch (_) { /* пустое тело — обычный запуск */ }
+  if (!RESEND_API_KEY && !dry) return new Response("RESEND_API_KEY is not set", { status: 500 });
 
   const db = admin();
   const { data: rows, error } = await db.from("reading_state")
@@ -99,14 +105,16 @@ Deno.serve(async (req) => {
   if (error) return new Response(error.message, { status: 500 });
 
   const dayAgo = Date.now() - 20 * 3600 * 1000; // защита от двойного запуска в тот же день
-  let sent = 0, failed = 0;
+  let sent = 0, failed = 0, skipped = 0;
+  const preview: unknown[] = [];
   for (const r of rows ?? []) {
-    if (r.last_emailed && Number(r.last_emailed) > dayAgo) continue;
+    if (!dry && r.last_emailed && Number(r.last_emailed) > dayAgo) continue;
     const ep = r.next_ep as Ep;
     if (!ep?.teaser || !ep?.cfi) continue;
     const { data: u } = await db.auth.admin.getUserById(r.user_id);
     const to = u?.user?.email;
     if (!to) continue;
+    if (!LIVE && !TEST_EMAILS.has(to.toLowerCase())) { skipped++; continue; } // режим теста: только свои адреса
     if (!ep.ai_teaser) {
       const t = await aiTeaser(ep);
       if (t) { // кешируем в той же строке: завтра, если читатель не продвинулся, тизер не генерируем заново
@@ -116,6 +124,7 @@ Deno.serve(async (req) => {
     }
     const unsubUrl = `${FN_URL}?unsub=${r.user_id}&sig=${await sign(r.user_id)}`;
     const m = render(ep, unsubUrl);
+    if (dry) { preview.push({ to, subject: m.subject, ai_teaser: ep.ai_teaser ?? "", html: m.html }); continue; }
     try {
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
@@ -130,5 +139,6 @@ Deno.serve(async (req) => {
       sent++;
     } catch (e) { failed++; console.error("resend:", e); }
   }
-  return new Response(JSON.stringify({ sent, failed }), { headers: { "Content-Type": "application/json" } });
+  return new Response(JSON.stringify(dry ? { mode: LIVE ? "live" : "test", skipped, preview }
+    : { mode: LIVE ? "live" : "test", sent, failed, skipped }), { headers: { "Content-Type": "application/json" } });
 });

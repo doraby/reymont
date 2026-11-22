@@ -7,14 +7,15 @@ alter table public.reading_state
   add column if not exists email_daily boolean not null default false,
   add column if not exists last_emailed bigint;
 
+-- ⚠ Пока тестируем — расписание НЕ включено. Раскомментировать после тестов.
 -- Расписание: каждый день в 07:07 UTC. Нужны расширения pg_cron и pg_net (Database → Extensions).
 -- <CRON_SECRET> — тот же, что в секретах функции.
-create extension if not exists pg_cron;
-create extension if not exists pg_net;
-select cron.unschedule('daily-episode') where exists (select 1 from cron.job where jobname = 'daily-episode');
-select cron.schedule('daily-episode', '7 7 * * *', $$
-  select net.http_post(
-    url := 'https://onetabmtufauhulgjaxv.supabase.co/functions/v1/daily-episode',
-    headers := jsonb_build_object('Authorization', 'Bearer <CRON_SECRET>', 'Content-Type', 'application/json'),
-    body := '{}'::jsonb);
-$$);
+-- create extension if not exists pg_cron;
+-- create extension if not exists pg_net;
+-- select cron.unschedule('daily-episode') where exists (select 1 from cron.job where jobname = 'daily-episode');
+-- select cron.schedule('daily-episode', '7 7 * * *', $$
+--   select net.http_post(
+--     url := 'https://onetabmtufauhulgjaxv.supabase.co/functions/v1/daily-episode',
+--     headers := jsonb_build_object('Authorization', 'Bearer <CRON_SECRET>', 'Content-Type', 'application/json'),
+--     body := '{}'::jsonb);
+-- $$);
