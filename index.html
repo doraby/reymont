@@ -367,6 +367,12 @@
   #progress-track { width: 180px; height: 3px; background: var(--surface-2); border-radius: 2px; overflow: hidden; flex: none; }
   #progress-fill { display: block; height: 100%; width: 0; background: var(--accent-soft); transition: width .3s; }
   #percent-label { flex: none; min-width: 34px; text-align: right; font-variant-numeric: tabular-nums; }
+  /* Номер страницы в правом нижнем углу — всегда виден, пока меню свёрнуто (правее — кнопка debug) */
+  #page-corner {
+    position: absolute; right: 64px; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); z-index: 15;
+    font-size: 12px; color: var(--muted); font-variant-numeric: oldstyle-nums; pointer-events: none;
+  }
+  #reader:not(.chrome-hidden) #page-corner { display: none; }
 
   #hint {
     position: absolute; left: 50%; top: 16px; transform: translateX(-50%); width: max-content; max-width: calc(100% - 32px); text-align: center;
@@ -748,6 +754,7 @@
         <span id="progress-track"><i id="progress-fill"></i></span>
         <span id="percent-label"></span>
       </div>
+      <div id="page-corner" aria-hidden="true"></div>
     </div>
   </div>
 </div>
@@ -967,7 +974,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.123</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.124</div>
   </div>
 </div>
 
@@ -1073,7 +1080,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.123'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.124'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -2273,6 +2280,7 @@ function updateProgress(loc) {
   const ch = findChapter(loc.start.href);
   $('chapter-label').textContent = ch || '';
   const pp = pageOfCfi(loc.start.cfi);
+  $('page-corner').textContent = pp ? 'p. ' + pp.page : '';
   markTocActive(loc.start.href, pp && pp.page);
   if (currentBookId) dbGet('books', currentBookId).then(rec => { if (rec) { rec.progress = pct; dbPut('books', rec); } });
 }
