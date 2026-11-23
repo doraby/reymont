@@ -974,7 +974,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.124</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.125</div>
   </div>
 </div>
 
@@ -1080,7 +1080,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.124'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.125'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -2280,7 +2280,7 @@ function updateProgress(loc) {
   const ch = findChapter(loc.start.href);
   $('chapter-label').textContent = ch || '';
   const pp = pageOfCfi(loc.start.cfi);
-  $('page-corner').textContent = pp ? 'p. ' + pp.page : '';
+  $('page-corner').textContent = pp ? String(pp.page) : '';
   markTocActive(loc.start.href, pp && pp.page);
   if (currentBookId) dbGet('books', currentBookId).then(rec => { if (rec) { rec.progress = pct; dbPut('books', rec); } });
 }
@@ -2352,7 +2352,7 @@ function markTocActive(href, page) {
     const on = el.dataset.href.split('#')[0] === base;
     el.classList.toggle('active', on);
     const p = el.querySelector('.toc-p');
-    if (p) p.textContent = on && page ? 'p. ' + page : '';
+    if (p) p.textContent = on && page ? String(page) : '';
   });
 }
 /* Номер «страницы» = номер локации epub.js (кусок текста ~800 знаков, считается по тексту,
