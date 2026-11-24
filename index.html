@@ -974,7 +974,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.126</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.127</div>
   </div>
 </div>
 
@@ -1080,7 +1080,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.126'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.127'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -2389,17 +2389,27 @@ function logPosition(tag, loc) {
   console.log(`[pos] ${tag}: ` + (p ? `p. ${p.page} of ${p.total}` : 'page unknown yet (locations not ready)') +
     ` · ${findChapter(loc && loc.start && loc.start.href) || '—'} · ${loc && loc.start && loc.start.href} · ${cfi}`);
 }
-// В консоли: whereAmI() — на какой странице читательница сейчас и что сохранено локально и в облаке.
+// В консоли: whereAmI() — таблица: что на экране, что в localStorage, что в Supabase (с номерами страниц и временем).
 window.whereAmI = async function () {
   const loc = rendition && rendition.currentLocation();
   if (!loc || !loc.start) return console.log('[pos] no book open');
-  logPosition('on screen now', loc);
-  console.log('[pos] saved locally (reader.pos):', localStorage.getItem(LS.pos(currentBookId)));
-  console.log('[pos] last position (local):', readLastLocal());
+  const fmt = t => t ? new Date(Number(t)).toLocaleString() : '—';
+  const row = (source, bookId, cfi, t) => {
+    const p = cfi && bookId === currentBookId ? pageOfCfi(cfi) : null;
+    return { source, book: bookId || '—', page: p ? p.page : '?', saved_at: fmt(t), cfi: cfi || '—' };
+  };
+  const last = readLastLocal();
+  const rows = [
+    row('on screen now', currentBookId, loc.start.cfi, Date.now()),
+    row('localStorage reader.pos (this book)', currentBookId, localStorage.getItem(LS.pos(currentBookId)), null),
+    row('localStorage reader.last', last && last.bookId, last && last.cfi, last && last.t),
+  ];
   if (sb && isRealUser()) {
     const { data, error } = await sb.from('reading_state').select('book_id,cfi,updated').eq('user_id', sbUser.id).maybeSingle();
-    console.log('[pos] last position (cloud):', error ? error.message : data, data ? new Date(Number(data.updated)).toString() : '');
-  }
+    rows.push(error ? { source: 'Supabase reading_state', book: 'error: ' + error.message } : row('Supabase reading_state', data && data.book_id, data && data.cfi, data && data.updated));
+  } else rows.push({ source: 'Supabase reading_state', book: '(not signed in with e-mail — nothing in the cloud)' });
+  console.table(rows);
+  return rows;
 };
 
 function backToLibrary() {
