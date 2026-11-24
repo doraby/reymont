@@ -272,6 +272,53 @@
   .tool-btn.locked:hover { opacity: 1; }
   .tool-btn.busy { pointer-events: none; opacity: .55; animation: io-pulse 1.2s ease-in-out infinite; }
   @keyframes io-pulse { 50% { opacity: .25; } }
+  /* ── Правая колонка на десктопе: три плитки (диаграмма, игра, иллюстрация) на полях справа от текста.
+     Есть для этой страницы — в плитке её миниатюра, клик открывает её в панели; нет — line-art и клик создаёт.
+     Видна, только когда поля достаточно широкие (container query по #viewer-wrap). На узких экранах (мобильные)
+     остаётся прежняя полоса иконок сверху. */
+  #viewer-wrap { container: vw / inline-size; }
+  #page-rail { display: none; }
+  @container vw (min-width: 1000px) {
+    #page-rail.on {
+      --tile-w: clamp(96px, calc((100cqw - 760px) / 2 - 64px), 176px);
+      display: flex; position: absolute; top: 12px; bottom: 12px; right: 48px; width: var(--tile-w);
+      flex-direction: column; justify-content: center; gap: 14px; z-index: 6;
+    }
+  }
+  /* На десктопе полосы иконок над текстом нет совсем: без панели её заменяют плитки справа, а с открытой широкой
+     панелью (диаграмма, интерактив) им может не хватить места — тогда инструменты просто прячутся до закрытия панели. */
+  @media (min-width: 1000px) {
+    #reader:has(#page-rail.on) #page-tools { display: none !important; }
+    #reader:has(#page-rail.on) #viewer { top: 12px !important; }
+  }
+  .rail-tile {
+    position: relative; flex: none; width: 100%; height: min(calc(var(--tile-w) * 1.12), calc((100% - 28px) / 3));
+    padding: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--muted);
+    cursor: pointer; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    transition: border-color .15s, color .15s, box-shadow .15s;
+  }
+  .rail-tile:hover { color: var(--text); border-color: var(--muted); }
+  .rail-tile.active { border-color: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent-soft); }
+  .rail-tile .rt-art { width: 58%; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+  .rail-tile .rt-art svg { width: 100%; height: 100%; max-height: 92px; fill: none; stroke: currentColor; stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; }
+  .rail-tile .rt-label { flex: none; padding: 0 6px 12px; font-size: 13px; letter-spacing: .02em; }
+  .rail-tile .rt-label b { font-weight: normal; opacity: 0; transition: opacity .15s; }
+  .rail-tile:hover .rt-label b { opacity: 1; }
+  /* Готовая вставка этой страницы — миниатюра на всю плитку и подпись поверх */
+  .rail-tile.has { background: #FAF9F5; }
+  .rail-tile .rt-prev { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .rail-tile .rt-prev img { width: 100%; height: 100%; object-fit: cover; }
+  .rail-tile .rt-prev svg { max-width: 92%; max-height: 92%; width: auto; height: auto; }
+  .rail-tile .rt-prev iframe { position: absolute; top: 0; left: 0; width: 800px; height: 900px; border: 0; pointer-events: none; transform-origin: 0 0; background: #fff; }
+  .rail-tile.has .rt-label { position: absolute; left: 8px; bottom: 8px; padding: 3px 9px; border-radius: 100px; font-size: 12px;
+    background: rgba(255,255,255,.92); color: #6B6651; }
+  .rail-tile.locked { opacity: .5; }
+  .rail-tile.locked:hover { opacity: 1; }
+  .rail-tile.busy { pointer-events: none; animation: io-pulse 1.2s ease-in-out infinite; }
+  /* Диаграмма и иллюстрация страницы в панели */
+  .pv-media { flex: 1; min-height: 0; overflow: auto; padding: 18px; background: #FAF9F5; }
+  .pv-media svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+  .pv-media img { display: block; max-width: 100%; height: auto; margin: 0 auto; border-radius: 8px; }
   /* Диаграмма на весь экран: поверх всего, с зумом и прокруткой (из iframe книги выйти за колонку нельзя) */
   #diagram-fs { display: none; position: fixed; inset: 0; z-index: 600; background: #FAF9F5; flex-direction: column; }
   #diagram-fs.open { display: flex; }
@@ -745,6 +792,11 @@
           </button>
         </div>
         <div id="viewer"></div>
+        <div id="page-rail" aria-label="Page tools">
+          <button class="rail-tile" id="rail-dg" onclick="railClick('dg')"></button>
+          <button class="rail-tile" id="rail-io" onclick="railClick('io')"></button>
+          <button class="rail-tile" id="rail-il" onclick="railClick('il')"></button>
+        </div>
         <button id="nav-prev" class="nav-btn" aria-label="Previous page">‹</button>
         <button id="nav-next" class="nav-btn" aria-label="Next page">›</button>
         <div id="hint" class="hide">Select any phrase to get an illustrated explanation</div>
@@ -2301,6 +2353,7 @@ async function openBook(id, newRec) {
     updateProgress(loc);
     if (persistPos) savePosition(id, loc.start.cfi, locationsReady ? curPct : null);
     hideSelFab();
+    updateRail();
   });
   await withTimeout(rendition.display(savedCfi || undefined), 30000, 'rendering the page');
   console.log('openBook: page on screen ✓');
@@ -2685,7 +2738,7 @@ function getParagraphContext(sel, text) {
 
 function openPanel(wide) {
   document.body.classList.toggle('panel-wide', !!wide);
-  $('panel').classList.add('open'); document.body.classList.add('panel-open');
+  $('panel').classList.add('open'); document.body.classList.add('panel-open'); updateRail();
   setTimeout(() => safeResize(), 320);
 }
 /* Единая точка входа для перезаписи #panel-body — сбрасывает скролл (иначе новое
@@ -2699,6 +2752,7 @@ function setPanelBody(html, isPromo) {
   $('panel').classList.remove('note-view');
   $('panel').classList.remove('chat-on');
   panelOwner = null; // любое другое содержимое отменяет «владение» панелью интерактивом
+  updateRail();
   body.innerHTML = html;
   body.scrollTop = 0;
 }
@@ -2707,7 +2761,7 @@ function closePanel() {
   panelShowingList = false;
   if (!$('panel').classList.contains('open')) return;
   $('panel').classList.remove('open');
-  document.body.classList.remove('panel-open');
+  document.body.classList.remove('panel-open'); updateRail();
   if ($('panel-body').classList.contains('io')) setPanelBody(''); // остановить скрипты интерактива; незавершённая генерация откроется не сама, а меткой
   if (translateAbort) translateAbort.abort();
   setTimeout(() => safeResize(), 320);
@@ -3038,9 +3092,9 @@ function renderIllusStylePicker() {
   if (box) box.innerHTML = illusStyleGrid("setIllusStyle('%s')");
 }
 // Клик по палитре: стиль уже выбран — сразу рисуем; иначе один раз показываем выбор стиля.
-function illustrateClick() {
+function illustrateClick(anchor) {
   if (illusStyleChosen()) { toggleIllusMenu(false); makeIllustration(); }
-  else toggleIllusMenu();
+  else toggleIllusMenu(undefined, anchor);
 }
 function getIllusStyle() {
   try { const v = localStorage.getItem('reader.illusStyle'); if (ILLUS_STYLES.some(s => s[0] === v)) return v; } catch (e) {}
@@ -3051,7 +3105,7 @@ function setIllusStyle(v) {
   document.querySelectorAll('.illus-style button').forEach(b => b.classList.toggle('on', b.dataset.s === v));
 }
 // Кнопка-палитра в панели над текстом открывает меню стилей; выбор стиля сразу запускает генерацию.
-function toggleIllusMenu(force) {
+function toggleIllusMenu(force, anchor) {
   let menu = $('illus-menu');
   const open = force ?? !(menu && menu.classList.contains('open'));
   if (!open) { if (menu) menu.classList.remove('open'); return; }
@@ -3061,14 +3115,21 @@ function toggleIllusMenu(force) {
     menu.id = 'illus-menu'; menu.className = 'illus-style'; menu.setAttribute('role', 'menu');
     document.body.appendChild(menu);
     document.addEventListener('pointerdown', ev => {
-      if (!ev.target.closest('#illus-menu, #illustrate-btn')) toggleIllusMenu(false);
+      if (!ev.target.closest('#illus-menu, #illustrate-btn, #rail-il')) toggleIllusMenu(false);
     });
   }
   menu.innerHTML = `<div class="im-head">Choose an illustration style — you can change it later in Settings.</div>` +
     illusStyleGrid("setIllusStyle('%s'); toggleIllusMenu(false); makeIllustration()");
-  const r = $('illustrate-btn').getBoundingClientRect(), w = Math.min(300, window.innerWidth - 16);
-  menu.style.top = (r.bottom + 6) + 'px';
-  menu.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + 'px';
+  const w = Math.min(300, window.innerWidth - 16);
+  if (anchor && anchor.id === 'rail-il') { // плитка в правой колонке — меню слева от неё
+    const r = anchor.getBoundingClientRect();
+    menu.style.top = Math.max(8, Math.min(window.innerHeight - 360, r.top)) + 'px';
+    menu.style.left = Math.max(8, r.left - w - 10) + 'px';
+  } else {
+    const r = $('illustrate-btn').getBoundingClientRect();
+    menu.style.top = (r.bottom + 6) + 'px';
+    menu.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + 'px';
+  }
   menu.classList.add('open');
 }
 function illusZoneInner(note) {
@@ -3351,6 +3412,7 @@ function syncToolStrip() { // полоса инструментов над те�
   }
   const shown = !!document.querySelector('#page-tools .tool-btn.pro, #page-tools .tool-btn.show');
   if (shown !== toolStripShown) { toolStripShown = shown; setTimeout(() => safeResize(), 60); }
+  updateRail();
 }
 async function refreshPro() {
   const btn = $('diagram-btn');
@@ -3512,34 +3574,7 @@ function placeDiagram(contents, d) {
   const start = d.at === 'start'; // старые записи (v3.70–71) хранят конец страницы и ставятся после блока
   const block = start ? anchorForPageStart(contents, d.cfi, d.text) : blockAtCfi(contents, d.cfi);
   if (!block) return false;
-  const wrap = doc.createElement('div');
-  wrap.className = 'reymont-ins';
-  wrap.setAttribute('data-reymont-diagram', d.cfi);
-  wrap.style.cssText = 'margin:14px auto 22px;max-width:100%;padding:8px;border-radius:10px;background:#FAF9F5;'
-    + 'box-shadow:0 4px 16px rgba(61,57,41,.14);overflow:hidden;text-align:center;'
-    + 'break-inside:avoid;-webkit-column-break-inside:avoid;page-break-inside:avoid;';
-  wrap.innerHTML = d.svg;
-  const svg = wrap.querySelector('svg');
-  if (svg) { svg.style.maxWidth = '100%'; svg.style.height = 'auto'; }
-  // Кнопка «на весь экран» — слушатель вешаем отсюда: в iframe книги скрипты выключены.
-  wrap.style.position = 'relative';
-  const fs = doc.createElement('button');
-  fs.textContent = '⤢';
-  fs.title = 'Fullscreen';
-  fs.setAttribute('aria-label', 'Fullscreen');
-  fs.style.cssText = 'position:absolute;top:8px;right:8px;width:34px;height:34px;border:none;border-radius:50%;'
-    + 'background:#fff;color:#6B6651;font:18px/34px Georgia,serif;text-align:center;cursor:pointer;'
-    + 'padding:0;';
-  fs.addEventListener('click', e => { e.preventDefault(); openDiagramFs(d.svg, d); });
-  wrap.appendChild(fs);
-  const del = doc.createElement('button');
-  del.title = 'Delete diagram';
-  del.setAttribute('aria-label', 'Delete diagram');
-  del.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:auto"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
-  del.style.cssText = 'position:absolute;top:8px;right:48px;width:34px;height:34px;border:none;border-radius:50%;'
-    + 'background:#fff;color:#6B6651;cursor:pointer;padding:0;';
-  del.addEventListener('click', e => { e.preventDefault(); deleteDiagram(d); });
-  wrap.appendChild(del);
+  const wrap = insMarker(doc, 'data-reymont-diagram', d.cfi, 'dg', 'Diagram of this page', () => showDiagramInPanel(d));
   block.insertAdjacentElement(start ? 'beforebegin' : 'afterend', wrap);
   return true;
 }
@@ -3577,7 +3612,8 @@ function deleteDiagram(d) {
   cloudDeleteSide(SIDE.dg, currentBookId, d.cfi);
   try { rendition.getContents().forEach(c => c.document.querySelectorAll(`[data-reymont-diagram="${CSS.escape(d.cfi)}"]`).forEach(n => n.remove())); refreshAllHighlights(); } catch (e) { console.warn('deleteDiagram (page):', e.message); }
   if ($('diagram-fs').classList.contains('open')) closeDiagramFs();
-  renderNotesList();
+  if (panelOwner === 'dg-view' && panelMediaRec && panelMediaRec.cfi === d.cfi) closePanel();
+  renderNotesList(); updateRail();
   toast('Diagram deleted');
 }
 function deleteDiagramFs() { if (dfsRec) deleteDiagram(dfsRec); }
@@ -3739,7 +3775,7 @@ async function syncSide(k, remoteAll) { // remoteAll — все строки hig
     console.log(`[${k.name}] synced`, remote.length, 'from the cloud' + (changed ? ', local list updated' : ''));
     if (changed && currentBookId && rendition) {
       try { rendition.getContents().forEach(c => k.inject(c)); refreshAllHighlights(); } catch (e) {}
-      renderNotesList();
+      renderNotesList(); updateRail();
     }
   } catch (e) { console.warn(`sync ${k.name}:`, e.message || e); }
 }
@@ -3757,42 +3793,9 @@ function placeInteractiveLabel(contents, rec) {
   if (old) old.remove();
   const block = anchorForPageStart(contents, rec.cfi, rec.text);
   if (!block) return false;
-  const wrap = doc.createElement('div');
-  wrap.className = 'reymont-ins';
-  wrap.setAttribute('data-reymont-interactive', rec.cfi);
-  wrap.style.cssText = 'margin:10px 0 14px;text-align:center;break-inside:avoid;';
+  // В тексте — только маленькая иконка; сам интерактив открывается в панели справа (миниатюра — в правой колонке).
+  const wrap = insMarker(doc, 'data-reymont-interactive', rec.cfi, 'io', 'Interactive view of this page', () => showInteractiveInPanel(loadInteractives(currentBookId).find(x => x.cfi === rec.cfi) || rec));
   block.insertAdjacentElement('beforebegin', wrap);
-  // В iframe книги скрипты выключены — инлайн-обработчики не сработают, слушатели вешаем отсюда.
-  const open = e => { e.preventDefault(); showInteractiveInPanel(rec); };
-  if (rec.snap) {
-    // Превью: статичный снимок, отрисованный при первом показе, в песочнице без скриптов и в уменьшении.
-    const card = doc.createElement('div');
-    card.style.cssText = 'position:relative;overflow:hidden;border-radius:12px;background:#FAF9F5;cursor:pointer;'
-      + 'box-shadow:0 4px 16px rgba(61,57,41,.16);height:220px;';
-    const frame = doc.createElement('iframe');
-    frame.setAttribute('sandbox', '');
-    frame.setAttribute('tabindex', '-1');
-    frame.setAttribute('title', 'Interactive preview');
-    frame.srcdoc = snapshotDoc(rec.snap);
-    frame.style.cssText = 'position:absolute;top:0;left:0;width:800px;height:480px;border:0;pointer-events:none;transform-origin:0 0;';
-    const pill = doc.createElement('div');
-    pill.textContent = 'Open';
-    pill.style.cssText = 'position:absolute;left:50%;bottom:10px;transform:translateX(-50%);padding:6px 16px;border-radius:100px;'
-      + 'background:#C15F3C;color:#fff;font:600 13px Georgia,serif;white-space:nowrap;';
-    card.appendChild(frame); card.appendChild(pill);
-    card.addEventListener('click', open);
-    wrap.appendChild(card);
-    const scale = (card.clientWidth || 400) / 800;
-    frame.style.transform = `scale(${scale})`;
-    card.style.height = Math.round(480 * scale) + 'px';
-  } else {
-    const label = doc.createElement('button');
-    label.textContent = '✦ Interactive view';
-    label.style.cssText = 'padding:7px 18px;border:1px solid #C15F3C;border-radius:100px;background:#FFF6F1;'
-      + 'color:#C15F3C;font:600 13px Georgia,serif;cursor:pointer;';
-    label.addEventListener('click', open);
-    wrap.appendChild(label);
-  }
   return true;
 }
 function injectInteractives(contents) {
@@ -3820,7 +3823,7 @@ window.addEventListener('message', e => {
   rec.snap = snap;
   saveInteractive(currentBookId, rec);
   const contents = rendition && rendition.getContents()[0];
-  if (contents) { placeInteractiveLabel(contents, rec); refreshAllHighlights(); } // кнопку в тексте заменяет превью
+  updateRail(); // миниатюра в правой колонке — из этого снимка
 });
 function showInteractiveInPanel(rec, notice) {
   currentInteractive = rec;
@@ -3846,7 +3849,7 @@ function deleteInteractive() {
     rendition.getContents().forEach(c => c.document.querySelectorAll(`[data-reymont-interactive="${CSS.escape(rec.cfi)}"]`).forEach(n => n.remove()));
     refreshAllHighlights();
   } catch (e) { console.warn('deleteInteractive (page):', e.message); }
-  closePanel();
+  closePanel(); updateRail();
   toast('Interactive view deleted');
 }
 function openFeedback() { $('in-fb').value = ''; $('fb-overlay').classList.add('open'); }
@@ -3869,29 +3872,13 @@ let illusBusy = false;
 function loadIllustrations(bookId) {
   try { return JSON.parse(localStorage.getItem(LS.illustrations(bookId))) || []; } catch (e) { return []; }
 }
-const ICON_TRASH_SM = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:auto"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
 function placePageIllustration(contents, rec) {
   const doc = contents.document, attr = 'data-reymont-pgillus';
   const old = doc.querySelector(`[${attr}="${CSS.escape(rec.cfi)}"]`);
   if (old) old.remove();
   const block = anchorForPageStart(contents, rec.cfi, rec.text);
   if (!block) return false;
-  const wrap = doc.createElement('div');
-  wrap.className = INS_CLASS;
-  wrap.setAttribute(attr, rec.cfi);
-  wrap.style.cssText = 'position:relative;margin:14px auto 22px;max-width:300px;border-radius:10px;overflow:hidden;line-height:0;'
-    + 'break-inside:avoid;-webkit-column-break-inside:avoid;page-break-inside:avoid;';
-  const img = doc.createElement('img');
-  img.src = rec.url; img.alt = '';
-  img.style.cssText = 'display:block;width:100%;height:auto;';
-  wrap.appendChild(img);
-  // Удаление — слушатель вешаем отсюда: в iframe книги скрипты выключены.
-  const del = doc.createElement('button');
-  del.title = 'Delete illustration'; del.setAttribute('aria-label', 'Delete illustration');
-  del.innerHTML = ICON_TRASH_SM;
-  del.style.cssText = 'position:absolute;top:8px;right:8px;width:34px;height:34px;border:none;border-radius:50%;background:rgba(255,255,255,.92);color:#6B6651;cursor:pointer;padding:0;';
-  del.addEventListener('click', e => { e.preventDefault(); deletePageIllustration(rec); });
-  wrap.appendChild(del);
+  const wrap = insMarker(doc, attr, rec.cfi, 'il', 'Illustration of this page', () => showIllustrationInPanel(rec));
   block.insertAdjacentElement('beforebegin', wrap);
   return true;
 }
@@ -3907,7 +3894,8 @@ function deletePageIllustration(rec) {
   writeIllustrations(currentBookId, loadIllustrations(currentBookId).filter(x => x.cfi !== rec.cfi));
   cloudDeleteSide(SIDE.il, currentBookId, rec.cfi);
   try { rendition.getContents().forEach(c => c.document.querySelectorAll(`[data-reymont-pgillus="${CSS.escape(rec.cfi)}"]`).forEach(n => n.remove())); refreshAllHighlights(); } catch (e) { console.warn('deletePageIllustration (page):', e.message); }
-  renderNotesList();
+  if (panelOwner === 'il-view' && panelMediaRec && panelMediaRec.cfi === rec.cfi) closePanel();
+  renderNotesList(); updateRail();
   toast('Illustration deleted');
 }
 async function makeIllustration() {
@@ -3922,7 +3910,7 @@ async function makeIllustration() {
   if (loadIllustrations(bookId).some(x => x.cfi === cfi) && !confirm('This page already has an illustration. Paint a new one?')) { console.warn('[illustrate] stopped: page already has an illustration, repaint cancelled'); return; }
   console.log(`[illustrate] sending: ${text.length} chars of page text`);
   const btn = $('illustrate-btn');
-  illusBusy = true; btn.classList.add('busy');
+  illusBusy = true; btn.classList.add('busy'); updateRail();
   toast('Painting the scene… this can take up to a minute');
   try {
     const noteId = 'pg' + Math.abs(hashStr(bookId + '|' + cfi)).toString(36);
@@ -3939,13 +3927,14 @@ async function makeIllustration() {
     writeIllustrations(bookId, loadIllustrations(bookId).filter(x => x.cfi !== cfi).concat(rec));
     cloudUpsertSide(SIDE.il, bookId, rec);
     const c = rendition.getContents()[0];
-    if (!c || !placePageIllustration(c, rec)) toast('Could not place the illustration on this page');
-    else { refreshAllHighlights(); toast('Illustration added at the top of the page ✓'); }
+    if (c && placePageIllustration(c, rec)) refreshAllHighlights();
+    else console.warn('makeIllustration: could not place the page icon');
+    showIllustrationInPanel(rec);
     renderNotesList();
   } catch (e) {
     console.warn('makeIllustration:', e);
     toast('Could not paint the illustration: ' + (e.message || e).toString().slice(0, 120));
-  } finally { illusBusy = false; btn.classList.remove('busy'); }
+  } finally { illusBusy = false; btn.classList.remove('busy'); updateRail(); }
 }
 async function gotoInserted(rec, attr, injectFn) {
   try { await rendition.display(rec.cfi); }
@@ -3972,6 +3961,147 @@ async function gotoInserted(rec, attr, injectFn) {
 const gotoInteractive = rec => gotoInserted(rec, 'data-reymont-interactive', injectInteractives);
 const gotoDiagram = rec => gotoInserted(rec, 'data-reymont-diagram', injectDiagrams);
 const gotoIllustration = rec => gotoInserted(rec, 'data-reymont-pgillus', injectPageIllustrations);
+/* ═══════════ Правая колонка: диаграмма, интерактив и иллюстрация страницы ═══════════
+   На десктопе на полях справа от текста — три плитки. Если для видимой страницы уже есть вставка, в плитке её миниатюра
+   и клик открывает её в панели; если нет — line-art и клик создаёт. В самом тексте вместо превью — маленькая иконка
+   (insMarker), она тоже открывает вставку в панели. На узких экранах плиток нет, остаётся полоса иконок над текстом. */
+const ART = {
+  dg: '<rect x="24" y="8" width="16" height="11" rx="2"/><rect x="6" y="45" width="16" height="11" rx="2"/><rect x="42" y="45" width="16" height="11" rx="2"/><path d="M32 19v12M14 45v-6q0-8 8-8h20q8 0 8 8v6"/>',
+  io: '<path d="M21 21h22c8 0 13 6 14.5 16l1 7c1 6.5-6.5 9.5-10.5 4.5L43 43H21l-5 5.5c-4 5-11.5 2-10.5-4.5l1-7C8 27 13 21 21 21z"/><path d="M20 29v9M15.5 33.5h9"/><circle cx="42" cy="30.5" r="1.8"/><circle cx="48" cy="36.5" r="1.8"/>',
+  il: '<rect x="8" y="12" width="48" height="40" rx="3"/><circle cx="42" cy="24" r="4.5"/><path d="M8 46l14-15 10 10 7-7 17 15"/>',
+};
+const artSvg = (k, size, sw) => `<svg viewBox="0 0 64 64" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" style="display:block">${ART[k]}</svg>`;
+/* Иконка вставки в тексте книги. Стили — инлайн (в iframe книги наших стилей нет), слушатель — отсюда (скрипты в книге
+   выключены). Несколько иконок подряд встают в одну строку. */
+function insMarker(doc, attr, key, k, title, onOpen) {
+  const wrap = doc.createElement('div');
+  wrap.className = INS_CLASS; // не считается в CFI
+  wrap.setAttribute(attr, key);
+  wrap.style.cssText = 'display:inline-block;margin:2px 8px 8px 0;line-height:0;vertical-align:top;text-indent:0;';
+  const b = doc.createElement('button');
+  b.title = title; b.setAttribute('aria-label', title);
+  b.innerHTML = artSvg(k, 18, 2.6);
+  b.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;margin:0;'
+    + 'border:1px solid rgba(138,135,120,.45);border-radius:50%;background:transparent;color:#8A8778;cursor:pointer;';
+  b.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); onOpen(); });
+  wrap.appendChild(b);
+  return wrap;
+}
+const RAIL = {
+  dg: { label: 'Diagram', attr: 'data-reymont-diagram', load: () => loadDiagrams(currentBookId), busy: () => diagramBusy, owner: 'dg-view' },
+  io: { label: 'Interactive', attr: 'data-reymont-interactive', load: () => loadInteractives(currentBookId), busy: () => interactiveBusy, owner: 'io-view' },
+  il: { label: 'Illustration', attr: 'data-reymont-pgillus', load: () => loadIllustrations(currentBookId), busy: () => illusBusy, owner: 'il-view' },
+};
+let panelMediaRec = null; // диаграмма/иллюстрация, открытая сейчас в панели
+/* Вставки видимой страницы: иконка вставки стоит перед блоком, с которого начиналась страница, — берём ту, чей блок
+   начинается в видимом диапазоне (страница, начатая с начала абзаца, включает и сам абзац). Запасной путь — точное
+   совпадение CFI начала страницы. */
+function pageInsertRecs() {
+  const out = { dg: null, io: null, il: null };
+  if (!rendition || !currentBookId) return out;
+  try {
+    const c = rendition.getContents()[0], loc = rendition.currentLocation();
+    if (!c || !loc || !loc.start || !loc.end) return out;
+    const doc = c.document, a = realStartRange(c, loc), z = new ePub.CFI(loc.end.cfi).toRange(doc);
+    if (!a || !z) return out;
+    const vr = doc.createRange();
+    vr.setStart(a.startContainer, a.startOffset); vr.setEnd(z.endContainer, z.endOffset);
+    const el0 = a.startContainer.nodeType === 1 ? a.startContainer : a.startContainer.parentElement;
+    const block = el0 && el0.closest(BLOCK_SEL);
+    if (block && !block.closest('.' + INS_CLASS)) {
+      const pre = doc.createRange(); pre.setStart(block, 0); pre.setEnd(a.startContainer, a.startOffset);
+      if (!pre.toString().trim()) vr.setStartBefore(block);
+    }
+    let startCfi = null; try { startCfi = realPageStartCfi(c, loc); } catch (e) {}
+    for (const k of Object.keys(RAIL)) {
+      const r = RAIL[k];
+      for (const rec of r.load()) {
+        if (rec.cfi === startCfi) { out[k] = rec; break; }
+        const m = doc.querySelector(`[${r.attr}="${CSS.escape(rec.cfi)}"]`);
+        if (!m) continue;
+        let t = m; while (t && t.classList.contains(INS_CLASS)) t = t.nextElementSibling;
+        try { if (t && vr.comparePoint(t, 0) === 0) { out[k] = rec; break; } } catch (e) {}
+      }
+    }
+  } catch (e) { console.warn('[rail] page inserts:', e.message || e); }
+  return out;
+}
+function railPreview(k, rec) {
+  if (k === 'il') return `<img src="${esc(rec.url)}" alt="">`;
+  if (k === 'io') return rec.snap ? '<iframe sandbox="" tabindex="-1" title=""></iframe>' : `<div class="rt-art">${artSvg('io', '100%', 1.1)}</div>`;
+  return rec.svg;
+}
+let railTimer = null;
+function updateRail() { clearTimeout(railTimer); railTimer = setTimeout(renderRail, 40); }
+function renderRail() {
+  const rail = $('page-rail');
+  if (!rail) return;
+  const on = !!(sb && isRealUser() && rendition && currentBookId);
+  rail.classList.toggle('on', on);
+  if (!on) return;
+  const recs = pageInsertRecs(), locked = generationBlocked(), open = $('panel').classList.contains('open');
+  for (const k of Object.keys(RAIL)) {
+    const r = RAIL[k], rec = recs[k], el = $('rail-' + k), busy = r.busy();
+    const key = rec ? `${rec.cfi}|${rec.t || ''}|${rec.snap ? 1 : 0}` : 'empty';
+    if (el.dataset.key !== key) {
+      el.dataset.key = key;
+      el.innerHTML = (rec ? `<div class="rt-prev">${railPreview(k, rec)}</div>` : `<div class="rt-art">${artSvg(k, '100%', 1.1)}</div>`)
+        + `<div class="rt-label">${r.label}${rec ? '' : ' <b>+</b>'}</div>`;
+      const svg = k === 'dg' && rec && el.querySelector('.rt-prev svg');
+      if (svg) { svg.removeAttribute('style'); svg.setAttribute('width', '92%'); svg.setAttribute('height', '92%'); }
+      const f = k === 'io' && rec && rec.snap && el.querySelector('iframe');
+      if (f) f.srcdoc = snapshotDoc(rec.snap);
+    }
+    const f = el.querySelector('.rt-prev iframe');
+    if (f && el.clientWidth) f.style.transform = `scale(${el.clientWidth / 800})`;
+    const cur = k === 'io' ? currentInteractive : panelMediaRec;
+    const shown = rec && open && panelOwner === r.owner && cur && cur.cfi === rec.cfi;
+    el.classList.toggle('has', !!rec);
+    el.classList.toggle('busy', busy);
+    el.classList.toggle('locked', !rec && !busy && locked);
+    el.classList.toggle('active', !!shown);
+    el.title = busy ? `${r.label}: working…` : rec ? `Open the ${r.label.toLowerCase()} of this page`
+      : `Create ${k === 'io' ? 'an interactive view' : 'a ' + r.label.toLowerCase()} for this page` + (!rec && locked ? ' — Upgrade to Premium' : '');
+  }
+}
+window.addEventListener('resize', updateRail);
+function railClick(k) {
+  const rec = pageInsertRecs()[k];
+  if (rec) {
+    if (k === 'dg') showDiagramInPanel(rec);
+    else if (k === 'io') showInteractiveInPanel(rec);
+    else showIllustrationInPanel(rec);
+    return;
+  }
+  if (k === 'dg') makeDiagram();
+  else if (k === 'io') makeInteractive();
+  else illustrateClick($('rail-il'));
+}
+function showDiagramInPanel(d) {
+  panelShowingList = false;
+  setPanelBody(`<div class="io-tools">
+      <button class="btn" onclick="makeDiagram()">${ICON_REFRESH}Redraw</button>
+      <button class="btn" onclick="panelMediaRec && openDiagramFs(panelMediaRec.svg, panelMediaRec)">⤢ Fullscreen</button>
+      <button class="btn" onclick="deleteDiagram(panelMediaRec)">Delete</button>
+    </div>
+    <div class="pv-media">${d.svg}</div>`, false);
+  $('panel-body').classList.add('io');
+  const svg = $('panel-body').querySelector('.pv-media svg'); // Mermaid задаёт естественную ширину — растягиваем на всю панель
+  if (svg) { svg.style.maxWidth = '100%'; svg.setAttribute('width', '100%'); svg.removeAttribute('height'); }
+  panelOwner = 'dg-view'; panelMediaRec = d;
+  openPanel(true);
+}
+function showIllustrationInPanel(rec) {
+  panelShowingList = false;
+  setPanelBody(`<div class="io-tools">
+      <button class="btn" onclick="makeIllustration()">${ICON_REFRESH}Repaint</button>
+      <button class="btn" onclick="deletePageIllustration(panelMediaRec)">Delete</button>
+    </div>
+    <div class="pv-media"><img src="${esc(rec.url)}" alt=""></div>`, false);
+  $('panel-body').classList.add('io');
+  panelOwner = 'il-view'; panelMediaRec = rec;
+  openPanel(false);
+}
 function interactiveElapsed() { return Math.round((Date.now() - interactiveStartedAt) / 1000); }
 function tickInteractive() {
   const sec = interactiveElapsed();
@@ -3987,6 +4117,7 @@ function setInteractiveBusy(on) {
   $('interactive-btn').disabled = on;
   clearInterval(interactiveTimer); interactiveTimer = null;
   if (on) { interactiveStartedAt = Date.now(); interactiveTimer = setInterval(tickInteractive, 1000); }
+  updateRail();
 }
 async function makeInteractive() {
   if (interactiveBusy || !rendition || !currentBookId) return; // повторный клик во время запроса — игнор
@@ -4108,7 +4239,7 @@ async function makeDiagram() {
   const loc = rendition.currentLocation();
   const text = currentPageText().slice(0, 4000);
   if (!loc || !loc.start || text.length < 80) { toast('Not enough text on this page for a diagram'); return; }
-  diagramBusy = true; btn.classList.add('busy');
+  diagramBusy = true; btn.classList.add('busy'); updateRail();
   toast('Drawing a diagram…');
   try {
     const res = await aiProxy({ action: 'diagram', text, lang: settings.lang,
@@ -4127,13 +4258,14 @@ async function makeDiagram() {
     writeDiagrams(bookId, list);
     cloudUpsertDiagram(bookId, d);
     const contents = rendition.getContents()[0];
-    if (!contents || !placeDiagram(contents, d)) toast('Could not place the diagram on this page');
-    else { refreshAllHighlights(); toast('Diagram added at the top of the page ✓'); }
+    if (contents && placeDiagram(contents, d)) refreshAllHighlights();
+    else console.warn('makeDiagram: could not place the page icon');
+    showDiagramInPanel(d);
   } catch (e) {
     console.warn('makeDiagram:', e);
     toast('Could not draw the diagram: ' + (e.message || e).toString().slice(0, 120));
   } finally {
-    diagramBusy = false; btn.classList.remove('busy');
+    diagramBusy = false; btn.classList.remove('busy'); updateRail();
     document.querySelectorAll('[id^="drm-diagram-"],[id^="rm-diagram-"]').forEach(n => { if (n.tagName !== 'svg') n.remove(); });
   }
 }
@@ -4194,23 +4326,8 @@ function injectIllustrations(contents) {
       const anchor = endNode.nodeType === 1 ? endNode : endNode.parentElement;
       const block = anchor && anchor.closest('p, li, blockquote, dd, dt, td, h1, h2, h3, h4, div');
       if (!block) continue;
-      const wrap = doc.createElement('div');
-      wrap.className = INS_CLASS; // не считается в CFI, как и остальные вставки
-      wrap.setAttribute('data-reymont-illus', note.id);
-      // Умеренный размер, как книжная иллюстрация-плашка, а не полностраничная вставка —
-      // картинки у нас портретные (2:3) и на всю ширину колонки просто не влезли бы в одну
-      // страницу пагинации. break-inside:avoid просит не резать саму картинку между страницами.
-      // На десктопе (шире 900px, как брейкпоинт в CSS) — вдвое крупнее: 680px вместо 340px.
-      // max-height по высоте страницы iframe не даёт портретной картинке вылезти за страницу:
-      // при width/height auto браузер сохраняет пропорции при обоих ограничениях.
-      const maxW = window.matchMedia('(min-width: 901px)').matches ? 680 : 340;
-      wrap.style.cssText = 'margin:22px auto;width:fit-content;max-width:100%;border-radius:10px;overflow:hidden;'
-        + 'box-shadow:0 4px 16px rgba(61,57,41,.18);break-inside:avoid;-webkit-column-break-inside:avoid;page-break-inside:avoid;';
-      const img = doc.createElement('img');
-      img.src = note.illusUrl;
-      img.alt = '';
-      img.style.cssText = `display:block;width:auto;height:auto;max-width:min(${maxW}px,100%);max-height:85vh;`;
-      wrap.appendChild(img);
+      // Вместо картинки в тексте — иконка; картинка открывается в панели вместе с переводом хайлайта.
+      const wrap = insMarker(doc, 'data-reymont-illus', note.id, 'il', 'Illustration', () => showNote(note.id));
       block.insertAdjacentElement('afterend', wrap);
     } catch (e) { console.warn('inline illustration failed for', note.id, ':', e); }
   }
@@ -4304,17 +4421,19 @@ function openHighlightsPanel() {
     await gotoInteractive(rec);
     showInteractiveInPanel(rec);
   }));
-  // Иллюстрация из списка: переходим на её страницу.
+  // Иллюстрация из списка: переходим на её страницу и открываем её в панели.
   $('panel-body').querySelectorAll('.il-item').forEach(el => el.addEventListener('click', async () => {
     const d = loadIllustrations(currentBookId).find(x => x.cfi === el.dataset.cfi);
-    if (d) await gotoIllustration(d);
+    if (!d) return;
+    await gotoIllustration(d);
+    showIllustrationInPanel(d);
   }));
-  // Диаграмма из списка: переходим на её страницу и открываем крупно.
+  // Диаграмма из списка: переходим на её страницу и открываем её в панели.
   $('panel-body').querySelectorAll('.dg-item').forEach(el => el.addEventListener('click', async () => {
     const d = loadDiagrams(currentBookId).find(x => x.cfi === el.dataset.cfi);
     if (!d) return;
     await gotoDiagram(d);
-    openDiagramFs(d.svg, d);
+    showDiagramInPanel(d);
   }));
   openPanel();
 }
