@@ -974,7 +974,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.127</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.128</div>
   </div>
 </div>
 
@@ -1080,7 +1080,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.127'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.128'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -1128,7 +1128,7 @@ async function initCloud() {
   sb.auth.onAuthStateChange((_ev, session) => {
     const was = sbUser && sbUser.id;
     sbUser = session ? session.user : null;
-    if (!sbUser) cloudBooksList = []; // не показывать чужие/прошлые «облачные» книги после выхода
+    if (!sbUser) { cloudBooksList = []; cloudPos = new Map(); } // не показывать чужие/прошлые «облачные» книги после выхода
     updateAuthUi();
     if ((sbUser && sbUser.id) !== was) proCheckedAt = 0; // токен-рефреш не должен перепроверять статус
     refreshPro();
@@ -1326,33 +1326,91 @@ async function syncBooksList() {
     for (const b of local) if (!rmap.has(b.id)) cloudUploadBook(b);
   } catch (e) { console.warn('syncBooksList:', e.message || e); }
 }
-/* ═══════════ Последняя прочитанная страница (таблица reading_state, одна строка на пользователя) ═══════════
-   Локально — LS.last, в облаке (только для вошедших) — чтобы продолжить с любого устройства. */
-function readLastLocal() {
+/* ═══════════ Позиция чтения по КАЖДОЙ книге ═══════════
+   Вошедший читатель: источник правды — таблица reading_positions (user_id, book_id) в Supabase.
+   localStorage для него не читается и не пишется (старые reader.pos.* один раз переносятся в базу и стираются).
+   Без аккаунта хранить больше негде — там reader.pos.<id> и reader.last в localStorage. */
+const POS_TABLE = 'reading_positions';
+let cloudPos = new Map(); // book_id → {cfi, progress, updated}: кэш в памяти, заполняется из базы
+const useCloudPos = () => !!(sb && isRealUser());
+
+function readLastLocal() { // только для читателя без аккаунта
   try { return JSON.parse(localStorage.getItem(LS.last)) || null; } catch (e) { return null; }
 }
-let lastPosTimer = null;
-function saveLastPosition(bookId, cfi) {
-  const state = { bookId, cfi, t: Date.now() };
-  localStorage.setItem(LS.last, JSON.stringify(state));
-  if (!sb || !isRealUser()) return;
-  clearTimeout(lastPosTimer); // листание — частое, в облако пишем только когда остановились
-  lastPosTimer = setTimeout(async () => {
-    try {
-      const { error } = await sb.from('reading_state').upsert(
-        { user_id: sbUser.id, book_id: state.bookId, cfi: state.cfi, updated: state.t });
-      if (error) throw error;
-    } catch (e) { console.warn('saveLastPosition:', e.message || e); }
-  }, 1500);
+async function fetchCloudPos(bookId) { // свежая строка из базы; бросает при ошибке сети/БД
+  const { data, error } = await sb.from(POS_TABLE).select('book_id,cfi,progress,updated')
+    .eq('user_id', sbUser.id).eq('book_id', bookId).maybeSingle();
+  if (error) throw error;
+  if (data) cloudPos.set(bookId, data); else cloudPos.delete(bookId);
+  return data;
 }
-async function resumeLastBook(state) {
-  if (!state || currentBookId || !(await dbGet('books', state.bookId))) return;
-  try { await openBook(state.bookId); }
-  catch (err) {
-    console.error('resumeLastBook:', err);
-    $('reader').classList.remove('open');
-    $('library').style.display = 'block';
+let posLoading = null;
+function loadCloudPositions() { // все книги читателя; сразу переносит старые позиции из localStorage
+  if (!useCloudPos()) return Promise.resolve();
+  return posLoading || (posLoading = (async () => {
+    try {
+      const { data, error } = await sb.from(POS_TABLE).select('book_id,cfi,progress,updated').eq('user_id', sbUser.id);
+      if (error) throw error;
+      cloudPos = new Map((data || []).map(r => [r.book_id, r]));
+      await migrateLocalPositions();
+      console.log('[pos] positions loaded from the database:', cloudPos.size, 'book(s)');
+    } catch (e) { console.warn('loadCloudPositions:', e.message || e); }
+  })().finally(() => { posLoading = null; }));
+}
+// Разовый перенос: reader.pos.<id> → база (если там по этой книге ничего нет, либо локальная запись новее), затем стираем.
+async function migrateLocalPositions() {
+  const keys = [];
+  for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('reader.pos.')) keys.push(k); }
+  const last = readLastLocal();
+  for (const k of keys) {
+    const id = k.slice('reader.pos.'.length), cfi = localStorage.getItem(k);
+    try {
+      const have = cloudPos.get(id);
+      const localNewer = have && last && last.bookId === id && last.t > Number(have.updated);
+      if (cfi && (!have || localNewer)) {
+        const rec = await dbGet('books', id);
+        const row = { user_id: sbUser.id, book_id: id, cfi, updated: have ? last.t : Date.now() };
+        if (rec && rec.progress) row.progress = rec.progress;
+        const { error } = await sb.from(POS_TABLE).upsert(row);
+        if (error) throw error;
+        cloudPos.set(id, { ...have, ...row });
+        console.log('[pos] migrated from localStorage to the database:', id, cfi);
+      }
+      localStorage.removeItem(k);
+    } catch (e) { console.warn('migrate position', id, e.message || e); }
   }
+}
+let posTimer = null, posPending = null;
+function savePosition(bookId, cfi, progress) {
+  if (!useCloudPos()) { // без аккаунта — только localStorage
+    localStorage.setItem(LS.pos(bookId), cfi);
+    localStorage.setItem(LS.last, JSON.stringify({ bookId, cfi, t: Date.now() }));
+    return;
+  }
+  const row = { user_id: sbUser.id, book_id: bookId, cfi, updated: Date.now() };
+  if (progress != null) row.progress = progress; // пока книга не посчитана — не затираем старый прогресс
+  if (posPending && posPending.book_id !== bookId) flushPosition(); // другая книга — сначала дописываем прежнюю
+  posPending = { ...(posPending && posPending.book_id === bookId ? posPending : {}), ...row };
+  cloudPos.set(bookId, { ...cloudPos.get(bookId), ...posPending });
+  clearTimeout(posTimer); // листание частое — в базу пишем, когда остановились
+  posTimer = setTimeout(flushPosition, 1000);
+}
+async function flushPosition() {
+  clearTimeout(posTimer);
+  const row = posPending; if (!row || !sb) return;
+  posPending = null;
+  try {
+    const { error } = await sb.from(POS_TABLE).upsert(row);
+    if (error) throw error;
+  } catch (e) { console.warn('savePosition:', e.message || e); if (!posPending) posPending = row; } // повторим при следующем сохранении
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushPosition(); });
+window.addEventListener('pagehide', flushPosition);
+// Сохранённое место книги: вошедший — из базы (ok:false, если база недоступна — тогда НЕ сохраняем, чтобы не затереть), иначе localStorage.
+async function loadSavedPosition(id) {
+  if (!useCloudPos()) return { cfi: localStorage.getItem(LS.pos(id)), ok: true };
+  try { const r = await withTimeout(fetchCloudPos(id), 8000, 'loading your place'); return { cfi: r ? r.cfi : null, ok: true }; }
+  catch (e) { console.warn('loadSavedPosition:', e.message || e); return { cfi: null, ok: false }; }
 }
 /* Старт без экрана выбора: последняя читаемая книга, а при первом визите — первая книга
    каталога (public domain) с демо-хайлайтами, без регистрации. Полка — за кнопкой «назад»;
@@ -1360,8 +1418,18 @@ async function resumeLastBook(state) {
 async function startReading() {
   const showShelf = () => { $('library').style.display = 'block'; prefetchCuratedBooks(); };
   try {
-    const last = readLastLocal();
-    if (last && await dbGet('books', last.bookId)) { await openBook(last.bookId); return; }
+    await Promise.race([cloudReady.catch(() => {}), new Promise(r => setTimeout(r, 3000))]); // нужно знать, вошла ли читательница
+    let lastId = null;
+    if (useCloudPos()) { // самая свежая по времени книга из базы, которую можно открыть на этом устройстве
+      await loadCloudPositions();
+      const rows = [...cloudPos.values()].sort((x, y) => Number(y.updated) - Number(x.updated));
+      for (const r of rows) {
+        const cb = curatedById(r.book_id);
+        if (cb) await ensureCuratedRecord(cb);
+        if (await dbGet('books', r.book_id)) { lastId = r.book_id; break; }
+      }
+    } else { const last = readLastLocal(); if (last) lastId = last.bookId; }
+    if (lastId && await dbGet('books', lastId)) { await openBook(lastId); return; }
     // Первый визит (в т.ч. без входа) — сразу первая книга каталога с демо-хайлайтами.
     // Она грузится лениво по главам из распакованной папки, так что открывается мгновенно.
     const cb = CURATED_BOOKS[0];
@@ -1374,23 +1442,6 @@ async function startReading() {
     showShelf();
     libError(`Couldn’t open the book: ${err && err.message || err}`);
   }
-}
-async function syncLastPosition() {
-  if (!sb || !isRealUser()) return;
-  try {
-    const { data: r, error } = await sb.from('reading_state').select('book_id,cfi,updated')
-      .eq('user_id', sbUser.id).maybeSingle();
-    if (error) throw error;
-    const local = readLastLocal();
-    if (!r) { if (local) saveLastPosition(local.bookId, local.cfi); return; }
-    if (local && local.t >= Number(r.updated)) return;
-    const state = { bookId: r.book_id, cfi: r.cfi, t: Number(r.updated) };
-    console.log('[pos] cloud position is newer than local → overwriting local:', { local, cloud: state },
-      '| cloud saved at', new Date(state.t).toString());
-    localStorage.setItem(LS.last, JSON.stringify(state));
-    localStorage.setItem(LS.pos(state.bookId), state.cfi);
-    await resumeLastBook(state); // no-op, если книга уже открыта или ещё не скачана на это устройство
-  } catch (e) { console.warn('syncLastPosition:', e.message || e); }
 }
 
 async function fullSync() {
@@ -1423,7 +1474,8 @@ async function fullSync() {
   } catch (e) { console.warn('sync:', e.message || e); }
   await syncBooksList();
   if ($('library') && $('library').style.display !== 'none') renderLibrary();
-  await syncLastPosition();
+  await loadCloudPositions();
+  if ($('library') && $('library').style.display !== 'none') renderLibrary(); // прогресс на карточках — из базы
   await syncInteractives(remoteAll);
   await syncDiagrams(remoteAll);
   await syncIllustrations(remoteAll);
@@ -1808,7 +1860,7 @@ async function renderLibrary() {
   for (const b of books) {
     const card = document.createElement('div');
     card.className = 'book-card';
-    const pct = Math.round((b.progress || 0) * 100);
+    const pct = Math.round(((useCloudPos() ? (cloudPos.get(b.id) || {}).progress : b.progress) || 0) * 100);
     card.innerHTML = `
       <div class="book-cover">${b.cover
         ? `<img src="${b.cover}" alt="">`
@@ -1834,6 +1886,7 @@ async function renderLibrary() {
       cloudDeleteBook(b.id);
       for (const n of await dbAll('notes')) if (n.bookId === b.id) { await dbDelete('notes', n.id); cloudDeleteNote(n.id); }
       localStorage.removeItem(LS.pos(b.id));
+      if (useCloudPos()) { cloudPos.delete(b.id); sb.from(POS_TABLE).delete().eq('user_id', sbUser.id).eq('book_id', b.id).then(({ error }) => { if (error) console.warn('delete position:', error.message); }); }
       renderLibrary();
     });
     const illusBtn = card.querySelector('.book-illus');
@@ -2230,7 +2283,10 @@ async function openBook(id, newRec) {
     navToc = (await book.loaded.navigation).toc || [];
     hideFrontMatter(navToc);
   } catch (e) { console.warn('front matter:', e); }
-  let savedCfi = localStorage.getItem(LS.pos(id));
+  await flushPosition(); // дописываем позицию прежней книги, если не успела уйти
+  const sp = await loadSavedPosition(id);
+  let savedCfi = sp.cfi;
+  if (!sp.ok) toast('Couldn’t load your place from the server — position won’t be saved this time');
   if (savedCfi && hiddenFront.size) { // раньше позиция «на обложке» сохранялась — игнорируем её
     try { const sec = book.spine.get(savedCfi); if (sec && hiddenFront.has(sec.href)) savedCfi = null; } catch (e) {}
   }
@@ -2242,11 +2298,8 @@ async function openBook(id, newRec) {
   let persistPos = false;
   rendition.on('relocated', loc => {
     logPosition(persistPos ? 'relocated' : 'relocated (restoring — not saved)', loc);
-    if (persistPos) {
-      localStorage.setItem(LS.pos(id), loc.start.cfi);
-      saveLastPosition(id, loc.start.cfi);
-    }
     updateProgress(loc);
+    if (persistPos) savePosition(id, loc.start.cfi, locationsReady ? curPct : null);
     hideSelFab();
   });
   await withTimeout(rendition.display(savedCfi || undefined), 30000, 'rendering the page');
@@ -2259,7 +2312,7 @@ async function openBook(id, newRec) {
     await sleep(300);
     logPosition('restored', rendition.currentLocation() || {});
   }
-  persistPos = true;
+  persistPos = sp.ok; // база недоступна — не сохраняем, чтобы не затереть настоящее место
   const vl = document.querySelector('#viewer .viewer-loading'); if (vl) vl.remove();
 
   bookNotes.forEach(addHighlight);
@@ -2271,7 +2324,7 @@ async function openBook(id, newRec) {
   book.opened.then(() => book.locations.generate(800)).then(() => {
     locationsReady = true;
     const loc = rendition.currentLocation();
-    if (loc && loc.start) { updateProgress(loc); logPosition('your page', loc); }
+    if (loc && loc.start) { updateProgress(loc); logPosition('your page', loc); if (persistPos) savePosition(id, loc.start.cfi, curPct); }
   }).catch(e => console.warn('locations:', e));
 
   rendition.on('selected', onTextSelected);
@@ -2287,11 +2340,13 @@ async function openBook(id, newRec) {
   }
 }
 
+let curPct = 0;
 function updateProgress(loc) {
   let pct = 0;
   if (book.locations && book.locations.length()) {
     pct = book.locations.percentageFromCfi(loc.start.cfi) || 0;
   }
+  curPct = pct;
   $('progress-fill').style.width = (pct * 100).toFixed(1) + '%';
   $('percent-label').textContent = Math.round(pct * 100) + '%';
   const ch = findChapter(loc.start.href);
@@ -2299,7 +2354,7 @@ function updateProgress(loc) {
   const pp = pageOfCfi(loc.start.cfi);
   $('page-corner').textContent = pp ? String(pp.page) : '';
   markTocActive(loc.start.href, pp && pp.page);
-  if (currentBookId) dbGet('books', currentBookId).then(rec => { if (rec) { rec.progress = pct; dbPut('books', rec); } });
+  if (currentBookId && !useCloudPos() && locationsReady) dbGet('books', currentBookId).then(rec => { if (rec) { rec.progress = pct; dbPut('books', rec); } });
 }
 
 /* Служебные страницы в начале книги (обложка, титул, «Spis treści», лицензия Gutenberg). */
@@ -2389,25 +2444,25 @@ function logPosition(tag, loc) {
   console.log(`[pos] ${tag}: ` + (p ? `p. ${p.page} of ${p.total}` : 'page unknown yet (locations not ready)') +
     ` · ${findChapter(loc && loc.start && loc.start.href) || '—'} · ${loc && loc.start && loc.start.href} · ${cfi}`);
 }
-// В консоли: whereAmI() — таблица: что на экране, что в localStorage, что в Supabase (с номерами страниц и временем).
+// В консоли: whereAmI() — таблица: что на экране и что в базе (Supabase) по КАЖДОЙ книге; для читателя без аккаунта — localStorage.
 window.whereAmI = async function () {
   const loc = rendition && rendition.currentLocation();
-  if (!loc || !loc.start) return console.log('[pos] no book open');
   const fmt = t => t ? new Date(Number(t)).toLocaleString() : '—';
-  const row = (source, bookId, cfi, t) => {
-    const p = cfi && bookId === currentBookId ? pageOfCfi(cfi) : null;
-    return { source, book: bookId || '—', page: p ? p.page : '?', saved_at: fmt(t), cfi: cfi || '—' };
-  };
-  const last = readLastLocal();
-  const rows = [
-    row('on screen now', currentBookId, loc.start.cfi, Date.now()),
-    row('localStorage reader.pos (this book)', currentBookId, localStorage.getItem(LS.pos(currentBookId)), null),
-    row('localStorage reader.last', last && last.bookId, last && last.cfi, last && last.t),
-  ];
-  if (sb && isRealUser()) {
-    const { data, error } = await sb.from('reading_state').select('book_id,cfi,updated').eq('user_id', sbUser.id).maybeSingle();
-    rows.push(error ? { source: 'Supabase reading_state', book: 'error: ' + error.message } : row('Supabase reading_state', data && data.book_id, data && data.cfi, data && data.updated));
-  } else rows.push({ source: 'Supabase reading_state', book: '(not signed in with e-mail — nothing in the cloud)' });
+  const pct = v => v == null ? '—' : Math.round(v * 100) + '%';
+  const rows = [];
+  if (loc && loc.start) { const p = pageOfCfi(loc.start.cfi); rows.push({ source: 'on screen now', book: currentBookId, page: p ? p.page : '?', progress: pct(curPct), saved_at: 'now', cfi: loc.start.cfi }); }
+  if (useCloudPos()) {
+    const { data, error } = await sb.from(POS_TABLE).select('book_id,cfi,progress,updated').eq('user_id', sbUser.id).order('updated', { ascending: false });
+    if (error) rows.push({ source: 'Supabase ' + POS_TABLE, book: 'error: ' + error.message });
+    for (const r of data || []) {
+      const p = r.book_id === currentBookId ? pageOfCfi(r.cfi) : null;
+      rows.push({ source: 'Supabase ' + POS_TABLE, book: r.book_id, page: p ? p.page : '—', progress: pct(r.progress), saved_at: fmt(r.updated), cfi: r.cfi });
+    }
+    const left = Object.keys(localStorage).filter(k => k.startsWith('reader.pos.'));
+    if (left.length) rows.push({ source: 'localStorage (leftover, should be empty)', book: left.join(', ') });
+  } else {
+    for (const k of Object.keys(localStorage).filter(k => k.startsWith('reader.pos.'))) rows.push({ source: 'localStorage (not signed in)', book: k.slice(11), cfi: localStorage.getItem(k) });
+  }
   console.table(rows);
   return rows;
 };
@@ -4359,8 +4414,8 @@ document.addEventListener('drop', e => {
 /* ════════════════════════ Init ════════════════════════ */
 $('library').style.display = 'none'; // не мигать полкой, пока открывается книга
 renderLibrary();
+const cloudReady = initCloud();
 startReading();
-initCloud();
 </script>
 </body>
 </html>
