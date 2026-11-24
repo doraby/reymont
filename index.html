@@ -974,7 +974,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.125</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.126</div>
   </div>
 </div>
 
@@ -1080,7 +1080,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.125'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.126'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -2236,8 +2236,30 @@ async function openBook(id, newRec) {
   }
   console.log('[pos] opening book at saved position:', savedCfi || '(none — start of book)', '| last-position record:', readLastLocal());
   console.log('openBook: rendering page…');
+  // Пока позиция не восстановлена, relocated её НЕ сохраняет: первый display() на свежезагруженной
+  // главе попадает не на ту страницу (вёрстка ещё не устоялась), и это неверное место затирало
+  // сохранённое — с каждой перезагрузкой читательница «уезжала» всё дальше.
+  let persistPos = false;
+  rendition.on('relocated', loc => {
+    logPosition(persistPos ? 'relocated' : 'relocated (restoring — not saved)', loc);
+    if (persistPos) {
+      localStorage.setItem(LS.pos(id), loc.start.cfi);
+      saveLastPosition(id, loc.start.cfi);
+    }
+    updateProgress(loc);
+    hideSelFab();
+  });
   await withTimeout(rendition.display(savedCfi || undefined), 30000, 'rendering the page');
   console.log('openBook: page on screen ✓');
+  if (savedCfi) { // даём вёрстке устояться и открываем сохранённое место ещё раз — уже точно
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    try { const c = rendition.getContents()[0]; if (c && c.document.fonts) await Promise.race([c.document.fonts.ready, sleep(1500)]); } catch (e) {}
+    await sleep(400);
+    try { await withTimeout(rendition.display(savedCfi), 15000, 'restoring the position'); } catch (e) { console.warn('restore:', e.message || e); }
+    await sleep(300);
+    logPosition('restored', rendition.currentLocation() || {});
+  }
+  persistPos = true;
   const vl = document.querySelector('#viewer .viewer-loading'); if (vl) vl.remove();
 
   bookNotes.forEach(addHighlight);
@@ -2245,18 +2267,13 @@ async function openBook(id, newRec) {
   if (demoP) applyDemoHighlights(id, demoP);
 
   buildToc(navToc);
+  locationsReady = false;
   book.opened.then(() => book.locations.generate(800)).then(() => {
+    locationsReady = true;
     const loc = rendition.currentLocation();
     if (loc && loc.start) { updateProgress(loc); logPosition('your page', loc); }
   }).catch(e => console.warn('locations:', e));
 
-  rendition.on('relocated', loc => {
-    logPosition('relocated', loc);
-    localStorage.setItem(LS.pos(id), loc.start.cfi);
-    saveLastPosition(id, loc.start.cfi);
-    updateProgress(loc);
-    hideSelFab();
-  });
   rendition.on('selected', onTextSelected);
   rendition.on('keyup', readerKeys);
   startSelectionPoll();
@@ -2357,9 +2374,10 @@ function markTocActive(href, page) {
 }
 /* Номер «страницы» = номер локации epub.js (кусок текста ~800 знаков, считается по тексту,
    а не по экрану — поэтому одинаков на всех устройствах и при любом размере шрифта). */
+let locationsReady = false; // пока локации считаются, частичный список даёт неверные номера («p. 1 of 23»)
 function pageOfCfi(cfi) {
   try {
-    if (book && book.locations && book.locations.length() && cfi) {
+    if (locationsReady && book && book.locations && book.locations.length() && cfi) {
       return { page: book.locations.locationFromCfi(cfi) + 1, total: book.locations.length() };
     }
   } catch (e) {}
