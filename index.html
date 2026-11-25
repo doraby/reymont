@@ -317,6 +317,9 @@
   .vz-bar .btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; font-size: 13px; }
   #panel-visual .pv-media { overflow: visible; } /* без своей прокрутки — панель листается целиком */
   #panel-visual .pv-media img { max-height: 75vh; width: auto; }
+  /* Полноэкранный режим картинки и игры (кнопка ⤢ под визуалом) */
+  #panel-visual .pv-media img:fullscreen { max-height: none; width: 100%; height: 100%; object-fit: contain; background: #111; border-radius: 0; }
+  #interactive-frame:fullscreen { height: 100% !important; }
   /* Диаграмма Mermaid рисуется тёмными линиями — подкладываем светлую подложку, чтобы её было видно и в тёмном стиле */
   #panel-visual.dg-view .pv-media svg { background: #FAF9F5; border-radius: 10px; padding: 14px; } /* вертикальная иллюстрация видна целиком */
   #panel-visual .io-loading { margin: 0 auto; padding: 16px 22px 20px; }
@@ -1074,7 +1077,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.151</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.152</div>
   </div>
 </div>
 
@@ -1180,7 +1183,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.151'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.152'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -3967,7 +3970,8 @@ window.addEventListener('message', e => {
 function showInteractiveInPanel(rec, notice) {
   currentInteractive = rec;
   vzShow('io-view', `${notice ? `<div class="io-notice">${esc(notice)}</div>` : ''}<iframe id="interactive-frame" sandbox="allow-scripts" title="Game"></iframe>`
-    + vzBar(`<button class="btn" onclick="openFeedback()" title="Don’t like it — tell the AI what to improve">👎 Improve</button>`, rec.title));
+    + vzBar(`<button class="btn" onclick="openFeedback()" title="Don’t like it — tell the AI what to improve" aria-label="Improve">👎</button>`
+      + vzRedraw('redrawGame()') + vzFullscreen(), rec.title));
   ensureVisualTitle('io', rec);
   const frame = $('interactive-frame');
   loadD3Src().then(lib => { if (frame.isConnected) frame.srcdoc = withCsp(withHeightScript(rec.snap ? rec.html : withSnapshotScript(rec.html)), lib); });
@@ -4225,6 +4229,22 @@ async function ensureVisualTitle(k, rec, pageText) {
   } catch (e) { console.warn('[title]', e.message || e); }
   finally { titlePending.delete(key); }
 }
+/* Одинаковые кнопки у всех визуалов: перерисовать и на весь экран — только иконки */
+const ICON_FULLSCREEN = '<svg viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>';
+const vzRedraw = fn => `<button class="btn" onclick="${fn}" title="Redraw" aria-label="Redraw">${ICON_REFRESH}</button>`;
+const vzFullscreen = () => `<button class="btn" onclick="vzFullscreenOpen()" title="Fullscreen" aria-label="Fullscreen">${ICON_FULLSCREEN}</button>`;
+function vzFullscreenOpen() { // диаграмма — в свой просмотр с зумом; картинка и игра — браузерный полноэкранный режим
+  if (vzOwner === 'dg-view' && panelMediaRec) return openDiagramFs(panelMediaRec.svg, panelMediaRec);
+  const el = vzOwner === 'io-view' ? $('interactive-frame') : $('panel-visual').querySelector('.pv-media img');
+  if (el && el.requestFullscreen) el.requestFullscreen().catch(e => console.warn('[fullscreen]', e.message || e));
+}
+function redrawGame() { // новая игра для той же страницы (с нуля, не правка)
+  const rec = currentInteractive;
+  if (!rec || interactiveBusy) return;
+  if (generationBlocked()) { showPaywall('generations'); return; }
+  if (!confirm('Build a new game for this page?')) return;
+  buildInteractive('diagram_html', rec.cfi, rec.text || currentPageText().slice(0, 3000), null, '');
+}
 function vzTilesHtml() {
   const tile = k => `<button class="rail-tile" id="rail-${k}" onclick="railClick('${k}')"></button>`;
   const signedIn = !!(sb && isRealUser());
@@ -4312,8 +4332,7 @@ function railClick(k) {
 function showDiagramInPanel(d) {
   panelMediaRec = d;
   vzShow('dg-view', `<div class="pv-media">${d.svg}</div>`
-    + vzBar(`<button class="btn" onclick="makeDiagram()" title="Redraw">${ICON_REFRESH}Redraw</button>`
-      + `<button class="btn" onclick="panelMediaRec && openDiagramFs(panelMediaRec.svg, panelMediaRec)" title="Fullscreen">⤢ Fullscreen</button>`, d.title));
+    + vzBar(vzRedraw('makeDiagram()') + vzFullscreen(), d.title));
   ensureVisualTitle('dg', d);
   const svg = $('panel-visual').querySelector('.pv-media svg'); // Mermaid задаёт естественную ширину — растягиваем на всю панель
   if (svg) { svg.style.maxWidth = '100%'; svg.setAttribute('width', '100%'); svg.removeAttribute('height'); }
@@ -4321,7 +4340,7 @@ function showDiagramInPanel(d) {
 function showIllustrationInPanel(rec) {
   panelMediaRec = rec;
   vzShow('il-view', `<div class="pv-media"><img src="${esc(rec.url)}" alt=""></div>`
-    + vzBar(`<button class="btn" onclick="makeIllustration()" title="Repaint" aria-label="Repaint">${ICON_REFRESH}</button>`, rec.title));
+    + vzBar(vzRedraw('makeIllustration()') + vzFullscreen(), rec.title));
   ensureVisualTitle('il', rec);
 }
 function interactiveElapsed() { return Math.round((Date.now() - interactiveStartedAt) / 1000); }
