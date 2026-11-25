@@ -276,23 +276,21 @@
      Есть для этой страницы — в плитке её миниатюра, клик открывает её в панели; нет — line-art и клик создаёт.
      Видна, только когда поля достаточно широкие (container query по #viewer-wrap). На узких экранах (мобильные)
      остаётся прежняя полоса иконок сверху. */
-  #viewer-wrap { container: vw / inline-size; }
-  #page-rail { display: none; }
-  @container vw (min-width: 1000px) {
-    #page-rail.on {
-      --tile-w: clamp(96px, calc((100cqw - 760px) / 2 - 64px), 176px);
-      display: flex; position: absolute; top: 12px; bottom: 12px; right: 48px; width: var(--tile-w);
-      flex-direction: column; justify-content: center; gap: 14px; z-index: 6;
-    }
-  }
-  /* На десктопе полосы иконок над текстом нет совсем: без панели её заменяют плитки справа, а с открытой широкой
-     панелью (диаграмма, интерактив) им может не хватить места — тогда инструменты просто прячутся до закрытия панели. */
-  @media (min-width: 1000px) {
-    #reader:has(#page-rail.on) #page-tools { display: none !important; }
-    #reader:has(#page-rail.on) #viewer { top: 12px !important; }
-  }
+  /* Десктоп (body.split): экран всегда поделён на текст и панель справа. В панели по умолчанию — подсказка про
+     выделение и три плитки (диаграмма, игра, иллюстрация); иначе — контент (хайлайт или вставка страницы).
+     Полоса иконок над текстом на десктопе не нужна. */
+  body.split #page-tools, body.split #hint { display: none !important; }
+  body.split #viewer { top: 12px !important; }
+  #panel.home-view #panel-close-btn { display: none; }
+  .ph { padding: 8px 0 24px; }
+  .ph-hint { font-size: 15px; line-height: 1.55; color: var(--muted); padding: 4px 2px 22px; border-bottom: 1px solid var(--border); }
+  .ph-title { margin: 20px 2px 12px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .ph-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .ph-tiles .rail-tile { height: auto; aspect-ratio: 1 / 1.15; }
+  .ph-note { margin-top: 14px; font-size: 13px; color: var(--muted); }
+  .ph-note a { color: inherit; text-decoration: underline; cursor: pointer; }
   .rail-tile {
-    position: relative; flex: none; width: 100%; height: min(calc(var(--tile-w) * 1.12), calc((100% - 28px) / 3));
+    position: relative; flex: none; width: 100%;
     padding: 0; border: 1px solid var(--border); border-radius: 12px; background: transparent; color: var(--muted);
     cursor: pointer; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center;
     transition: border-color .15s, color .15s, box-shadow .15s;
@@ -788,11 +786,6 @@
           </button>
         </div>
         <div id="viewer"></div>
-        <div id="page-rail" aria-label="Page tools">
-          <button class="rail-tile" id="rail-dg" onclick="railClick('dg')"></button>
-          <button class="rail-tile" id="rail-io" onclick="railClick('io')"></button>
-          <button class="rail-tile" id="rail-il" onclick="railClick('il')"></button>
-        </div>
         <button id="nav-prev" class="nav-btn" aria-label="Previous page">‹</button>
         <button id="nav-next" class="nav-btn" aria-label="Next page">›</button>
         <div id="hint" class="hide">Select any phrase to get an illustrated explanation</div>
@@ -1022,7 +1015,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.132</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.133</div>
   </div>
 </div>
 
@@ -1128,7 +1121,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.132'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.133'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -1701,6 +1694,7 @@ function applyStyle(id) {
     } catch (e) { console.warn('applyStyle:', e); }
   }
   renderStylePicker();
+  logAppearance('reading style changed');
 }
 function setDropcaps(on) {
   localStorage.setItem(LS.dropcaps, on ? '1' : '0');
@@ -1745,7 +1739,25 @@ function changeFontSize(delta) {
   fontSize = Math.max(14, Math.min(FONT_MAX, fontSize + delta));
   localStorage.setItem(LS.fontSize, fontSize);
   if (rendition) rendition.themes.fontSize(fontSize + 'px');
+  logAppearance('font size changed');
 }
+/* Внешний вид в консоли: как получился размер шрифта и что сейчас на экране. Вход в аккаунт на шрифт не влияет —
+   у читателя без аккаунта расчёт тот же. В консоли можно вызвать appearance() в любой момент. */
+function logAppearance(tag) {
+  try {
+    const mq = q => window.matchMedia(q).matches, id = currentStyleId(), st = STYLES[id], b = st.book;
+    const saved = localStorage.getItem(LS.fontSize), scale = parseFloat(b.scale) || 1;
+    const zoom = window.outerWidth && window.innerWidth ? Math.round(window.outerWidth / window.innerWidth * 100) : null;
+    const v = $('viewer') && $('viewer').getBoundingClientRect(), pw = $('panel').classList.contains('open') ? Math.round($('panel').getBoundingClientRect().width) : 0;
+    console.log(`[look] ${tag || 'appearance'}\n` +
+      `  window ${window.innerWidth}×${window.innerHeight} css px · devicePixelRatio ${window.devicePixelRatio} · browser zoom ≈ ${zoom ? zoom + '%' : '?'} (100% is normal; Cmd+0 resets)\n` +
+      `  desktop = width ≥ 1024 (${mq('(min-width: 1024px)')}) & mouse hover (${mq('(hover: hover)')}) & fine pointer (${mq('(pointer: fine)')}) → ${IS_DESKTOP}\n` +
+      `  font: default ${FONT_DEFAULT}px (${IS_DESKTOP ? 'desktop' : 'phone'}), saved in this browser: ${saved ? saved + 'px' : 'none'} → using ${fontSize}px (range 14–${FONT_MAX})\n` +
+      `  reading style "${st.label}" (${id}): ${b.font.split(',')[0]}, paragraphs × ${scale} → ≈ ${Math.round(fontSize * scale)}px, line-height ${b.lh}\n` +
+      `  layout: ${document.body.classList.contains('split') ? 'desktop split (text + panel)' : 'phone (panel on demand)'} · text column ${v ? Math.round(v.width) : '?'}px · panel ${pw}px · signed in: ${!!(sb && isRealUser())}`);
+  } catch (e) { console.warn('[look]', e.message || e); }
+}
+window.appearance = () => logAppearance('appearance');
 let selGeneration = 0;          // race guard for async lookups
 let translateAbort = null, illustrateAbort = null;
 let hintShown = false;
@@ -2306,6 +2318,7 @@ async function openBook(id, newRec) {
   for (const sid of Object.keys(STYLES)) rendition.themes.register(styleThemeName(sid), bookRules(sid));
   rendition.themes.select(styleThemeName(currentStyleId()));
   rendition.themes.fontSize(fontSize + 'px');
+  setTimeout(() => logAppearance('book opened'), 1500);
   rendition.hooks.content.register(contents => {
     // contents.addStylesheet() возвращает Promise, который резолвится только по
     // onload у <link> — без таймаута и без onerror. Если сеть зависает, это вешает
@@ -2349,11 +2362,11 @@ async function openBook(id, newRec) {
     updateProgress(loc);
     if (persistPos) savePosition(id, loc.start.cfi, locationsReady ? curPct : null);
     hideSelFab();
+    syncSplit();
     updateRail();
     setTimeout(autoOpenPageMedia, 60);
   });
   // Перевёрстка (ширина колонки/шрифт) тоже даёт relocated — это не перелистывание, автооткрытие на неё не реагирует.
-  rendition.on('resized', () => { railAutoLock = Date.now() + 2000; });
   await withTimeout(rendition.display(savedCfi || undefined), 30000, 'rendering the page');
   console.log('openBook: page on screen ✓');
   if (savedCfi) { // даём вёрстке устояться и открываем сохранённое место ещё раз — уже точно
@@ -2521,9 +2534,10 @@ window.whereAmI = async function () {
 
 function backToLibrary() {
   stopSelectionPoll();
-  closePanel();
+  closePanel('force');
   toggleToc(false);
   $('reader').classList.remove('open');
+  document.body.classList.remove('split');
   $('library').style.display = 'block';
   renderLibrary();
 }
@@ -2667,7 +2681,7 @@ function toggleChrome() {
   // Живёт снаружи iframe с фиксированной позицией в углу — там же обычно и своя
   // кнопка ✕ открытой панели/TOC, только под ней и не видна. Раз кнопка тут одна,
   // при открытой панели/TOC она должна закрывать их, а не прятать топбар за ними.
-  if ($('panel').classList.contains('open') || $('toc').classList.contains('open')) {
+  if (($('panel').classList.contains('open') && panelOwner !== 'home') || $('toc').classList.contains('open')) {
     closePanel();
     toggleToc(false);
     return;
@@ -2736,10 +2750,9 @@ function getParagraphContext(sel, text) {
 }
 
 function openPanel(wide) {
-  document.body.classList.toggle('panel-wide', !!wide);
-  if (!$('panel').classList.contains('open')) railAutoLock = Date.now() + 1500;
+  const was = $('panel').classList.contains('open');
   $('panel').classList.add('open'); document.body.classList.add('panel-open'); updateRail();
-  setTimeout(() => safeResize(), 320);
+  if (!was) setTimeout(() => safeResize(), 320); // ширина колонки меняется только при открытии, не при смене содержимого
 }
 /* Единая точка входа для перезаписи #panel-body — сбрасывает скролл (иначе новое
    содержимое могло открыться "домотанным" на старую позицию скролла) и переключает
@@ -2751,18 +2764,24 @@ function setPanelBody(html, isPromo) {
   $('panel').classList.remove('io-view');
   $('panel').classList.remove('note-view');
   $('panel').classList.remove('media-view');
+  $('panel').classList.remove('home-view');
   $('panel').classList.remove('chat-on');
   panelOwner = null; // любое другое содержимое отменяет «владение» панелью интерактивом
   updateRail();
   body.innerHTML = html;
   body.scrollTop = 0;
 }
-function closePanel(auto) {
+/* На десктопе (split) панель не закрывается, а возвращается к плиткам; совсем закрывает только closePanel('force'). */
+function closePanel(mode) {
   hideSelFab();
   panelShowingList = false;
   if (!$('panel').classList.contains('open')) return;
-  if (auto !== true) { const k = shownMediaKey(); if (k) railDismissed = k; } // закрыли вручную — не открывать снова на этой странице
-  railAutoLock = Date.now() + 1500;
+  const k = shownMediaKey(); if (k) railDismissed = k; // закрыли вставку — сама она снова не откроется на этой странице
+  if (mode !== 'force' && isSplit()) {
+    if (translateAbort) translateAbort.abort();
+    if (panelOwner !== 'home') panelHome();
+    return;
+  }
   $('panel').classList.remove('open');
   document.body.classList.remove('panel-open'); updateRail();
   if ($('panel-body').classList.contains('io')) setPanelBody(''); // остановить скрипты интерактива; незавершённая генерация откроется не сама, а меткой
@@ -3124,10 +3143,10 @@ function toggleIllusMenu(force, anchor) {
   menu.innerHTML = `<div class="im-head">Choose an illustration style — you can change it later in Settings.</div>` +
     illusStyleGrid("setIllusStyle('%s'); toggleIllusMenu(false); makeIllustration()");
   const w = Math.min(300, window.innerWidth - 16);
-  if (anchor && anchor.id === 'rail-il') { // плитка в правой колонке — меню слева от неё
+  if (anchor && anchor.id === 'rail-il') { // плитка в панели — меню под ней, не вылезая за правый край
     const r = anchor.getBoundingClientRect();
-    menu.style.top = Math.max(8, Math.min(window.innerHeight - 360, r.top)) + 'px';
-    menu.style.left = Math.max(8, r.left - w - 10) + 'px';
+    menu.style.top = Math.min(window.innerHeight - 360, r.bottom + 6) + 'px';
+    menu.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.right - w)) + 'px';
   } else {
     const r = $('illustrate-btn').getBoundingClientRect();
     menu.style.top = (r.bottom + 6) + 'px';
@@ -3415,6 +3434,7 @@ function syncToolStrip() { // полоса инструментов над те�
   }
   const shown = !!document.querySelector('#page-tools .tool-btn.pro, #page-tools .tool-btn.show');
   if (shown !== toolStripShown) { toolStripShown = shown; setTimeout(() => safeResize(), 60); }
+  if (panelOwner === 'home') panelHome(); // вошли/вышли — обновить подпись «Sign in» в панели
   updateRail();
 }
 async function refreshPro() {
@@ -4034,15 +4054,41 @@ function pageInsertRecs() {
 const TOOL_BTN = { dg: 'diagram-btn', io: 'interactive-btn', il: 'illustrate-btn' };
 let railTimer = null;
 function updateRail() { clearTimeout(railTimer); railTimer = setTimeout(renderRail, 40); }
+/* Десктоп: экран всегда поделён на текст и панель. Режим зависит от устройства (мышь, окно ≥ 1000px), а не от входа. */
+const splitMq = window.matchMedia('(min-width: 1000px) and (hover: hover) and (pointer: fine)');
+function isSplit() { return splitMq.matches && $('reader').classList.contains('open') && !!currentBookId; }
+function syncSplit() {
+  const on = isSplit(), was = document.body.classList.contains('split');
+  document.body.classList.toggle('split', on);
+  if (on && !$('panel').classList.contains('open')) panelHome();
+  if (!on && was && panelOwner === 'home') closePanel('force');
+  if (on !== was) setTimeout(() => safeResize(), 60);
+}
+splitMq.addEventListener('change', syncSplit);
+function panelHomeHtml() {
+  const tile = k => `<button class="rail-tile" id="rail-${k}" onclick="railClick('${k}')"></button>`;
+  const signedIn = !!(sb && isRealUser());
+  return `<div class="ph">
+    <div class="ph-hint">Select a word or a passage in the text — its translation and explanation will open here.</div>
+    <div class="ph-title">This page</div>
+    <div class="ph-tiles">${tile('dg')}${tile('io')}${tile('il')}</div>
+    ${signedIn ? '' : '<div class="ph-note"><a onclick="authClick()">Sign in</a> to create diagrams, games and illustrations.</div>'}
+  </div>`;
+}
+function panelHome() { // панель «по умолчанию»: подсказка и три плитки
+  setPanelBody(panelHomeHtml(), false);
+  panelOwner = 'home';
+  $('panel').classList.add('home-view');
+  openPanel(false);
+  renderRail();
+}
 function renderRail() {
-  const rail = $('page-rail');
-  if (!rail) return;
-  const on = !!(sb && isRealUser() && rendition && currentBookId);
-  rail.classList.toggle('on', on);
-  if (!on) return;
   const recs = pageInsertRecs(), locked = generationBlocked(), open = $('panel').classList.contains('open');
   for (const k of Object.keys(RAIL)) {
-    const r = RAIL[k], rec = recs[k], el = $('rail-' + k), busy = r.busy();
+    const r = RAIL[k], rec = recs[k], busy = r.busy(), tb = $(TOOL_BTN[k]);
+    if (tb) tb.classList.toggle('has', !!rec); // иконка сверху (телефон): тоже открывает готовое
+    const el = $('rail-' + k);
+    if (!el) continue;
     const key = rec ? 'has' : 'empty'; // превью не показываем — готовая вставка страницы сама открывается в панели
     if (el.dataset.key !== key) {
       el.dataset.key = key;
@@ -4051,7 +4097,6 @@ function renderRail() {
     const cur = k === 'io' ? currentInteractive : panelMediaRec;
     const shown = rec && open && panelOwner === r.owner && cur && cur.cfi === rec.cfi;
     el.classList.toggle('has', !!rec);
-    $(TOOL_BTN[k]).classList.toggle('has', !!rec); // иконка сверху (телефон): тоже открывает готовое
     el.classList.toggle('busy', busy);
     el.classList.toggle('locked', !rec && !busy && locked);
     el.classList.toggle('active', !!shown);
@@ -4059,13 +4104,11 @@ function renderRail() {
       : `Create ${k === 'io' ? 'an interactive view' : 'a ' + r.label.toLowerCase()} for this page` + (!rec && locked ? ' — Upgrade to Premium' : '');
   }
 }
-window.addEventListener('resize', updateRail);
-/* Десктоп: если у видимой страницы есть диаграмма, игра или иллюстрация — сразу открываем её в панели (без превью).
-   Не трогаем панель, если в ней что-то другое (перевод, список, генерация). Закрыли вручную — на этой вставке больше
-   не открываем, пока не перелистнут. Открытие/закрытие панели перевёрстывает страницу и даёт свой relocated —
-   его пропускаем (railAutoLock), иначе панель могла бы открываться и закрываться по кругу. */
+/* Десктоп: если у видимой страницы есть диаграмма, игра или иллюстрация — сразу показываем её в панели вместо плиток;
+   на странице без вставок панель возвращается к плиткам. Хайлайт, список и генерацию не трогаем. ✕ на вставке
+   возвращает к плиткам и запоминает её — снова сама не откроется, пока не перелистнут. */
 const MEDIA_VIEWS = ['dg-view', 'io-view', 'il-view'];
-let railDismissed = null, railAutoLock = 0;
+let railDismissed = null;
 function shownMediaKey() {
   if (!$('panel').classList.contains('open') || !MEDIA_VIEWS.includes(panelOwner)) return null;
   const k = panelOwner.slice(0, 2), cur = k === 'io' ? currentInteractive : panelMediaRec;
@@ -4077,13 +4120,10 @@ function openPageMedia(k, rec) {
   else showIllustrationInPanel(rec);
 }
 function autoOpenPageMedia() {
-  // Только на широком экране: на узком панель заметно сужает колонку текста и перевёрстывает страницу.
-  if (!rendition || !currentBookId || window.innerWidth < 1280 || document.documentElement.classList.contains('is-touch')) return;
-  if (Date.now() < railAutoLock) return;
-  const open = $('panel').classList.contains('open');
-  if (open && !MEDIA_VIEWS.includes(panelOwner)) return;
+  if (!rendition || !isSplit()) return;
+  if (panelOwner !== 'home' && !MEDIA_VIEWS.includes(panelOwner)) return;
   const recs = pageInsertRecs(), kinds = ['dg', 'io', 'il'].filter(x => recs[x]);
-  if (!kinds.length) { railDismissed = null; if (open) closePanel(true); return; }
+  if (!kinds.length) { railDismissed = null; if (panelOwner !== 'home') panelHome(); return; }
   const keys = kinds.map(x => x + '|' + recs[x].cfi);
   if (keys.includes(shownMediaKey())) return; // уже показана вставка этой страницы
   if (keys.includes(railDismissed)) return;
@@ -4097,10 +4137,11 @@ function deletePanelItem() { // корзина в шапке панели — у
 }
 function railClick(k) {
   const rec = pageInsertRecs()[k];
+  if (!rec && !(sb && isRealUser())) { authClick(); return; }
   if (rec) { openPageMedia(k, rec); return; }
   if (k === 'dg') makeDiagram();
   else if (k === 'io') makeInteractive();
-  else illustrateClick($('rail-il').offsetWidth ? $('rail-il') : undefined); // меню стилей — у плитки или под иконкой сверху
+  else illustrateClick($('rail-il') && $('rail-il').offsetWidth ? $('rail-il') : undefined); // меню стилей — под плиткой или под иконкой сверху
 }
 function showDiagramInPanel(d) {
   panelShowingList = false;
