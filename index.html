@@ -252,6 +252,22 @@
   }
   #float-back-btn:hover { color: var(--text); }
   #reader.chrome-hidden #float-back-btn { display: flex; }
+  /* Десктоп (split): панель сворачивает своя кнопка в шапке; свёрнутую — открывает круглая кнопка под стрелкой меню.
+     Меню (топбар, шрифт, нижняя полоса) заканчивается у левого края панели, а не уходит под неё. */
+  #panel-collapse-btn, #panel-expand-btn { display: none; }
+  body.split #panel-collapse-btn { display: inline-flex; }
+  body.split .panel-head { padding-right: 62px; } /* справа сверху — стрелка меню */
+  #panel-expand-btn {
+    position: fixed; top: calc(58px + env(safe-area-inset-top, 0px)); right: 12px;
+    width: 38px; height: 38px; border-radius: 50%; border: none; cursor: pointer; padding: 0;
+    background: var(--surface); color: var(--muted); z-index: 220; align-items: center; justify-content: center;
+  }
+  #panel-expand-btn:hover { color: var(--text); }
+  body.split:not(.panel-open) #panel-expand-btn { display: flex; }
+  body.split.panel-open #topbar { right: var(--panel-w); } /* нижняя полоса и так внутри колонки текста */
+  body.split.panel-open #topbar { padding-right: 12px; }
+  body.split.panel-open #font-controls { right: calc(var(--panel-w) + 12px); }
+  body.split:not(.panel-open) #font-controls { right: 58px; }
   /* Диаграмма и интерактив страницы (Premium) — простые иконки НАД текстом книги (не в меню и без кружков).
      Полоса резервирует место над текстом только когда кнопки показаны (всем вошедшим; без Premium — приглушены, клик открывает пейволл). Иконки по центру страницы. */
   #page-tools {
@@ -368,9 +384,6 @@
   .io-elapsed { margin-top: 8px; font-variant-numeric: tabular-nums; color: var(--muted); }
   .io-note { margin-top: 16px; font-size: 13px; color: var(--muted); }
   #reader.chrome-hidden #chrome-toggle-btn svg { transform: rotate(180deg); }
-  /* Десктоп: эта кнопка сворачивает панель — стрелка вправо (свернуть), при свёрнутой — влево (развернуть) */
-  body.split.panel-open #chrome-toggle-btn svg { transform: rotate(-90deg) !important; }
-  body.split:not(.panel-open) #chrome-toggle-btn svg { transform: rotate(90deg) !important; }
 
   /* Кнопки размера шрифта — справа под топбаром, видны только когда открыто меню
      (топбар показан); в chrome-hidden прячутся вместе с ним. */
@@ -779,6 +792,7 @@
   <button id="chrome-toggle-btn" onclick="toggleChrome()" title="Show/hide menu" aria-label="Show/hide menu">
     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
   </button>
+  <button id="panel-expand-btn" onclick="togglePanelCollapsed()" title="Show panel" aria-label="Show panel"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/><path d="m11 10-2 2 2 2"/></svg></button>
   <button id="float-back-btn" onclick="backToLibrary()" title="Back to library" aria-label="Back to library">
     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
   </button>
@@ -850,6 +864,7 @@
       <svg viewBox="0 0 24 24"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.7a2 2 0 0 0-2 1.7l-1.4 9a2 2 0 0 0 2 2.3z"/><path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg>
     </button>
     <button id="panel-close-btn" class="icon-btn" onclick="closePanel()" aria-label="Close">✕</button>
+    <button id="panel-collapse-btn" class="icon-btn" onclick="togglePanelCollapsed()" title="Hide panel" aria-label="Hide panel"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/><path d="m8 10 2 2-2 2"/></svg></button>
   </div>
   <div id="panel-scroll"><!-- одна прокрутка на всю панель: визуал и хайлайт листаются вместе -->
     <div id="panel-visual"></div>
@@ -2705,13 +2720,16 @@ function stopSelectionPoll() {
    #chrome-toggle-btn — реальная кнопка снаружи iframe, не зависит от ненадёжных
    touch-событий внутри контента на iOS Safari. */
 function setChromeHidden(hidden) { $('reader').classList.toggle('chrome-hidden', hidden); }
-let panelCollapsed = false; // десктоп: панель свёрнута кнопкой-стрелкой в углу
+let panelCollapsed = false; // десктоп: панель свёрнута своей кнопкой (в шапке панели / справа на краю)
+function togglePanelCollapsed() {
+  if ($('panel').classList.contains('open')) { panelCollapsed = true; closePanel('force'); }
+  else { panelCollapsed = false; panelHome(); vzTiles(); setTimeout(autoOpenPageMedia, 60); }
+}
 function toggleChrome() {
-  // Десктоп (split): кнопка в углу сворачивает и разворачивает панель.
+  // Десктоп (split): стрелка в углу — только меню (название, шрифт, главы); панель сворачивает своя кнопка в шапке.
   if (isSplit()) {
     if ($('toc').classList.contains('open')) { toggleToc(false); return; }
-    if ($('panel').classList.contains('open')) { panelCollapsed = true; closePanel('force'); }
-    else { panelCollapsed = false; panelHome(); vzTiles(); setTimeout(autoOpenPageMedia, 60); }
+    setChromeHidden(!$('reader').classList.contains('chrome-hidden'));
     return;
   }
   // Живёт снаружи iframe с фиксированной позицией в углу — там же обычно и своя
