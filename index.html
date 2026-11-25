@@ -346,7 +346,12 @@
   @media (min-width: 901px) { :root { --panel-w: clamp(400px, 38vw, 600px); } }
   #panel-body.io { padding: 0; display: flex; flex-direction: column; overflow: hidden; }
   #io-dislike-btn, #io-delete-btn, #note-delete-btn { display: none; }
-  #panel.note-view #note-delete-btn { display: inline-flex; }
+  /* «Удалить хайлайт» — под текстом перевода, а не в шапке панели */
+  .note-del-row { display: flex; justify-content: flex-end; margin-top: 6px; }
+  .note-del { display: none; width: 30px; height: 30px; padding: 0; border: none; border-radius: 50%; background: transparent; color: var(--muted); cursor: pointer; align-items: center; justify-content: center; }
+  .note-del:hover { color: var(--text); background: var(--surface-2); }
+  .note-del svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  #panel.note-view .note-del { display: inline-flex; }
   #illus-zone { margin-top: 12px; }
   #prompt-btn { margin-right: auto; } /* Reading focus — слева в шапке панели */
   .io-tools { flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 10px;
@@ -363,6 +368,9 @@
   .io-elapsed { margin-top: 8px; font-variant-numeric: tabular-nums; color: var(--muted); }
   .io-note { margin-top: 16px; font-size: 13px; color: var(--muted); }
   #reader.chrome-hidden #chrome-toggle-btn svg { transform: rotate(180deg); }
+  /* Десктоп: эта кнопка сворачивает панель — стрелка вправо (свернуть), при свёрнутой — влево (развернуть) */
+  body.split.panel-open #chrome-toggle-btn svg { transform: rotate(-90deg) !important; }
+  body.split:not(.panel-open) #chrome-toggle-btn svg { transform: rotate(90deg) !important; }
 
   /* Кнопки размера шрифта — справа под топбаром, видны только когда открыто меню
      (топбар показан); в chrome-hidden прячутся вместе с ним. */
@@ -1035,7 +1043,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.137</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.138</div>
   </div>
 </div>
 
@@ -1141,7 +1149,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.137'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.138'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -2697,7 +2705,15 @@ function stopSelectionPoll() {
    #chrome-toggle-btn — реальная кнопка снаружи iframe, не зависит от ненадёжных
    touch-событий внутри контента на iOS Safari. */
 function setChromeHidden(hidden) { $('reader').classList.toggle('chrome-hidden', hidden); }
+let panelCollapsed = false; // десктоп: панель свёрнута кнопкой-стрелкой в углу
 function toggleChrome() {
+  // Десктоп (split): кнопка в углу сворачивает и разворачивает панель.
+  if (isSplit()) {
+    if ($('toc').classList.contains('open')) { toggleToc(false); return; }
+    if ($('panel').classList.contains('open')) { panelCollapsed = true; closePanel('force'); }
+    else { panelCollapsed = false; panelHome(); vzTiles(); setTimeout(autoOpenPageMedia, 60); }
+    return;
+  }
   // Живёт снаружи iframe с фиксированной позицией в углу — там же обычно и своя
   // кнопка ✕ открытой панели/TOC, только под ней и не видна. Раз кнопка тут одна,
   // при открытой панели/TOC она должна закрывать их, а не прятать топбар за ними.
@@ -2771,6 +2787,7 @@ function getParagraphContext(sel, text) {
 
 function openPanel(wide) {
   const was = $('panel').classList.contains('open');
+  if (isSplit()) { panelCollapsed = false; if (!vzOwner) vzTiles(); } // свёрнутую панель открыл хайлайт — визуал страницы снова сверху
   $('panel').classList.add('open'); document.body.classList.add('panel-open'); updateRail();
   if (!was) setTimeout(() => safeResize(), 320); // ширина колонки меняется только при открытии, не при смене содержимого
 }
@@ -2882,6 +2899,7 @@ async function startLookup(text, para, cfiRange) {
     <div class="sel-quote">${esc(text)}</div>
     <div class="p-section-title">${esc(settings.lang)}</div>
     <div id="trans-out" class="pending"><span class="spinner"></span>Translating…</div>
+    <div class="note-del-row"><button class="note-del" onclick="deleteCurrentNote()" title="Delete highlight" aria-label="Delete highlight">${ICON_TRASH}</button></div>
     ${illusSectionHtml(note)}
     ${chatSectionHtml(note || {})}`, false);
   openPanel();
@@ -2908,7 +2926,7 @@ let chatCtx = null, chatBusy = false;
 const MAX_CHAT_STORED = 60, MAX_CHAT_SENT = 24;
 function setChatContext(note, text, para) {
   chatCtx = { note, text, para };
-  $('panel').classList.toggle('note-view', !!(note && note.id && !note.demo)); // показывает «удалить» в шапке панели
+  $('panel').classList.toggle('note-view', !!(note && note.id && !note.demo)); // показывает «удалить» под переводом
   $('panel').classList.toggle('chat-on', !(note && note.demo)); // поле «Ask more» внизу панели
 }
 function deleteCurrentNote() {
@@ -4092,7 +4110,7 @@ function isSplit() { return splitMq.matches && $('reader').classList.contains('o
 function syncSplit() {
   const on = isSplit(), was = document.body.classList.contains('split');
   document.body.classList.toggle('split', on);
-  if (on && !$('panel').classList.contains('open')) { panelHome(); vzTiles(); }
+  if (on && !$('panel').classList.contains('open') && !panelCollapsed) { panelHome(); vzTiles(); }
   if (!on && was) closePanel('force');
   if (on !== was) setTimeout(() => safeResize(), 60);
 }
@@ -4178,7 +4196,7 @@ function openPageMedia(k, rec) {
   else showIllustrationInPanel(rec);
 }
 function autoOpenPageMedia() {
-  if (!rendition || !isSplit()) return;
+  if (!rendition || !isSplit() || panelCollapsed || !$('panel').classList.contains('open')) return; // свёрнутую панель сама не разворачиваем
   if (vzOwner && vzOwner !== 'tiles' && vzOwner !== 'error' && !MEDIA_VIEWS.includes(vzOwner)) return; // идёт генерация игры
   const recs = pageInsertRecs(), kinds = ['dg', 'io', 'il'].filter(x => recs[x]);
   if (!kinds.length) { railDismissed = null; if (vzOwner !== 'tiles') vzTiles(); return; }
@@ -4459,6 +4477,7 @@ function showNote(id, fromMark) {
     ${fromMark ? `<div class="note-meta">${note.demo ? 'preview highlight · picked by the Reymont team' : 'saved ' + new Date(note.created).toLocaleDateString()}</div>` : ''}
     <div class="p-section-title">${esc(note.lang || 'Translation')}</div>
     <div id="trans-out">${esc(note.translation || '') || '<i>no translation</i>'}</div>
+    <div class="note-del-row"><button class="note-del" onclick="deleteCurrentNote()" title="Delete highlight" aria-label="Delete highlight">${ICON_TRASH}</button></div>
     ${illusSectionHtml(note)}
     ${note.demo || note.translation ? '' : `<div class="note-actions">
       <button class="btn" onclick="refreshNote('${note.id}')">${ICON_REFRESH}Ask again</button>
