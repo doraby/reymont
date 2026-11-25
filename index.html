@@ -282,9 +282,23 @@
   body.split #page-tools, body.split #hint { display: none !important; }
   body.split #viewer { top: 12px !important; }
   #panel.home-view #panel-close-btn { display: none; }
-  .ph { padding: 8px 0 24px; }
-  .ph-hint { font-size: 15px; line-height: 1.55; color: var(--muted); padding: 4px 2px 22px; border-bottom: 1px solid var(--border); }
-  .ph-title { margin: 20px 2px 12px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  /* Панель из двух зон: сверху визуал страницы (плитки или готовая диаграмма/игра/иллюстрация), снизу хайлайт
+     (подсказка про выделение или содержимое хайлайта). */
+  #panel-visual { display: none; flex: none; border-bottom: 1px solid var(--border); }
+  #panel.vz-on #panel-visual { display: flex; flex-direction: column; }
+  #panel-visual.tiles { padding: 4px 22px 18px; }
+  .vz-bar { flex: none; display: flex; align-items: center; gap: 6px; padding: 4px 16px 8px 22px; }
+  .vz-bar .vz-label { margin-right: auto; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .vz-bar .btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; font-size: 13px; }
+  #panel-visual .pv-media { max-height: 48vh; }
+  #panel-visual .io-loading { margin: 0 auto; padding: 16px 22px 20px; }
+  #panel-visual .p-error { margin: 4px 22px 16px; }
+  #panel-visual #interactive-frame { flex: none; height: 56vh; }
+  body:not(.split) #panel-visual .pv-media { max-height: none; }
+  body:not(.split) #panel-visual #interactive-frame { height: calc(100dvh - 130px); }
+  .ph { padding: 4px 0 24px; }
+  .ph-hint { font-size: 15px; line-height: 1.55; color: var(--muted); padding: 16px 2px; }
+  .ph-title { margin: 6px 0 10px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
   .ph-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
   .ph-tiles .rail-tile { height: auto; aspect-ratio: 1 / 1.15; }
   .ph-note { margin-top: 14px; font-size: 13px; color: var(--muted); }
@@ -332,7 +346,6 @@
   #panel.note-view #note-delete-btn { display: inline-flex; }
   #illus-zone { margin-top: 12px; }
   #prompt-btn { margin-right: auto; } /* Reading focus — слева в шапке панели */
-  #panel.io-view #io-dislike-btn, #panel.io-view #io-delete-btn, #panel.media-view #io-delete-btn { display: inline-flex; }
   .io-tools { flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 10px;
     padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--surface); }
   .io-notice { flex: none; padding: 10px 16px; font-size: 13.5px; background: #FFF4DC; color: #7A5B14; border-bottom: 1px solid #EBD9A8; }
@@ -826,6 +839,7 @@
     </button>
     <button id="panel-close-btn" class="icon-btn" onclick="closePanel()" aria-label="Close">✕</button>
   </div>
+  <div id="panel-visual"></div>
   <div id="panel-body"></div>
   <div id="chat-dock">
     <form class="chat-box" onsubmit="return sendChat(event)">
@@ -1015,7 +1029,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.133</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.134</div>
   </div>
 </div>
 
@@ -1121,7 +1135,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.133'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.134'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -2767,6 +2781,7 @@ function setPanelBody(html, isPromo) {
   $('panel').classList.remove('home-view');
   $('panel').classList.remove('chat-on');
   panelOwner = null; // любое другое содержимое отменяет «владение» панелью интерактивом
+  if (html && !isSplit()) vzHide(); // телефон: панель показывает что-то одно — хайлайт вытесняет визуал
   updateRail();
   body.innerHTML = html;
   body.scrollTop = 0;
@@ -2776,12 +2791,13 @@ function closePanel(mode) {
   hideSelFab();
   panelShowingList = false;
   if (!$('panel').classList.contains('open')) return;
-  const k = shownMediaKey(); if (k) railDismissed = k; // закрыли вставку — сама она снова не откроется на этой странице
-  if (mode !== 'force' && isSplit()) {
+  if (mode !== 'force' && isSplit()) { // ✕ хайлайта: визуал наверху остаётся, внизу — снова подсказка
     if (translateAbort) translateAbort.abort();
     if (panelOwner !== 'home') panelHome();
     return;
   }
+  const k = shownMediaKey(); if (k) railDismissed = k;
+  vzHide(); // остановить скрипты игры
   $('panel').classList.remove('open');
   document.body.classList.remove('panel-open'); updateRail();
   if ($('panel-body').classList.contains('io')) setPanelBody(''); // остановить скрипты интерактива; незавершённая генерация откроется не сама, а меткой
@@ -3434,7 +3450,7 @@ function syncToolStrip() { // полоса инструментов над те�
   }
   const shown = !!document.querySelector('#page-tools .tool-btn.pro, #page-tools .tool-btn.show');
   if (shown !== toolStripShown) { toolStripShown = shown; setTimeout(() => safeResize(), 60); }
-  if (panelOwner === 'home') panelHome(); // вошли/вышли — обновить подпись «Sign in» в панели
+  if (vzOwner === 'tiles') vzTiles(); // вошли/вышли — обновить подпись «Sign in» под плитками
   updateRail();
 }
 async function refreshPro() {
@@ -3635,7 +3651,7 @@ function deleteDiagram(d) {
   cloudDeleteSide(SIDE.dg, currentBookId, d.cfi);
   try { rendition.getContents().forEach(c => c.document.querySelectorAll(`[data-reymont-diagram="${CSS.escape(d.cfi)}"]`).forEach(n => n.remove())); refreshAllHighlights(); } catch (e) { console.warn('deleteDiagram (page):', e.message); }
   if ($('diagram-fs').classList.contains('open')) closeDiagramFs();
-  if (panelOwner === 'dg-view' && panelMediaRec && panelMediaRec.cfi === d.cfi) closePanel();
+  if (vzOwner === 'dg-view' && panelMediaRec && panelMediaRec.cfi === d.cfi) vzAfterDelete();
   renderNotesList(); updateRail();
   toast('Diagram deleted');
 }
@@ -3850,15 +3866,10 @@ window.addEventListener('message', e => {
 });
 function showInteractiveInPanel(rec, notice) {
   currentInteractive = rec;
-  panelShowingList = false;
-  setPanelBody(`${notice ? `<div class="io-notice">${esc(notice)}</div>` : ''}
-    <iframe id="interactive-frame" sandbox="allow-scripts" title="Interactive view"></iframe>`, false);
-  $('panel-body').classList.add('io');
-  $('panel').classList.add('io-view'); // показывает 👎 в шапке панели
+  vzShow('io-view', vzBar('Game', `<button class="btn" onclick="openFeedback()" title="Don’t like it — tell the AI what to improve">👎 Improve</button>`)
+    + `${notice ? `<div class="io-notice">${esc(notice)}</div>` : ''}<iframe id="interactive-frame" sandbox="allow-scripts" title="Interactive view"></iframe>`);
   const frame = $('interactive-frame');
   loadD3Src().then(lib => { if (frame.isConnected) frame.srcdoc = withCsp(rec.snap ? rec.html : withSnapshotScript(rec.html), lib); });
-  panelOwner = 'io-view';
-  openPanel(true);
 }
 function deleteInteractive() {
   const rec = currentInteractive;
@@ -3872,7 +3883,7 @@ function deleteInteractive() {
     rendition.getContents().forEach(c => c.document.querySelectorAll(`[data-reymont-interactive="${CSS.escape(rec.cfi)}"]`).forEach(n => n.remove()));
     refreshAllHighlights();
   } catch (e) { console.warn('deleteInteractive (page):', e.message); }
-  closePanel(); updateRail();
+  vzAfterDelete();
   toast('Interactive view deleted');
 }
 function openFeedback() { $('in-fb').value = ''; $('fb-overlay').classList.add('open'); }
@@ -3917,7 +3928,7 @@ function deletePageIllustration(rec) {
   writeIllustrations(currentBookId, loadIllustrations(currentBookId).filter(x => x.cfi !== rec.cfi));
   cloudDeleteSide(SIDE.il, currentBookId, rec.cfi);
   try { rendition.getContents().forEach(c => c.document.querySelectorAll(`[data-reymont-pgillus="${CSS.escape(rec.cfi)}"]`).forEach(n => n.remove())); refreshAllHighlights(); } catch (e) { console.warn('deletePageIllustration (page):', e.message); }
-  if (panelOwner === 'il-view' && panelMediaRec && panelMediaRec.cfi === rec.cfi) closePanel();
+  if (vzOwner === 'il-view' && panelMediaRec && panelMediaRec.cfi === rec.cfi) vzAfterDelete();
   renderNotesList(); updateRail();
   toast('Illustration deleted');
 }
@@ -4060,27 +4071,53 @@ function isSplit() { return splitMq.matches && $('reader').classList.contains('o
 function syncSplit() {
   const on = isSplit(), was = document.body.classList.contains('split');
   document.body.classList.toggle('split', on);
-  if (on && !$('panel').classList.contains('open')) panelHome();
-  if (!on && was && panelOwner === 'home') closePanel('force');
+  if (on && !$('panel').classList.contains('open')) { panelHome(); vzTiles(); }
+  if (!on && was) closePanel('force');
   if (on !== was) setTimeout(() => safeResize(), 60);
 }
 splitMq.addEventListener('change', syncSplit);
-function panelHomeHtml() {
+/* ── Зона визуала (верх панели) ── */
+let vzOwner = null; // 'tiles' | 'dg-view' | 'il-view' | 'io-view' | 'io-loading-…' | 'error' | null
+function vzSet(html, owner) {
+  const z = $('panel-visual');
+  z.innerHTML = html; z.className = owner.startsWith('io-loading') ? 'loading' : owner;
+  vzOwner = owner;
+  $('panel').classList.add('vz-on');
+  updateRail();
+}
+function vzHide() { vzOwner = null; const z = $('panel-visual'); if (z) { z.innerHTML = ''; z.className = ''; } $('panel').classList.remove('vz-on'); }
+function vzBar(label, extra) {
+  return `<div class="vz-bar"><span class="vz-label">${label}</span>${extra || ''}`
+    + `<button class="btn" onclick="deletePanelItem()" title="Delete" aria-label="Delete">${ICON_TRASH}</button>`
+    + `<button class="btn" onclick="vzClose()" title="Close" aria-label="Close">✕</button></div>`;
+}
+function vzShow(owner, html) { // показать визуал; на телефоне панель отдаётся ему целиком
+  panelShowingList = false;
+  if (!isSplit()) setPanelBody('', false);
+  vzSet(html, owner);
+  openPanel(false);
+}
+function vzTilesHtml() {
   const tile = k => `<button class="rail-tile" id="rail-${k}" onclick="railClick('${k}')"></button>`;
   const signedIn = !!(sb && isRealUser());
-  return `<div class="ph">
-    <div class="ph-hint">Select a word or a passage in the text — its translation and explanation will open here.</div>
-    <div class="ph-title">This page</div>
-    <div class="ph-tiles">${tile('dg')}${tile('io')}${tile('il')}</div>
-    ${signedIn ? '' : '<div class="ph-note"><a onclick="authClick()">Sign in</a> to create diagrams, games and illustrations.</div>'}
-  </div>`;
+  return `<div class="ph-title">This page</div><div class="ph-tiles">${tile('dg')}${tile('io')}${tile('il')}</div>
+    ${signedIn ? '' : '<div class="ph-note"><a onclick="authClick()">Sign in</a> to create diagrams, games and illustrations.</div>'}`;
 }
-function panelHome() { // панель «по умолчанию»: подсказка и три плитки
+function vzTiles() { vzSet(vzTilesHtml(), 'tiles'); renderRail(); }
+function vzClose() { // ✕ визуала: на десктопе — назад к плиткам (и сама эта вставка больше не откроется на странице)
+  const k = shownMediaKey(); if (k) railDismissed = k;
+  if (isSplit()) vzTiles();
+  else closePanel('force');
+}
+function vzAfterDelete() { if (isSplit()) vzTiles(); else closePanel('force'); updateRail(); }
+function panelHomeHtml() {
+  return `<div class="ph"><div class="ph-hint">Select a word or a passage in the text — its translation and explanation will open here.</div></div>`;
+}
+function panelHome() { // низ панели «по умолчанию» — подсказка про выделение
   setPanelBody(panelHomeHtml(), false);
   panelOwner = 'home';
   $('panel').classList.add('home-view');
   openPanel(false);
-  renderRail();
 }
 function renderRail() {
   const recs = pageInsertRecs(), locked = generationBlocked(), open = $('panel').classList.contains('open');
@@ -4095,7 +4132,7 @@ function renderRail() {
       el.innerHTML = `<div class="rt-art">${artSvg(k, '100%', 1.1)}</div><div class="rt-label">${r.label}${rec ? '' : ' <b>+</b>'}</div>`;
     }
     const cur = k === 'io' ? currentInteractive : panelMediaRec;
-    const shown = rec && open && panelOwner === r.owner && cur && cur.cfi === rec.cfi;
+    const shown = rec && open && vzOwner === r.owner && cur && cur.cfi === rec.cfi;
     el.classList.toggle('has', !!rec);
     el.classList.toggle('busy', busy);
     el.classList.toggle('locked', !rec && !busy && locked);
@@ -4110,8 +4147,8 @@ function renderRail() {
 const MEDIA_VIEWS = ['dg-view', 'io-view', 'il-view'];
 let railDismissed = null;
 function shownMediaKey() {
-  if (!$('panel').classList.contains('open') || !MEDIA_VIEWS.includes(panelOwner)) return null;
-  const k = panelOwner.slice(0, 2), cur = k === 'io' ? currentInteractive : panelMediaRec;
+  if (!$('panel').classList.contains('open') || !MEDIA_VIEWS.includes(vzOwner)) return null;
+  const k = vzOwner.slice(0, 2), cur = k === 'io' ? currentInteractive : panelMediaRec;
   return cur ? k + '|' + cur.cfi : null;
 }
 function openPageMedia(k, rec) {
@@ -4121,18 +4158,18 @@ function openPageMedia(k, rec) {
 }
 function autoOpenPageMedia() {
   if (!rendition || !isSplit()) return;
-  if (panelOwner !== 'home' && !MEDIA_VIEWS.includes(panelOwner)) return;
+  if (vzOwner && vzOwner !== 'tiles' && vzOwner !== 'error' && !MEDIA_VIEWS.includes(vzOwner)) return; // идёт генерация игры
   const recs = pageInsertRecs(), kinds = ['dg', 'io', 'il'].filter(x => recs[x]);
-  if (!kinds.length) { railDismissed = null; if (panelOwner !== 'home') panelHome(); return; }
+  if (!kinds.length) { railDismissed = null; if (vzOwner !== 'tiles') vzTiles(); return; }
   const keys = kinds.map(x => x + '|' + recs[x].cfi);
   if (keys.includes(shownMediaKey())) return; // уже показана вставка этой страницы
-  if (keys.includes(railDismissed)) return;
+  if (keys.includes(railDismissed)) { if (vzOwner !== 'tiles') vzTiles(); return; }
   railDismissed = null;
   openPageMedia(kinds[0], recs[kinds[0]]);
 }
-function deletePanelItem() { // корзина в шапке панели — удаляет то, что сейчас открыто
-  if (panelOwner === 'dg-view') deleteDiagram(panelMediaRec);
-  else if (panelOwner === 'il-view') deletePageIllustration(panelMediaRec);
+function deletePanelItem() { // корзина в полосе визуала — удаляет то, что сейчас показано
+  if (vzOwner === 'dg-view') deleteDiagram(panelMediaRec);
+  else if (vzOwner === 'il-view') deletePageIllustration(panelMediaRec);
   else deleteInteractive();
 }
 function railClick(k) {
@@ -4144,29 +4181,17 @@ function railClick(k) {
   else illustrateClick($('rail-il') && $('rail-il').offsetWidth ? $('rail-il') : undefined); // меню стилей — под плиткой или под иконкой сверху
 }
 function showDiagramInPanel(d) {
-  panelShowingList = false;
-  setPanelBody(`<div class="io-tools">
-      <button class="btn" onclick="makeDiagram()">${ICON_REFRESH}Redraw</button>
-      <button class="btn" onclick="panelMediaRec && openDiagramFs(panelMediaRec.svg, panelMediaRec)">⤢ Fullscreen</button>
-    </div>
-    <div class="pv-media">${d.svg}</div>`, false);
-  $('panel-body').classList.add('io');
-  const svg = $('panel-body').querySelector('.pv-media svg'); // Mermaid задаёт естественную ширину — растягиваем на всю панель
+  panelMediaRec = d;
+  vzShow('dg-view', vzBar('Diagram', `<button class="btn" onclick="makeDiagram()" title="Redraw">${ICON_REFRESH}</button>`
+      + `<button class="btn" onclick="panelMediaRec && openDiagramFs(panelMediaRec.svg, panelMediaRec)" title="Fullscreen">⤢</button>`)
+    + `<div class="pv-media">${d.svg}</div>`);
+  const svg = $('panel-visual').querySelector('.pv-media svg'); // Mermaid задаёт естественную ширину — растягиваем на всю панель
   if (svg) { svg.style.maxWidth = '100%'; svg.setAttribute('width', '100%'); svg.removeAttribute('height'); }
-  $('panel').classList.add('media-view'); // «удалить» — в шапке панели, как у хайлайта
-  panelOwner = 'dg-view'; panelMediaRec = d;
-  openPanel(true);
 }
 function showIllustrationInPanel(rec) {
-  panelShowingList = false;
-  setPanelBody(`<div class="io-tools">
-      <button class="btn" onclick="makeIllustration()">${ICON_REFRESH}Repaint</button>
-    </div>
-    <div class="pv-media"><img src="${esc(rec.url)}" alt=""></div>`, false);
-  $('panel-body').classList.add('io');
-  $('panel').classList.add('media-view');
-  panelOwner = 'il-view'; panelMediaRec = rec;
-  openPanel(false);
+  panelMediaRec = rec;
+  vzShow('il-view', vzBar('Illustration', `<button class="btn" onclick="makeIllustration()" title="Repaint">${ICON_REFRESH}</button>`)
+    + `<div class="pv-media"><img src="${esc(rec.url)}" alt=""></div>`);
 }
 function interactiveElapsed() { return Math.round((Date.now() - interactiveStartedAt) / 1000); }
 function tickInteractive() {
@@ -4202,24 +4227,22 @@ async function buildInteractive(action, cfi, text, prevRec, feedback) {
   const bookId = currentBookId;
   const improving = action === 'diagram_html_improve';
   setInteractiveBusy(true);
-  setPanelBody(`<div class="io-loading">
+  const token = 'io-loading-' + Date.now();
+  vzShow(token, `<div class="io-loading">
       <div class="spinner"></div>
       <div class="io-title">${improving ? 'Improving the interactive view' : 'Building an interactive view'}</div>
       <div id="io-stage" class="io-stage">Reading the page…</div>
       <div class="io-bar"><i id="io-bar-fill"></i></div>
       <div id="io-elapsed" class="io-elapsed">0 s</div>
       <div class="io-note">Usually takes 20–60 seconds. You can keep reading — the view will open here when ready.</div>
-    </div>`, false);
-  $('panel-body').classList.add('io');
-  const token = panelOwner = 'io-loading-' + Date.now();
-  openPanel(true);
+    </div>`);
   try {
     const payload = { action, text, lang: settings.lang, title: currentMeta.title || '', author: currentMeta.author || '' };
     if (improving) { payload.html = prevRec.html; payload.feedback = feedback; }
     console.log(`[interactive] ${action} → page ${text.length} chars` + (improving ? `, current code ${prevRec.html.length} chars, feedback ${JSON.stringify(feedback)}` : ''));
     const res = await aiProxy(payload, null, 170000); // Claude с длинным ответом может думать дольше минуты
-    if (res.status === 402) { freeUsed = freeLimit; syncToolStrip(); closePanel(); showPaywall('generations'); return; }
-    if (res.status === 403) { closePanel(); toast('Sign in with email to generate diagrams'); return; }
+    if (res.status === 402) { freeUsed = freeLimit; syncToolStrip(); if (vzOwner === token) vzAfterDelete(); showPaywall('generations'); return; }
+    if (res.status === 403) { if (vzOwner === token) vzAfterDelete(); toast('Sign in with email to generate diagrams'); return; }
     if (!res.ok) {
       let m = 'HTTP ' + res.status; try { m = (await res.json()).error.message; } catch (e) {}
       console.error(`[interactive] ${action} failed: HTTP ${res.status} — ${m}`);
@@ -4237,14 +4260,14 @@ async function buildInteractive(action, cfi, text, prevRec, feedback) {
       const contents = rendition.getContents()[0];
       if (contents) { placeInteractiveLabel(contents, rec); refreshAllHighlights(); }
     }
-    if (panelOwner === token) showInteractiveInPanel(rec, same ? 'The AI returned the same code — try describing the problem more specifically.' : '');
+    if (vzOwner === token) showInteractiveInPanel(rec, same ? 'The AI returned the same code — try describing the problem more specifically.' : '');
     else toast('Interactive view is ready — open it from the page');
   } catch (e) {
     console.warn('buildInteractive:', e);
     const msg = (improving ? 'Could not improve the interactive view: ' : 'Could not build the interactive view: ') + (e.message || e).toString().slice(0, 140);
-    if (panelOwner === token) {
+    if (vzOwner === token) {
       if (prevRec) showInteractiveInPanel(prevRec, msg); // не теряем прежний вид, ошибку оставляем в панели
-      else { setPanelBody(`<div class="p-error" style="margin:24px 22px">${esc(msg)}</div>`, false); panelOwner = null; }
+      else vzSet(`<div class="vz-bar"><span class="vz-label">Game</span><button class="btn" onclick="vzClose()" aria-label="Close">✕</button></div><div class="p-error">${esc(msg)}</div>`, 'error');
     }
     toast(msg);
   } finally { setInteractiveBusy(false); }
