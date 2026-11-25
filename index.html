@@ -273,7 +273,8 @@
   body.panel-resizing, body.panel-resizing * { cursor: col-resize !important; user-select: none; }
   body.panel-resizing #reading-col, body.panel-resizing #panel { transition: none; }
   body.split.panel-open #topbar { right: var(--panel-w); } /* нижняя полоса и так внутри колонки текста */
-  body.split.panel-open #topbar { padding-right: 12px; }
+  /* Стрелка меню — снаружи панели, в правом верхнем углу колонки текста */
+  body.split.panel-open #chrome-toggle-btn { right: calc(var(--panel-w) + 12px); }
   body.split.panel-open #font-controls { right: calc(var(--panel-w) + 12px); }
   body.split:not(.panel-open) #font-controls { right: 58px; }
   /* Диаграмма и интерактив страницы (Premium) — простые иконки НАД текстом книги (не в меню и без кружков).
@@ -1070,7 +1071,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.144</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.145</div>
   </div>
 </div>
 
@@ -1176,7 +1177,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.144'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.145'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -4286,7 +4287,7 @@ function showDiagramInPanel(d) {
 function showIllustrationInPanel(rec) {
   panelMediaRec = rec;
   vzShow('il-view', `<div class="pv-media"><img src="${esc(rec.url)}" alt=""></div>`
-    + vzBar(`<button class="btn" onclick="makeIllustration()" title="Repaint">${ICON_REFRESH}Repaint</button>`));
+    + vzBar(`<button class="btn" onclick="makeIllustration()" title="Repaint" aria-label="Repaint">${ICON_REFRESH}</button>`));
 }
 function interactiveElapsed() { return Math.round((Date.now() - interactiveStartedAt) / 1000); }
 function tickInteractive() {
