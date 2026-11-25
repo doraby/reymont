@@ -174,6 +174,34 @@ Deno.serve(async (req) => {
     return json({ ok: true }, 200, cors);
   }
 
+  // Короткое название визуализации страницы (диаграмма, игра, иллюстрация): цитата, действие или персонаж.
+  // Дешёвый текстовый запрос, вне квоты генераций.
+  if (body.action === "title") {
+    const kind = String(body.kind ?? "visual").slice(0, 30);
+    const text = String(body.text ?? "").slice(0, 3000);
+    const lang = String(body.lang ?? "English").slice(0, 30);
+    if (!text.trim()) return err("No text", 400, cors);
+    const sys = `Give a short title, 2 to 6 words, for a ${kind} made from a book passage. ` +
+      `Name the most telling thing in the passage: a short quote, the key action, or the main character. ` +
+      `Write it in ${lang}; a short quote may stay in the original language. ` +
+      `Output ONLY the title: no quotation marks around it, no final period, no explanations.`;
+    const r = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },
+      body: JSON.stringify({
+        model: TEXT_MODEL, reasoning_effort: "low", max_completion_tokens: 1500,
+        messages: [{ role: "system", content: sys }, { role: "user", content: `<passage>${text}</passage>` }],
+      }),
+    });
+    await logOpenAIFailure("title", TEXT_MODEL, r);
+    if (!r.ok) return err("Title failed: " + (await r.text()).slice(0, 300), 502, cors);
+    const j = await r.json();
+    const title = String(j.choices?.[0]?.message?.content ?? "").trim().split("\n")[0]
+      .replace(/^["'«»„“”]+|["'«»„“”.]+$/g, "").trim().slice(0, 80);
+    if (!title) return err("Empty title", 502, cors);
+    return json({ title }, 200, cors);
+  }
+
   // Premium-статус и счётчик бесплатных генераций для клиента; диаграммы/интерактив — в общем лимите.
   if (body.action === "me" || body.action === "diagram" || body.action === "diagram_html" || body.action === "diagram_html_improve") {
     const { data: pro } = await supa.from("pro_users").select("user_id").eq("user_id", user.id).maybeSingle();

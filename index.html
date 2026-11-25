@@ -313,6 +313,7 @@
   #panel.vz-on #panel-visual { display: flex; flex-direction: column; }
   #panel-visual.tiles { padding: 6px 22px 16px; }
   .vz-bar { flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 6px; padding: 8px 16px 12px 22px; }
+  .vz-title { margin-right: auto; min-width: 0; font-style: italic; font-size: 14.5px; line-height: 1.35; color: var(--text); }
   .vz-bar .btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; font-size: 13px; }
   #panel-visual .pv-media { overflow: visible; } /* без своей прокрутки — панель листается целиком */
   #panel-visual .pv-media img { max-height: 75vh; width: auto; } /* вертикальная иллюстрация видна целиком */
@@ -1071,7 +1072,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.145</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.146</div>
   </div>
 </div>
 
@@ -1177,7 +1178,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.145'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.146'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -3835,7 +3836,7 @@ const SIDE = {
 function sideToRow(k, bookId, rec) {
   const t = rec.t || (k.name === 'diagram' ? 1 : Date.now());
   return Object.assign({ id: sideRowId(k.prefix, bookId, rec.cfi), book_id: bookId, cfi_range: rec.cfi, text: (rec.text || k.fallbackText).slice(0, 2000), para: '',
-    lang: k.lang, translation: '', wiki_html: '', web_html: k.data(rec), img_html: '', illustration: '', created: t, updated: t }, k.toRow(rec));
+    lang: k.lang, translation: (rec.title || '').slice(0, 120), wiki_html: '', web_html: k.data(rec), img_html: '', illustration: '', created: t, updated: t }, k.toRow(rec));
 }
 function writeSide(k, bookId, list) {
   list = list.slice(-k.max());
@@ -3881,7 +3882,7 @@ async function syncSide(k, remoteAll) { // remoteAll — все строки hig
       const rmap = new Map(rrows.map(r => [r.cfi_range, r]));
       const list = k.load(bookId);
       const lmap = new Map(list.map(x => [x.cfi, x]));
-      const fromRow = r => Object.assign({ cfi: r.cfi_range, text: r.text || '', t: Number(r.updated || r.created), synced: true }, k.fromRow(r));
+      const fromRow = r => Object.assign({ cfi: r.cfi_range, text: r.text || '', title: r.translation || '', t: Number(r.updated || r.created), synced: true }, k.fromRow(r));
       const next = [];
       for (const rec of list) {
         const r = rmap.get(rec.cfi);
@@ -3962,7 +3963,8 @@ window.addEventListener('message', e => {
 function showInteractiveInPanel(rec, notice) {
   currentInteractive = rec;
   vzShow('io-view', `${notice ? `<div class="io-notice">${esc(notice)}</div>` : ''}<iframe id="interactive-frame" sandbox="allow-scripts" title="Interactive view"></iframe>`
-    + vzBar(`<button class="btn" onclick="openFeedback()" title="Don’t like it — tell the AI what to improve">👎 Improve</button>`));
+    + vzBar(`<button class="btn" onclick="openFeedback()" title="Don’t like it — tell the AI what to improve">👎 Improve</button>`, rec.title));
+  ensureVisualTitle('io', rec);
   const frame = $('interactive-frame');
   loadD3Src().then(lib => { if (frame.isConnected) frame.srcdoc = withCsp(withHeightScript(rec.snap ? rec.html : withSnapshotScript(rec.html)), lib); });
 }
@@ -4055,6 +4057,7 @@ async function makeIllustration() {
     const rec = { cfi, at: 'start', url, text: text.slice(0, 200), t: Date.now() };
     writeIllustrations(bookId, loadIllustrations(bookId).filter(x => x.cfi !== cfi).concat(rec));
     cloudUpsertSide(SIDE.il, bookId, rec);
+    ensureVisualTitle('il', rec, text);
     const c = rendition.getContents()[0];
     if (c && placePageIllustration(c, rec)) refreshAllHighlights();
     else console.warn('makeIllustration: could not place the page icon');
@@ -4182,8 +4185,8 @@ function vzSet(html, owner) {
   updateRail();
 }
 function vzHide() { vzOwner = null; const z = $('panel-visual'); if (z) { z.innerHTML = ''; z.className = ''; } $('panel').classList.remove('vz-on'); }
-function vzBar(extra) { // кнопки — под визуалом, без подписи и без ✕
-  return `<div class="vz-bar">${extra || ''}`
+function vzBar(extra, title) { // под визуалом: слева короткое название, справа кнопки
+  return `<div class="vz-bar"><span class="vz-title" id="vz-title">${esc(title || '')}</span>${extra || ''}`
     + `<button class="btn" onclick="deletePanelItem()" title="Delete" aria-label="Delete">${ICON_TRASH}</button></div>`;
 }
 function vzShow(owner, html) { // показать визуал; на телефоне панель отдаётся ему целиком
@@ -4191,6 +4194,32 @@ function vzShow(owner, html) { // показать визуал; на телеф
   if (!isSplit()) setPanelBody('', false);
   vzSet(html, owner);
   openPanel(false);
+}
+/* Короткое название визуализации (цитата, действие или персонаж) — одним дешёвым запросом, один раз на запись.
+   Сохраняется в записи (и в облаке — в колонке translation строки-вставки); у старых записей появляется при первом показе. */
+const titlePending = new Set();
+async function ensureVisualTitle(k, rec, pageText) {
+  if (!rec || rec.title || !currentBookId || !(sb && isRealUser())) return;
+  const key = k + '|' + rec.cfi;
+  if (titlePending.has(key)) return;
+  const text = (pageText || rec.text || '').slice(0, 3000);
+  if (text.trim().length < 20) return;
+  titlePending.add(key);
+  const bookId = currentBookId;
+  try {
+    const res = await aiProxy({ action: 'title', kind: { dg: 'diagram', io: 'interactive game', il: 'illustration' }[k], text, lang: settings.lang }, null, 30000);
+    if (!res.ok) { console.warn('[title] HTTP', res.status); return; }
+    const { title } = await res.json();
+    if (!title) return;
+    const K = SIDE[k], list = K.load(bookId), cur = list.find(x => x.cfi === rec.cfi);
+    rec.title = title;
+    if (cur) { cur.title = title; cur.t = Date.now(); writeSide(K, bookId, list); cloudUpsertSide(K, bookId, cur); }
+    console.log(`[title] ${K.name}: «${title}»`);
+    const shown = vzOwner === k + '-view' && (k === 'io' ? currentInteractive : panelMediaRec);
+    if (shown && shown.cfi === rec.cfi) { shown.title = title; const el = $('vz-title'); if (el) el.textContent = title; }
+    renderNotesList();
+  } catch (e) { console.warn('[title]', e.message || e); }
+  finally { titlePending.delete(key); }
 }
 function vzTilesHtml() {
   const tile = k => `<button class="rail-tile" id="rail-${k}" onclick="railClick('${k}')"></button>`;
@@ -4280,14 +4309,16 @@ function showDiagramInPanel(d) {
   panelMediaRec = d;
   vzShow('dg-view', `<div class="pv-media">${d.svg}</div>`
     + vzBar(`<button class="btn" onclick="makeDiagram()" title="Redraw">${ICON_REFRESH}Redraw</button>`
-      + `<button class="btn" onclick="panelMediaRec && openDiagramFs(panelMediaRec.svg, panelMediaRec)" title="Fullscreen">⤢ Fullscreen</button>`));
+      + `<button class="btn" onclick="panelMediaRec && openDiagramFs(panelMediaRec.svg, panelMediaRec)" title="Fullscreen">⤢ Fullscreen</button>`, d.title));
+  ensureVisualTitle('dg', d);
   const svg = $('panel-visual').querySelector('.pv-media svg'); // Mermaid задаёт естественную ширину — растягиваем на всю панель
   if (svg) { svg.style.maxWidth = '100%'; svg.setAttribute('width', '100%'); svg.removeAttribute('height'); }
 }
 function showIllustrationInPanel(rec) {
   panelMediaRec = rec;
   vzShow('il-view', `<div class="pv-media"><img src="${esc(rec.url)}" alt=""></div>`
-    + vzBar(`<button class="btn" onclick="makeIllustration()" title="Repaint" aria-label="Repaint">${ICON_REFRESH}</button>`));
+    + vzBar(`<button class="btn" onclick="makeIllustration()" title="Repaint" aria-label="Repaint">${ICON_REFRESH}</button>`, rec.title));
+  ensureVisualTitle('il', rec);
 }
 function interactiveElapsed() { return Math.round((Date.now() - interactiveStartedAt) / 1000); }
 function tickInteractive() {
@@ -4442,6 +4473,7 @@ async function makeDiagram() {
     list.push(d);
     writeDiagrams(bookId, list);
     cloudUpsertDiagram(bookId, d);
+    ensureVisualTitle('dg', d, text);
     const contents = rendition.getContents()[0];
     if (contents && placeDiagram(contents, d)) refreshAllHighlights();
     else console.warn('makeDiagram: could not place the page icon');
@@ -4571,18 +4603,18 @@ function notesListHtml() {
   if (!bookNotes.length && !ios.length && !dgs.length && !ils.length) return '<div class="notes-empty">Select text in the book — highlights with translations will appear here.</div>';
   const ioHtml = ios.map(r => `
     <div class="note-item io-item" data-cfi="${esc(r.cfi)}" title="Open this interactive view and go to its page">
-      <div class="ni-text ni-io">✦ Interactive view</div>
+      <div class="ni-text ni-io">✦ ${esc(r.title || 'Interactive view')}</div>
       ${r.text ? `<div class="ni-trans">${esc(r.text.slice(0, 90))}${r.text.length > 90 ? '…' : ''}</div>` : ''}
     </div>`).join('');
   const dgHtml = dgs.map(d => `
     <div class="note-item dg-item" data-cfi="${esc(d.cfi)}" title="Open this diagram and go to its page">
-      <div class="ni-text ni-io">◇ Diagram</div>
+      <div class="ni-text ni-io">◇ ${esc(d.title || 'Diagram')}</div>
       ${d.text ? `<div class="ni-trans">${esc(d.text.slice(0, 90))}${d.text.length > 90 ? '…' : ''}</div>` : ''}
     </div>`).join('');
   const ilHtml = ils.map(d => `
     <div class="note-item il-item" data-cfi="${esc(d.cfi)}" title="Go to this illustration">
       <img src="${esc(d.url)}" alt="" loading="lazy">
-      <div><div class="ni-text ni-io">▣ Illustration</div>${d.text ? `<div class="ni-trans">${esc(d.text.slice(0, 80))}${d.text.length > 80 ? '…' : ''}</div>` : ''}</div>
+      <div><div class="ni-text ni-io">▣ ${esc(d.title || 'Illustration')}</div>${d.text ? `<div class="ni-trans">${esc(d.text.slice(0, 80))}${d.text.length > 80 ? '…' : ''}</div>` : ''}</div>
     </div>`).join('');
   const notesHtml = bookNotes.map(n => `
     <div class="note-item" data-id="${n.id}">
