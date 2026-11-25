@@ -834,7 +834,7 @@
           <button class="tool-btn" id="diagram-btn" onclick="railClick('dg')" title="Diagram of this page (Premium)" aria-label="Diagram of this page">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="5" rx="1"/><rect x="3" y="16" width="6" height="5" rx="1"/><rect x="15" y="16" width="6" height="5" rx="1"/><path d="M12 8v4M6 16v-4h12v4"/></svg>
           </button>
-          <button class="tool-btn" id="interactive-btn" onclick="railClick('io')" title="Interactive view of this page (Premium)" aria-label="Interactive view of this page">
+          <button class="tool-btn" id="interactive-btn" onclick="railClick('io')" title="Game for this page (Premium)" aria-label="Game for this page">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>
           </button>
           <button class="tool-btn" id="illustrate-btn" onclick="railClick('il')" title="Illustrate this page" aria-label="Illustrate this page">
@@ -943,7 +943,7 @@
         <li>📚 3 hand-picked classic books, ready to read</li>
         <li>🖍 Unlimited highlights with AI translation and web context</li>
         <li>☁️ Sync across all your devices</li>
-        <li>🎨 Unlimited illustrations, diagrams and interactive views</li>
+        <li>🎨 Unlimited illustrations, diagrams and games</li>
       </ul>
       <div class="pay-fine" id="pay-manual">Payment isn’t automated yet: tap “Request Premium” and we’ll email you a payment link.</div>
       <div class="pay-fine">Cancel anytime. Refunds: one per customer, for the most recent
@@ -1075,7 +1075,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.148</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.149</div>
   </div>
 </div>
 
@@ -1181,7 +1181,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.148'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.149'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -1317,7 +1317,7 @@ function aiAvailable() { return !!settings.key || !!(sb && sbUser); }
 /* Пейволл: сервер вернул 402 — бесплатные 10 хайлайтов закончились */
 const PAYWALL_REASONS = {
   highlights: 'You’ve used all 10 free highlights. Keep going with Premium:',
-  generations: 'You’ve used all 3 free generations (illustrations, diagrams, interactive views). Keep going with Premium:',
+  generations: 'You’ve used all 3 free generations (illustrations, diagrams, games). Keep going with Premium:',
 };
 function showPaywall(reason) {
   $('pay-sub').textContent = PAYWALL_REASONS[reason] || PAYWALL_REASONS.highlights;
@@ -3532,7 +3532,7 @@ function syncToolStrip() { // полоса инструментов над те�
     const b = $(id), locked = !!(signedIn && generationBlocked());
     b.classList.toggle('show', signedIn);
     b.classList.toggle('locked', locked);
-    b.title = (id === 'diagram-btn' ? 'Diagram of this page' : 'Interactive view of this page') + (locked ? ' — Upgrade to Premium' : '');
+    b.title = (id === 'diagram-btn' ? 'Diagram of this page' : 'Game for this page') + (locked ? ' — Upgrade to Premium' : '');
   }
   const shown = !!document.querySelector('#page-tools .tool-btn.pro, #page-tools .tool-btn.show');
   if (shown !== toolStripShown) { toolStripShown = shown; setTimeout(() => safeResize(), 60); }
@@ -3919,7 +3919,7 @@ function placeInteractiveLabel(contents, rec) {
   const block = anchorForPageStart(contents, rec.cfi, rec.text);
   if (!block) return false;
   // В тексте — только маленькая иконка; сам интерактив открывается в панели справа (миниатюра — в правой колонке).
-  const wrap = insMarker(doc, 'data-reymont-interactive', rec.cfi, 'io', 'Interactive view of this page', () => showInteractiveInPanel(loadInteractives(currentBookId).find(x => x.cfi === rec.cfi) || rec));
+  const wrap = insMarker(doc, 'data-reymont-interactive', rec.cfi, 'io', 'Game for this page', () => showInteractiveInPanel(loadInteractives(currentBookId).find(x => x.cfi === rec.cfi) || rec));
   block.insertAdjacentElement('beforebegin', wrap);
   return true;
 }
@@ -3965,7 +3965,7 @@ window.addEventListener('message', e => {
 });
 function showInteractiveInPanel(rec, notice) {
   currentInteractive = rec;
-  vzShow('io-view', `${notice ? `<div class="io-notice">${esc(notice)}</div>` : ''}<iframe id="interactive-frame" sandbox="allow-scripts" title="Interactive view"></iframe>`
+  vzShow('io-view', `${notice ? `<div class="io-notice">${esc(notice)}</div>` : ''}<iframe id="interactive-frame" sandbox="allow-scripts" title="Game"></iframe>`
     + vzBar(`<button class="btn" onclick="openFeedback()" title="Don’t like it — tell the AI what to improve">👎 Improve</button>`, rec.title));
   ensureVisualTitle('io', rec);
   const frame = $('interactive-frame');
@@ -3974,7 +3974,7 @@ function showInteractiveInPanel(rec, notice) {
 function deleteInteractive() {
   const rec = currentInteractive;
   if (!rec || !currentBookId) return;
-  if (!confirm('Delete this interactive view?')) return;
+  if (!confirm('Delete this game?')) return;
   const list = loadInteractives(currentBookId).filter(x => x.cfi !== rec.cfi);
   try { localStorage.setItem(LS.interactives(currentBookId), JSON.stringify(list)); } catch (e) { console.warn('deleteInteractive:', e.message); }
   cloudDeleteInteractive(currentBookId, rec.cfi);
@@ -3984,7 +3984,7 @@ function deleteInteractive() {
     refreshAllHighlights();
   } catch (e) { console.warn('deleteInteractive (page):', e.message); }
   vzAfterDelete();
-  toast('Interactive view deleted');
+  toast('Game deleted');
 }
 function openFeedback() { $('in-fb').value = ''; $('fb-overlay').classList.add('open'); }
 function closeFeedback() { $('fb-overlay').classList.remove('open'); }
@@ -4266,7 +4266,7 @@ function renderRail() {
     el.classList.toggle('locked', !rec && !busy && locked);
     el.classList.toggle('active', !!shown);
     el.title = busy ? `${r.label}: working…` : rec ? `Open the ${r.label.toLowerCase()} of this page`
-      : `Create ${k === 'io' ? 'an interactive view' : 'a ' + r.label.toLowerCase()} for this page` + (!rec && locked ? ' — Upgrade to Premium' : '');
+      : `Create a ${r.label.toLowerCase()} for this page` + (!rec && locked ? ' — Upgrade to Premium' : '');
   }
 }
 /* Десктоп: если у видимой страницы есть диаграмма, игра или иллюстрация — сразу показываем её в панели вместо плиток;
@@ -4360,7 +4360,7 @@ async function buildInteractive(action, cfi, text, prevRec, feedback) {
   const token = 'io-loading-' + Date.now();
   vzShow(token, `<div class="io-loading">
       <div class="spinner"></div>
-      <div class="io-title">${improving ? 'Improving the interactive view' : 'Building an interactive view'}</div>
+      <div class="io-title">${improving ? 'Improving the game' : 'Building a game'}</div>
       <div id="io-stage" class="io-stage">Reading the page…</div>
       <div class="io-bar"><i id="io-bar-fill"></i></div>
       <div id="io-elapsed" class="io-elapsed">0 s</div>
@@ -4391,10 +4391,10 @@ async function buildInteractive(action, cfi, text, prevRec, feedback) {
       if (contents) { placeInteractiveLabel(contents, rec); refreshAllHighlights(); }
     }
     if (vzOwner === token) showInteractiveInPanel(rec, same ? 'The AI returned the same code — try describing the problem more specifically.' : '');
-    else toast('Interactive view is ready — open it from the page');
+    else toast('The game is ready — open it from the page');
   } catch (e) {
     console.warn('buildInteractive:', e);
-    const msg = (improving ? 'Could not improve the interactive view: ' : 'Could not build the interactive view: ') + (e.message || e).toString().slice(0, 140);
+    const msg = (improving ? 'Could not improve the game: ' : 'Could not build the game: ') + (e.message || e).toString().slice(0, 140);
     if (vzOwner === token) {
       if (prevRec) showInteractiveInPanel(prevRec, msg); // не теряем прежний вид, ошибку оставляем в панели
       else vzSet(`<div class="p-error">${esc(msg)}</div><div class="vz-bar"><button class="btn" onclick="vzClose()">OK</button></div>`, 'error');
@@ -4605,8 +4605,8 @@ function notesListHtml() {
   const ils = currentBookId ? loadIllustrations(currentBookId).sort((a, b) => (b.t || 0) - (a.t || 0)) : [];
   if (!bookNotes.length && !ios.length && !dgs.length && !ils.length) return '<div class="notes-empty">Select text in the book — highlights with translations will appear here.</div>';
   const ioHtml = ios.map(r => `
-    <div class="note-item io-item" data-cfi="${esc(r.cfi)}" title="Open this interactive view and go to its page">
-      <div class="ni-text ni-io">✦ ${esc(r.title || 'Interactive view')}</div>
+    <div class="note-item io-item" data-cfi="${esc(r.cfi)}" title="Open this game and go to its page">
+      <div class="ni-text ni-io">✦ ${esc(r.title || 'Game')}</div>
       ${r.text ? `<div class="ni-trans">${esc(r.text.slice(0, 90))}${r.text.length > 90 ? '…' : ''}</div>` : ''}
     </div>`).join('');
   const dgHtml = dgs.map(d => `
