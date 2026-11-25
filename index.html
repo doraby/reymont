@@ -267,7 +267,6 @@
   }
   .edge-tab:hover { color: var(--text); }
   .edge-tab svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  #panel-collapse-btn { left: 6px; border-radius: 0 8px 8px 0; } /* внутри панели, прижат к её краю */
   #panel-expand-btn { display: none; position: fixed; right: 0; top: 50%; z-index: 220; }
   body.split:not(.panel-open) #panel-expand-btn { display: flex; }
   body.panel-resizing, body.panel-resizing * { cursor: col-resize !important; user-select: none; }
@@ -306,8 +305,6 @@
      Полоса иконок над текстом на десктопе не нужна. */
   body.split #page-tools, body.split #hint { display: none !important; }
   body.split #viewer { top: 12px !important; }
-  #panel.home-view #panel-close-btn { display: none; }
-  body.split #panel-close-btn { display: none; } /* на десктопе панель не закрывается — ✕ не нужен */
   /* Панель из двух зон: сверху визуал страницы (плитки или готовая диаграмма/игра/иллюстрация), снизу хайлайт
      (подсказка про выделение или содержимое хайлайта). */
   #panel-visual { display: none; flex: none; border-bottom: 1px solid var(--border); }
@@ -867,7 +864,7 @@
 
 <!-- ════════ Right panel ════════ -->
 <div id="panel">
-  <div id="panel-edge" title="Drag to resize"><button id="panel-collapse-btn" class="edge-tab" onclick="togglePanelCollapsed()" title="Hide panel" aria-label="Hide panel"><svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></button></div>
+  <div id="panel-edge" title="Drag to resize"></div>
   <div class="panel-head">
     <button id="prompt-btn" class="icon-btn" onclick="openPromptModal()" title="Reading focus" aria-label="Reading focus">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
@@ -881,7 +878,7 @@
     <button id="io-dislike-btn" class="icon-btn" onclick="openFeedback()" title="Don’t like it — tell the AI what to improve" aria-label="Don’t like it">
       <svg viewBox="0 0 24 24"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.7a2 2 0 0 0-2 1.7l-1.4 9a2 2 0 0 0 2 2.3z"/><path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg>
     </button>
-    <button id="panel-close-btn" class="icon-btn" onclick="closePanel()" aria-label="Close">✕</button>
+    <button id="panel-close-btn" class="icon-btn" onclick="panelCloseClick()" title="Close panel" aria-label="Close panel">✕</button>
   </div>
   <div id="panel-scroll"><!-- одна прокрутка на всю панель: визуал и хайлайт листаются вместе -->
     <div id="panel-visual"></div>
@@ -1075,7 +1072,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.149</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.150</div>
   </div>
 </div>
 
@@ -1181,7 +1178,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.149'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.150'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -2763,6 +2760,8 @@ let panelCollapsed = false; // десктоп: панель свёрнута с�
   };
   edge.addEventListener('pointerup', end); edge.addEventListener('pointercancel', end);
 })();
+// ✕ в шапке: на десктопе закрывает (сворачивает) всю панель — вернуть её можно язычком у правого края; на телефоне — как раньше.
+function panelCloseClick() { if (isSplit()) { if ($('panel').classList.contains('open')) togglePanelCollapsed(); } else closePanel(); }
 function togglePanelCollapsed() {
   if ($('panel').classList.contains('open')) { panelCollapsed = true; closePanel('force'); }
   else { panelCollapsed = false; panelHome(); vzTiles(); setTimeout(autoOpenPageMedia, 60); }
