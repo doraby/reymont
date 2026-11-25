@@ -261,11 +261,11 @@
   #reader:has(.tool-btn.pro, .tool-btn.show) #page-tools { display: flex; }
   #reader:has(.tool-btn.pro, .tool-btn.show) #viewer { top: 40px; }
   .tool-btn {
-    display: none; width: 32px; height: 32px; padding: 0; border: none; background: transparent; cursor: pointer;
-    color: var(--muted); align-items: center; justify-content: center; transition: color .15s;
+    display: none; width: 32px; height: 32px; padding: 0; border: 1px solid var(--border); border-radius: 8px; background: transparent; cursor: pointer;
+    color: var(--muted); align-items: center; justify-content: center; transition: color .15s, border-color .15s;
   }
-  .tool-btn:hover { color: var(--text); }
-  .tool-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .tool-btn:hover { color: var(--text); border-color: var(--muted); }
+  .tool-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
   .tool-btn.pro, .tool-btn.show { display: inline-flex; }
   /* Без Premium кнопки диаграммы/интерактива видны, но приглушены и по клику открывают предложение Premium */
   .tool-btn.locked { opacity: .45; }
@@ -3970,6 +3970,8 @@ const ART = {
   il: '<rect x="8" y="12" width="48" height="40" rx="3"/><circle cx="42" cy="24" r="4.5"/><path d="M8 46l14-15 10 10 7-7 17 15"/>',
 };
 const artSvg = (k, size, sw) => `<svg viewBox="0 0 64 64" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" style="display:block">${ART[k]}</svg>`;
+// Полоса иконок над текстом (телефон и узкие окна) — те же line-art, что в плитках справа, только маленькие.
+for (const [id, k] of [['diagram-btn', 'dg'], ['interactive-btn', 'io'], ['illustrate-btn', 'il']]) { const b = $(id); if (b) b.innerHTML = artSvg(k, 20, 3); }
 /* Иконка вставки в тексте книги. Стили — инлайн (в iframe книги наших стилей нет), слушатель — отсюда (скрипты в книге
    выключены). Несколько иконок подряд встают в одну строку. */
 function insMarker(doc, attr, key, k, title, onOpen) {
