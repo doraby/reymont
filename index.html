@@ -267,7 +267,7 @@
   }
   .edge-tab:hover { color: var(--text); }
   .edge-tab svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  #panel-collapse-btn { left: -16px; }
+  #panel-collapse-btn { left: 6px; border-radius: 0 8px 8px 0; border-left: none; border-right: 1px solid var(--border); } /* внутри панели, прижат к её краю */
   #panel-expand-btn { display: none; position: fixed; right: 0; top: 50%; z-index: 220; }
   body.split:not(.panel-open) #panel-expand-btn { display: flex; }
   body.panel-resizing, body.panel-resizing * { cursor: col-resize !important; user-select: none; }
@@ -320,6 +320,9 @@
   #panel-visual #interactive-frame { flex: none; height: 420px; } /* дальше высоту подгоняет сама игра (rmHeight) — без своей прокрутки */
   body:not(.split) #panel-visual .pv-media { max-height: none; }
   .ph { padding: 4px 0 24px; }
+  /* Подсказку «Select a word…» и разделитель показываем, только пока у страницы нет визуала (сверху — плитки) */
+  #panel.home-view:has(#panel-visual:not(.tiles)) #panel-body .ph { display: none; }
+  #panel.home-view #panel-visual:not(.tiles) { border-bottom: none; }
   .ph-hint { font-size: 15px; line-height: 1.55; color: var(--muted); padding: 16px 2px; }
   .ph-title { margin: 6px 0 10px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
   .ph-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
@@ -350,7 +353,7 @@
   .rail-tile.locked:hover { opacity: 1; }
   .rail-tile.busy { pointer-events: none; animation: io-pulse 1.2s ease-in-out infinite; }
   /* Диаграмма и иллюстрация страницы в панели */
-  .pv-media { flex: 1; min-height: 0; overflow: auto; padding: 18px; background: #FAF9F5; }
+  .pv-media { flex: 1; min-height: 0; overflow: auto; padding: 16px 22px 4px; background: transparent; } /* поля как у текста панели — визуал не от края до края */
   .pv-media svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
   .pv-media img { display: block; max-width: 100%; height: auto; margin: 0 auto; border-radius: 8px; }
   /* Диаграмма на весь экран: поверх всего, с зумом и прокруткой (из iframe книги выйти за колонку нельзя) */
@@ -1067,7 +1070,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.143</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.144</div>
   </div>
 </div>
 
@@ -1173,7 +1176,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.143'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.144'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
