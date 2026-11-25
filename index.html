@@ -307,6 +307,7 @@
   body.split #page-tools, body.split #hint { display: none !important; }
   body.split #viewer { top: 12px !important; }
   #panel.home-view #panel-close-btn { display: none; }
+  body.split #panel-close-btn { display: none; } /* на десктопе панель не закрывается — ✕ не нужен */
   /* Панель из двух зон: сверху визуал страницы (плитки или готовая диаграмма/игра/иллюстрация), снизу хайлайт
      (подсказка про выделение или содержимое хайлайта). */
   #panel-visual { display: none; flex: none; border-bottom: 1px solid var(--border); }
@@ -1074,7 +1075,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.147</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.148</div>
   </div>
 </div>
 
@@ -1180,7 +1181,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.147'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.148'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
