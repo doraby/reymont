@@ -67,7 +67,7 @@
   /* Dusk: тёмный, спокойный и ровный — без градиента и узора, приглушённый тёплый графит вместо синего */
   :root[data-theme="dusk"] {
     --bg: #232528; --surface: #2B2D31; --surface-2: #34363B; --border: #42454B; --text: #E7E3DA; --muted: #9C9CA2;
-    --accent: #0980e9; --accent-soft: #3a9af0; --accent-bg: rgba(9, 128, 233, 0.14); /* тёмный стиль — синий акцент */
+    --accent: #D2B1A0; --accent-soft: #C29B88; --accent-bg: rgba(210, 177, 160, 0.13);
     --shadow: 0 12px 40px rgba(0, 0, 0, 0.5); --serif: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
   }
   :root[data-theme="dusk"] body { background: var(--bg); font-size: 17px; }
@@ -1066,7 +1066,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.140</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.141</div>
   </div>
 </div>
 
@@ -1172,7 +1172,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.140'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.141'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
