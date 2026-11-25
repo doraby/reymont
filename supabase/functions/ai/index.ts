@@ -121,7 +121,7 @@ async function callOpenAIImage(prompt: string, size: string): Promise<ImageResul
   return { b64 };
 }
 
-async function generateImage(prompt: string, size = "1536x1024"): Promise<ImageResult> {
+async function generateImage(prompt: string, size = "1024x1536"): Promise<ImageResult> {
   try {
     return await callOpenAIImage(prompt, size);
   } catch (e) {
@@ -373,8 +373,8 @@ Deno.serve(async (req) => {
         `No other text, captions or watermarks in the image.`;
     }
 
-    // сцены — горизонтальные, обложки — вертикальные
-    const result = await generateImage(prompt, body.action === "illustrate_cover" ? "1024x1536" : "1536x1024");
+    // и сцены, и обложки — вертикальные (2:3)
+    const result = await generateImage(prompt, "1024x1536");
     if (result.error) return err(result.error, result.status ?? 500, cors);
     if (!result.b64) return err("No image returned", 502, cors);
 
