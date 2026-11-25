@@ -1022,7 +1022,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.131</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.132</div>
   </div>
 </div>
 
@@ -1128,7 +1128,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.131'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.132'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -2352,6 +2352,8 @@ async function openBook(id, newRec) {
     updateRail();
     setTimeout(autoOpenPageMedia, 60);
   });
+  // Перевёрстка (ширина колонки/шрифт) тоже даёт relocated — это не перелистывание, автооткрытие на неё не реагирует.
+  rendition.on('resized', () => { railAutoLock = Date.now() + 2000; });
   await withTimeout(rendition.display(savedCfi || undefined), 30000, 'rendering the page');
   console.log('openBook: page on screen ✓');
   if (savedCfi) { // даём вёрстке устояться и открываем сохранённое место ещё раз — уже точно
@@ -4075,7 +4077,8 @@ function openPageMedia(k, rec) {
   else showIllustrationInPanel(rec);
 }
 function autoOpenPageMedia() {
-  if (!rendition || !currentBookId || !window.matchMedia('(min-width: 1000px)').matches || document.documentElement.classList.contains('is-touch')) return;
+  // Только на широком экране: на узком панель заметно сужает колонку текста и перевёрстывает страницу.
+  if (!rendition || !currentBookId || window.innerWidth < 1280 || document.documentElement.classList.contains('is-touch')) return;
   if (Date.now() < railAutoLock) return;
   const open = $('panel').classList.contains('open');
   if (open && !MEDIA_VIEWS.includes(panelOwner)) return;
