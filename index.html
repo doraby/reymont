@@ -254,16 +254,24 @@
   #reader.chrome-hidden #float-back-btn { display: flex; }
   /* Десктоп (split): панель сворачивает своя кнопка в шапке; свёрнутую — открывает круглая кнопка под стрелкой меню.
      Меню (топбар, шрифт, нижняя полоса) заканчивается у левого края панели, а не уходит под неё. */
-  #panel-collapse-btn, #panel-expand-btn { display: none; }
-  body.split #panel-collapse-btn { display: inline-flex; }
-  body.split .panel-head { padding-right: 62px; } /* справа сверху — стрелка меню */
-  #panel-expand-btn {
-    position: fixed; top: calc(58px + env(safe-area-inset-top, 0px)); right: 12px;
-    width: 38px; height: 38px; border-radius: 50%; border: none; cursor: pointer; padding: 0;
-    background: var(--surface); color: var(--muted); z-index: 220; align-items: center; justify-content: center;
+  /* Внутренний край панели (десктоп): тянется мышью — ширина панели; язычок на краю сворачивает панель,
+     у свёрнутой такой же язычок у правого края экрана разворачивает её. */
+  #panel-edge { display: none; position: absolute; left: -6px; top: 0; bottom: 0; width: 12px; cursor: col-resize; z-index: 6; touch-action: none; }
+  body.split #panel-edge { display: block; }
+  #panel-edge::before { content: ''; position: absolute; left: 5px; top: 0; bottom: 0; width: 2px; background: transparent; transition: background .15s; }
+  #panel-edge:hover::before, body.panel-resizing #panel-edge::before { background: var(--accent-soft); }
+  .edge-tab {
+    position: absolute; top: 76px; width: 22px; height: 44px; padding: 0; cursor: pointer;
+    border: 1px solid var(--border); border-right: none; border-radius: 8px 0 0 8px; background: var(--surface); color: var(--muted);
+    display: flex; align-items: center; justify-content: center;
   }
-  #panel-expand-btn:hover { color: var(--text); }
+  .edge-tab:hover { color: var(--text); }
+  .edge-tab svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  #panel-collapse-btn { left: -16px; }
+  #panel-expand-btn { display: none; position: fixed; right: 0; top: 76px; z-index: 220; }
   body.split:not(.panel-open) #panel-expand-btn { display: flex; }
+  body.panel-resizing, body.panel-resizing * { cursor: col-resize !important; user-select: none; }
+  body.panel-resizing #reading-col, body.panel-resizing #panel { transition: none; }
   body.split.panel-open #topbar { right: var(--panel-w); } /* нижняя полоса и так внутри колонки текста */
   body.split.panel-open #topbar { padding-right: 12px; }
   body.split.panel-open #font-controls { right: calc(var(--panel-w) + 12px); }
@@ -792,7 +800,7 @@
   <button id="chrome-toggle-btn" onclick="toggleChrome()" title="Show/hide menu" aria-label="Show/hide menu">
     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
   </button>
-  <button id="panel-expand-btn" onclick="togglePanelCollapsed()" title="Show panel" aria-label="Show panel"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/><path d="m11 10-2 2 2 2"/></svg></button>
+  <button id="panel-expand-btn" class="edge-tab" onclick="togglePanelCollapsed()" title="Show panel" aria-label="Show panel"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button>
   <button id="float-back-btn" onclick="backToLibrary()" title="Back to library" aria-label="Back to library">
     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
   </button>
@@ -850,6 +858,7 @@
 
 <!-- ════════ Right panel ════════ -->
 <div id="panel">
+  <div id="panel-edge" title="Drag to resize"><button id="panel-collapse-btn" class="edge-tab" onclick="togglePanelCollapsed()" title="Hide panel" aria-label="Hide panel"><svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></button></div>
   <div class="panel-head">
     <button id="prompt-btn" class="icon-btn" onclick="openPromptModal()" title="Reading focus" aria-label="Reading focus">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
@@ -864,7 +873,6 @@
       <svg viewBox="0 0 24 24"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.7a2 2 0 0 0-2 1.7l-1.4 9a2 2 0 0 0 2 2.3z"/><path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg>
     </button>
     <button id="panel-close-btn" class="icon-btn" onclick="closePanel()" aria-label="Close">✕</button>
-    <button id="panel-collapse-btn" class="icon-btn" onclick="togglePanelCollapsed()" title="Hide panel" aria-label="Hide panel"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/><path d="m8 10 2 2-2 2"/></svg></button>
   </div>
   <div id="panel-scroll"><!-- одна прокрутка на всю панель: визуал и хайлайт листаются вместе -->
     <div id="panel-visual"></div>
@@ -2721,6 +2729,31 @@ function stopSelectionPoll() {
    touch-событий внутри контента на iOS Safari. */
 function setChromeHidden(hidden) { $('reader').classList.toggle('chrome-hidden', hidden); }
 let panelCollapsed = false; // десктоп: панель свёрнута своей кнопкой (в шапке панели / справа на краю)
+/* Ширина панели тянется за её внутренний край; запоминается в браузере. Страницы перевёрстываются один раз — когда отпустили. */
+(function panelResize() {
+  const edge = $('panel-edge'), KEY = 'reader.panelW';
+  if (!edge) return;
+  const clampW = w => Math.round(Math.max(320, Math.min(w, 900, window.innerWidth - 480)));
+  const apply = w => document.documentElement.style.setProperty('--panel-w', clampW(w) + 'px');
+  let saved = 0; try { saved = +localStorage.getItem(KEY) || 0; } catch (e) {}
+  if (saved) apply(saved);
+  window.addEventListener('resize', () => { if (saved) apply(saved); });
+  let drag = false;
+  edge.addEventListener('pointerdown', e => {
+    if (e.target.closest('button') || !document.body.classList.contains('split')) return;
+    drag = true; edge.setPointerCapture(e.pointerId); document.body.classList.add('panel-resizing'); e.preventDefault();
+  });
+  edge.addEventListener('pointermove', e => { if (drag) apply(window.innerWidth - e.clientX); });
+  const end = () => {
+    if (!drag) return;
+    drag = false; document.body.classList.remove('panel-resizing');
+    saved = Math.round($('panel').getBoundingClientRect().width);
+    try { localStorage.setItem(KEY, saved); } catch (e) {}
+    console.log('[panel] width', saved + 'px');
+    safeResize(); updateRail();
+  };
+  edge.addEventListener('pointerup', end); edge.addEventListener('pointercancel', end);
+})();
 function togglePanelCollapsed() {
   if ($('panel').classList.contains('open')) { panelCollapsed = true; closePanel('force'); }
   else { panelCollapsed = false; panelHome(); vzTiles(); setTimeout(autoOpenPageMedia, 60); }
