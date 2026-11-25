@@ -301,6 +301,7 @@
   /* Компактные плитки: иконка и подпись в одну строку */
   .ph-tiles .rail-tile { height: 44px; flex-direction: row; gap: 7px; border-radius: 10px; }
   .ph-tiles .rail-tile .rt-art { flex: none; width: 20px; height: 20px; }
+  .ph-tiles .rail-tile .rt-art { color: var(--accent); } /* иконки плиток — красные (акцент), подпись остаётся серой */
   .ph-tiles .rail-tile .rt-art svg { stroke-width: 3; }
   .ph-tiles .rail-tile .rt-label { padding: 0; font-size: 13px; }
   .ph-note { margin-top: 14px; font-size: 13px; color: var(--muted); }
@@ -522,7 +523,7 @@
   .chat-box button svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
   .sel-quote {
     font-style: italic; font-size: 15.5px; line-height: 1.55; color: var(--text);
-    border-left: 3px solid var(--accent-soft); padding: 2px 0 2px 14px; margin-bottom: 22px;
+    border-left: 3px solid var(--accent-soft); padding: 2px 0 2px 14px; margin-top: 22px; margin-bottom: 22px;
   }
   .p-section-title { font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); font-weight: 600; margin: 26px 0 10px; }
   .p-section-title:first-of-type { margin-top: 0; }
@@ -1034,7 +1035,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.136</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.137</div>
   </div>
 </div>
 
@@ -1140,7 +1141,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.136'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.137'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -2879,7 +2880,7 @@ async function startLookup(text, para, cfiRange) {
   const words = text.split(/\s+/).length;
   setPanelBody(`
     <div class="sel-quote">${esc(text)}</div>
-    <div class="p-section-title">Translation · ${esc(settings.lang)}</div>
+    <div class="p-section-title">${esc(settings.lang)}</div>
     <div id="trans-out" class="pending"><span class="spinner"></span>Translating…</div>
     ${illusSectionHtml(note)}
     ${chatSectionHtml(note || {})}`, false);
@@ -4456,7 +4457,7 @@ function showNote(id, fromMark) {
   setPanelBody(`
     <div class="sel-quote">${esc(note.text)}</div>
     ${fromMark ? `<div class="note-meta">${note.demo ? 'preview highlight · picked by the Reymont team' : 'saved ' + new Date(note.created).toLocaleDateString()}</div>` : ''}
-    <div class="p-section-title">Translation · ${esc(note.lang || '')}</div>
+    <div class="p-section-title">${esc(note.lang || 'Translation')}</div>
     <div id="trans-out">${esc(note.translation || '') || '<i>no translation</i>'}</div>
     ${illusSectionHtml(note)}
     ${note.demo || note.translation ? '' : `<div class="note-actions">
