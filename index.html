@@ -261,14 +261,14 @@
   #panel-edge::before { content: ''; position: absolute; left: 5px; top: 0; bottom: 0; width: 2px; background: transparent; transition: background .15s; }
   #panel-edge:hover::before, body.panel-resizing #panel-edge::before { background: var(--accent-soft); }
   .edge-tab {
-    position: absolute; top: 76px; width: 22px; height: 44px; padding: 0; cursor: pointer;
+    position: absolute; top: 50%; transform: translateY(-50%); width: 22px; height: 44px; padding: 0; cursor: pointer; /* по центру края по вертикали */
     border: 1px solid var(--border); border-right: none; border-radius: 8px 0 0 8px; background: var(--surface); color: var(--muted);
     display: flex; align-items: center; justify-content: center;
   }
   .edge-tab:hover { color: var(--text); }
   .edge-tab svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   #panel-collapse-btn { left: -16px; }
-  #panel-expand-btn { display: none; position: fixed; right: 0; top: 76px; z-index: 220; }
+  #panel-expand-btn { display: none; position: fixed; right: 0; top: 50%; z-index: 220; }
   body.split:not(.panel-open) #panel-expand-btn { display: flex; }
   body.panel-resizing, body.panel-resizing * { cursor: col-resize !important; user-select: none; }
   body.panel-resizing #reading-col, body.panel-resizing #panel { transition: none; }
@@ -1066,7 +1066,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.141</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.142</div>
   </div>
 </div>
 
@@ -1172,7 +1172,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.141'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.142'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
