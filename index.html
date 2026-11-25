@@ -262,12 +262,12 @@
   #panel-edge:hover::before, body.panel-resizing #panel-edge::before { background: var(--accent-soft); }
   .edge-tab {
     position: absolute; top: 50%; transform: translateY(-50%); width: 22px; height: 44px; padding: 0; cursor: pointer; /* по центру края по вертикали */
-    border: 1px solid var(--border); border-right: none; border-radius: 8px 0 0 8px; background: var(--surface); color: var(--muted);
+    border: none; border-radius: 8px 0 0 8px; background: var(--surface); color: var(--muted); /* без обводки */
     display: flex; align-items: center; justify-content: center;
   }
   .edge-tab:hover { color: var(--text); }
   .edge-tab svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  #panel-collapse-btn { left: 6px; border-radius: 0 8px 8px 0; border-left: none; border-right: 1px solid var(--border); } /* внутри панели, прижат к её краю */
+  #panel-collapse-btn { left: 6px; border-radius: 0 8px 8px 0; } /* внутри панели, прижат к её краю */
   #panel-expand-btn { display: none; position: fixed; right: 0; top: 50%; z-index: 220; }
   body.split:not(.panel-open) #panel-expand-btn { display: flex; }
   body.panel-resizing, body.panel-resizing * { cursor: col-resize !important; user-select: none; }
@@ -313,6 +313,8 @@
   #panel.vz-on #panel-visual { display: flex; flex-direction: column; }
   #panel-visual.tiles { padding: 6px 22px 16px; }
   .vz-bar { flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 6px; padding: 8px 16px 12px 22px; }
+  .vz-bar .btn { border: none; background: transparent; } /* кнопки под визуалом — без обводки */
+  .vz-bar .btn:hover { background: var(--surface-2); }
   .vz-title { margin-right: auto; min-width: 0; font-style: italic; font-size: 14.5px; line-height: 1.35; color: var(--text); }
   .vz-bar .btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; font-size: 13px; }
   #panel-visual .pv-media { overflow: visible; } /* без своей прокрутки — панель листается целиком */
@@ -1072,7 +1074,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.146</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.147</div>
   </div>
 </div>
 
@@ -1178,7 +1180,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.146'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.147'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
