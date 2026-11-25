@@ -292,9 +292,8 @@
   #panel-visual .pv-media { max-height: 48vh; }
   #panel-visual .io-loading { margin: 0 auto; padding: 16px 22px 20px; }
   #panel-visual .p-error { margin: 4px 22px 16px; }
-  #panel-visual #interactive-frame { flex: none; height: 56vh; }
+  #panel-visual #interactive-frame { flex: none; height: 420px; } /* дальше высоту подгоняет сама игра (rmHeight) — без своей прокрутки */
   body:not(.split) #panel-visual .pv-media { max-height: none; }
-  body:not(.split) #panel-visual #interactive-frame { height: calc(100dvh - 130px); }
   .ph { padding: 4px 0 24px; }
   .ph-hint { font-size: 15px; line-height: 1.55; color: var(--muted); padding: 16px 2px; }
   .ph-title { margin: 6px 0 10px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
@@ -498,7 +497,8 @@
   /* На тач это уже дублирует #chrome-toggle-btn (закрывает панель по тапу в углу) —
      на мобилке своя ✕ у панели больше не нужна, только на десктопе (там угловой кнопки нет). */
   .is-touch #panel-close-btn { display: none; }
-  #panel-body { flex: 1; overflow-y: auto; padding: 0 22px 40px; }
+  #panel-scroll { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
+  #panel-body { flex: 1 0 auto; padding: 0 22px 40px; }
 
   /* Чат о хайлайте */
   .chat-sec { margin-top: 22px; }
@@ -842,8 +842,10 @@
     </button>
     <button id="panel-close-btn" class="icon-btn" onclick="closePanel()" aria-label="Close">✕</button>
   </div>
-  <div id="panel-visual"></div>
-  <div id="panel-body"></div>
+  <div id="panel-scroll"><!-- одна прокрутка на всю панель: визуал и хайлайт листаются вместе -->
+    <div id="panel-visual"></div>
+    <div id="panel-body"></div>
+  </div>
   <div id="chat-dock">
     <form class="chat-box" onsubmit="return sendChat(event)">
       <textarea id="chat-in" rows="1" placeholder="Ask more about this passage…" onkeydown="chatKey(event)" oninput="chatGrow(this)"></textarea>
@@ -1032,7 +1034,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.135</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.136</div>
   </div>
 </div>
 
@@ -1138,7 +1140,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.135'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.136'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -2787,7 +2789,9 @@ function setPanelBody(html, isPromo) {
   if (html && !isSplit()) vzHide(); // телефон: панель показывает что-то одно — хайлайт вытесняет визуал
   updateRail();
   body.innerHTML = html;
-  body.scrollTop = 0;
+  // Одна прокрутка на панель: новый хайлайт под большим визуалом сразу виден — прокручиваем к нему.
+  const sc = $('panel-scroll');
+  if (sc) sc.scrollTop = html && vzOwner && vzOwner !== 'tiles' ? Math.max(0, body.offsetTop - sc.offsetTop - 8) : 0;
 }
 /* На десктопе (split) панель не закрывается, а возвращается к плиткам; совсем закрывает только closePanel('force'). */
 function closePanel(mode) {
@@ -2918,7 +2922,7 @@ function chatGrow(el) { el.style.height = 'auto'; el.style.height = Math.min(el.
 function chatKey(e) { // Enter отправляет (Shift+Enter — новая строка); на тач-устройствах Enter — перенос строки
   if (e.key === 'Enter' && !e.shiftKey && !document.documentElement.classList.contains('is-touch')) { e.preventDefault(); sendChat(); }
 }
-function chatScroll() { const b = $('panel-body'); if (b) b.scrollTop = b.scrollHeight; }
+function chatScroll() { const b = $('panel-scroll'); if (b) b.scrollTop = b.scrollHeight; }
 function chatSystemPrompt(ctx, translation) { // для своего ключа; на сервере — такая же сборка
   return `You are a learned, candid literary companion discussing a passage from the book "${currentMeta.title || ''}"${currentMeta.author ? ' by ' + currentMeta.author : ''}${ctx.chapter ? ' (chapter: ' + ctx.chapter + ')' : ''} with a reader who is reading it right now. `
     + `Reply in ${settings.lang}. You have the full picture below — use it instead of asking the reader to repeat anything. `
@@ -3853,6 +3857,19 @@ const SNAPSHOT_SCRIPT = `<script>setTimeout(function(){try{var c=document.docume
   `c.querySelectorAll('script').forEach(function(s){s.remove()});` +
   `parent.postMessage({rmSnapshot:'<!doctype html>'+c.outerHTML},'*');}catch(e){}},1500);<\/script>`;
 let currentInteractive = null;
+/* Игра сама сообщает высоту своего содержимого — рамка растёт под неё, и у панели остаётся одна прокрутка.
+   Не больше 20 сообщений (защита от вёрстки, которая растёт вслед за рамкой). */
+const HEIGHT_SCRIPT = `<script>(function(){var last=0,n=0;function s(){var d=document.documentElement,h=Math.max(d.scrollHeight,document.body?document.body.scrollHeight:0);` +
+  `if(Math.abs(h-last)>2&&n<20){last=h;n++;parent.postMessage({rmHeight:h},'*');}}` +
+  `addEventListener('load',s);setTimeout(s,300);setTimeout(s,1500);if(window.ResizeObserver)new ResizeObserver(s).observe(document.documentElement);})();<\/script>`;
+function withHeightScript(html) {
+  return /<\/body>/i.test(html) ? html.replace(/<\/body>/i, HEIGHT_SCRIPT + '</body>') : html + HEIGHT_SCRIPT;
+}
+window.addEventListener('message', e => {
+  const frame = $('interactive-frame'), h = e.data && e.data.rmHeight;
+  if (!frame || e.source !== frame.contentWindow || typeof h !== 'number') return;
+  frame.style.height = Math.round(Math.min(4000, Math.max(420, h))) + 'px';
+});
 function withSnapshotScript(html) {
   return /<\/body>/i.test(html) ? html.replace(/<\/body>/i, SNAPSHOT_SCRIPT + '</body>') : html + SNAPSHOT_SCRIPT;
 }
@@ -3872,7 +3889,7 @@ function showInteractiveInPanel(rec, notice) {
   vzShow('io-view', `${notice ? `<div class="io-notice">${esc(notice)}</div>` : ''}<iframe id="interactive-frame" sandbox="allow-scripts" title="Interactive view"></iframe>`
     + vzBar(`<button class="btn" onclick="openFeedback()" title="Don’t like it — tell the AI what to improve">👎 Improve</button>`));
   const frame = $('interactive-frame');
-  loadD3Src().then(lib => { if (frame.isConnected) frame.srcdoc = withCsp(rec.snap ? rec.html : withSnapshotScript(rec.html), lib); });
+  loadD3Src().then(lib => { if (frame.isConnected) frame.srcdoc = withCsp(withHeightScript(rec.snap ? rec.html : withSnapshotScript(rec.html)), lib); });
 }
 function deleteInteractive() {
   const rec = currentInteractive;
@@ -4117,6 +4134,7 @@ function panelHomeHtml() {
 }
 function panelHome() { // низ панели «по умолчанию» — подсказка про выделение
   setPanelBody(panelHomeHtml(), false);
+  $('panel-scroll').scrollTop = 0;
   panelOwner = 'home';
   $('panel').classList.add('home-view');
   openPanel(false);
