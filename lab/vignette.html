@@ -39,6 +39,7 @@
   .side img.r { transform: scaleX(-1); }
   .medal { position: relative; display: flex; align-items: center; justify-content: center; margin: 8px auto 20px; }
   .medal img { display: block; }
+  .vig, .medal img { image-rendering: auto; }
   .medal .btn { position: absolute; box-shadow: 0 0 0 4px var(--paper); }
   .busy { opacity: .55; }
   @media (max-width: 760px) { .wrap { grid-template-columns: 1fr; } aside { position: static; max-height: none; } .sheet { padding: 24px 16px 40px; } }
@@ -76,35 +77,48 @@
 </main>
 </div>
 <script type="module">
-import { render, grow } from '../vendor/initialis/lib/initialis.js';
+import { render, grow, use } from '../vendor/initialis/lib/initialis.js';
+// своя форма «box» — прямоугольник любой ширины и высоты внутри квадрата библиотеки (lab/kinds/box.js)
+await use(new URL('kinds/box.js', import.meta.url).href);
 
 const ICON = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="#fff" d="M7.5 7h9a4.5 4.5 0 0 1 4.4 3.6l.9 4.6a2.6 2.6 0 0 1-4.6 2.1L15.6 15H8.4l-1.6 2.3a2.6 2.6 0 0 1-4.6-2.1l.9-4.6A4.5 4.5 0 0 1 7.5 7z"/><path d="M7.75 9.6v2.8M6.35 11h2.8" stroke="#B3261E" stroke-width="1.4" stroke-linecap="round" fill="none"/><circle cx="15.6" cy="10.1" r=".95" fill="#B3261E"/><circle cx="17.4" cy="11.9" r=".95" fill="#B3261E"/></svg>`;
 document.querySelectorAll('[data-icon]').forEach(n => n.innerHTML = ICON);
 
 // Управление: [ключ, подпись, тип, значение по умолчанию, варианты или [min,max,step]]
 const C = [
-  ['frame', 'форма', 'sel', 'none', ['none', 'rect', 'rounded', 'circle', 'arch', 'pointed', 'shield', 'lozenge', 'octagon', 'quatrefoil', 'scallop']],
-  ['ground', 'фон формы', 'sel', 'нет', ['нет', 'красный (буквы белые)']],
-  ['sizeA', 'размер A, px', 'num', 120, [40, 260, 2]],
-  ['sizeB', 'размер B, px', 'num', 64, [24, 160, 2]],
-  ['sizeC', 'размер C, px', 'num', 96, [48, 200, 2]],
-  ['oLeaf', 'лист', 'sel', 'ivy', ['none', 'acanthus', 'lance', 'willow', 'ovate', 'teardrop', 'oak', 'ivy', 'trefoil', 'cinquefoil', 'fern', 'dot', 'pod', 'dotted', 'comma', 'fan', 'needles', 'heart']],
-  ['oFlower', 'цветок', 'sel', 'rose', ['none', 'rosette', 'daisy', 'rose', 'star', 'phyllo', 'target', 'burst', 'dotring', 'quatre', 'tulip', 'bell', 'bud', 'pomegranate', 'thistle']],
+  ['frame', 'форма', 'sel', 'box', ['box', 'none', 'rect', 'rounded', 'circle', 'arch', 'pointed', 'shield', 'lozenge', 'octagon', 'quatrefoil', 'scallop']],
+  ['fBoxW', 'ширина формы (box)', 'num', 1, [0.1, 1, 0.01]],
+  ['fBoxH', 'высота формы (box)', 'num', 0.45, [0.1, 1, 0.01]],
+  ['fBoxR', 'скругление углов (box)', 'num', 0, [0, 0.5, 0.01]],
+  ['ground', 'фон формы', 'sel', 'нет', ['нет', 'красный (лоза белая)']],
+  ['sizeA', 'ширина A, px', 'num', 220, [40, 600, 2]],
+  ['sizeB', 'ширина B, px', 'num', 120, [24, 300, 2]],
+  ['sizeC', 'ширина C, px', 'num', 120, [48, 300, 2]],
+  ['orn', 'растущая лоза', 'sel', 'grow', ['grow', 'none']],
+  ['oStemStyle', 'стебель', 'sel', 'solid', ['solid', 'dotted', 'beaded', 'dashed', 'double', 'thorny']],
+  ['oTerminal', 'концы стеблей', 'sel', 'flower', ['curl', 'ball', 'leaf', 'flower', 'point']],
+  ['tKind', 'текстура (в просветах)', 'sel', 'none', ['none', 'stipple', 'bubbles', 'ripples', 'streams', 'fur', 'cells', 'truchet', 'coral']],
+  ['tScale', 'шаг текстуры', 'num', 9, [2, 60, 0.5]],
+  ['fPattern', 'паттерн фона (при красном фоне)', 'sel', 'none', ['none', 'hatch', 'cross', 'waves', 'dots', 'stipple', 'checker', 'diaper', 'scales', 'rays', 'rings', 'grid', 'seigaiha', 'asanoha', 'kikko', 'shippo', 'frets', 'ice', 'contour', 'engrave', 'halftone', 'mosaic', 'wash', 'frost', 'mycelium']],
+  ['fPatScale', 'шаг паттерна', 'num', 7, [2, 60, 0.5]],
+  ['oLeaf', 'лист', 'sel', 'trefoil', ['none', 'acanthus', 'lance', 'willow', 'ovate', 'teardrop', 'oak', 'ivy', 'trefoil', 'cinquefoil', 'fern', 'dot', 'pod', 'dotted', 'comma', 'fan', 'needles', 'heart']],
+  ['oFlower', 'цветок', 'sel', 'daisy', ['none', 'rosette', 'daisy', 'rose', 'star', 'phyllo', 'target', 'burst', 'dotring', 'quatre', 'tulip', 'bell', 'bud', 'pomegranate', 'thistle']],
   ['oDensity', 'плотность', 'num', 0.4, [0, 1, 0.01]],
-  ['oStemW', 'толщина стебля', 'num', 14, [0.6, 32, 0.2]],
-  ['oLeafSize', 'размер листа', 'num', 1.6, [0.2, 3, 0.05]],
-  ['oFlowerSize', 'размер цветка', 'num', 1.5, [0.3, 3, 0.05]],
-  ['oFlowerChance', 'сколько цветов', 'num', 0.3, [0, 1, 0.01]],
-  ['oBerries', 'ягоды', 'num', 0.4, [0, 1, 0.01]],
-  ['oCurl', 'завиток', 'num', 0.65, [0, 1, 0.01]],
-  ['oSym', 'симметрия', 'sel', 'mirror', ['none', 'mirror']],
+  ['oStemW', 'толщина стебля', 'num', 32, [0.6, 32, 0.2]],
+  ['oLeafSize', 'размер листа', 'num', 2.45, [0.2, 3, 0.05]],
+  ['oFlowerSize', 'размер цветка', 'num', 0.6, [0.3, 3, 0.05]],
+  ['oFlowerChance', 'сколько цветов', 'num', 0.43, [0, 1, 0.01]],
+  ['oBerries', 'ягоды', 'num', 0.79, [0, 1, 0.01]],
+  ['oCurl', 'завиток', 'num', 0.66, [0, 1, 0.01]],
+  ['oSym', 'симметрия', 'sel', 'none', ['none', 'mirror']],
   ['oSeeds', 'откуда растёт', 'sel', 'root', ['gaps', 'frame', 'corners', 'root', 'letter']],
-  ['seed', 'seed', 'num', 7, [1, 200, 1]],
+  ['seed', 'seed', 'num', 180, [1, 200, 1]],
   ['inkA', 'краска', 'color', '#B3261E'],
-  ['rough', 'шероховатость печати', 'num', 0.2, [0, 2, 0.01]],
+  ['rough', 'шероховатость печати', 'num', 0.06, [0, 2, 0.01]],
 ];
+const LSKEY = 'rm-lab-vignette-2';
 const S = Object.fromEntries(C.map(c => [c[0], c[3]]));
-try { Object.assign(S, JSON.parse(localStorage.getItem('rm-lab-vignette') || '{}')); } catch (e) {}
+try { Object.assign(S, JSON.parse(localStorage.getItem(LSKEY) || '{}')); } catch (e) {}
 
 const box = document.getElementById('controls');
 for (const [k, label, type, , opt] of C) {
@@ -129,23 +143,43 @@ function params() {
     frame: S.frame, fRules: 0, fField: red ? 'A' : 'paper', oFill: red ? 'paper' : 'A',
     oLeaf: S.oLeaf, oFlower: S.oFlower, oDensity: S.oDensity, oStemW: S.oStemW, oLeafSize: S.oLeafSize,
     oFlowerSize: S.oFlowerSize, oFlowerChance: S.oFlowerChance, oBerries: S.oBerries, oCurl: S.oCurl,
-    oSym: S.oSym, oSeeds: S.oSeeds, seed: S.seed, rough: S.rough };
+    oSym: S.oSym, oSeeds: S.oSeeds, seed: S.seed, rough: S.rough,
+    orn: S.orn, oStemStyle: S.oStemStyle, oTerminal: S.oTerminal, tKind: S.tKind, tScale: S.tScale, tColor: red ? 'paper' : 'A',
+    fPattern: S.fPattern, fPatScale: S.fPatScale, fPatColor: 'paper' };
+  if (S.frame === 'box') Object.assign(P, { fBoxW: S.fBoxW, fBoxH: S.fBoxH, fBoxR: S.fBoxR });
   return P;
 }
+// Где на квадрате 1000×1000 лежит форма (поле внутри полей fMargin = 40), с небольшим запасом —
+// по этой рамке картинку и обрезаем. У остальных форм — весь квадрат.
+function cropUnits() {
+  const m = 40, f = 1000 - 2 * m, pad = 10;
+  if (S.frame !== 'box') return { x: m - pad, y: m - pad, w: f + 2 * pad, h: f + 2 * pad };
+  const w = f * S.fBoxW + 2 * pad, h = f * S.fBoxH + 2 * pad;
+  return { x: 500 - w / 2, y: 500 - h / 2, w, h };
+}
 const dpr = Math.min(2, devicePixelRatio || 1);
-async function toURL(P, css) {
-  const bm = await render(P, { size: Math.round(css * dpr) });
-  const c = document.createElement('canvas'); c.width = bm.width; c.height = bm.height;
-  c.getContext('2d').drawImage(bm, 0, 0); bm.close();
+// размер рендера (квадрат), чтобы обрезанная форма вышла шириной cssW
+const renderPx = cssW => Math.min(2400, Math.round(cssW * dpr * 1000 / cropUnits().w));
+function crop(src, px) { // src: ImageBitmap или canvas размером px×px → dataURL обрезанной формы
+  const u = cropUnits(), k = px / 1000;
+  const c = document.createElement('canvas'); c.width = Math.round(u.w * k); c.height = Math.round(u.h * k);
+  c.getContext('2d').drawImage(src, u.x * k, u.y * k, u.w * k, u.h * k, 0, 0, c.width, c.height);
   return c.toDataURL();
 }
-const set = (id, url, css) => { const im = document.getElementById(id); im.src = url; im.style.width = im.style.height = css + 'px'; };
+async function toURL(P, cssW) {
+  const px = renderPx(cssW), bm = await render(P, { size: px });
+  const url = crop(bm, px); bm.close(); return url;
+}
+function set(id, url, cssW) {
+  const u = cropUnits(), im = document.getElementById(id);
+  im.src = url; im.style.width = cssW + 'px'; im.style.height = Math.round(cssW * u.h / u.w) + 'px';
+}
 let timer = 0, run = 0;
 function schedule() { clearTimeout(timer); timer = setTimeout(draw, 250); }
 async function draw() {
   const me = ++run, P = params();
   document.getElementById('json').textContent = JSON.stringify(P, null, 1);
-  try { localStorage.setItem('rm-lab-vignette', JSON.stringify(S)); } catch (e) {}
+  try { localStorage.setItem(LSKEY, JSON.stringify(S)); } catch (e) {}
   document.getElementById('sheet').classList.add('busy');
   try {
     const [a, b, c] = await Promise.all([toURL(P, S.sizeA), toURL(P, S.sizeB), toURL(P, S.sizeC)]);
@@ -154,17 +188,17 @@ async function draw() {
   } catch (e) { document.getElementById('json').textContent = 'Ошибка: ' + e.message; }
   document.getElementById('sheet').classList.remove('busy');
 }
-document.getElementById('reset').onclick = () => { try { localStorage.removeItem('rm-lab-vignette'); } catch (e) {} location.reload(); };
+document.getElementById('reset').onclick = () => { try { localStorage.removeItem(LSKEY); } catch (e) {} location.reload(); };
 document.getElementById('rand').onclick = () => { S.seed = 1 + Math.floor(Math.random() * 200); document.getElementById('c-seed').value = S.seed; draw(); };
 document.getElementById('copy').onclick = () => navigator.clipboard && navigator.clipboard.writeText(JSON.stringify(params()));
-// «Прорасти»: проигрываем рост во всех трёх местах (кадры — на холсте, показываем через img, как в приложении)
+// «Прорасти»: проигрываем рост во всех трёх местах (кадры — на холсте, показываем обрезанными через img)
 document.getElementById('grow').onclick = () => {
   const P = params();
-  for (const [ids, css] of [[['vA'], S.sizeA], [['vBl', 'vBr'], S.sizeB], [['vC'], S.sizeC]]) {
-    const work = document.createElement('canvas');
-    const show = () => { const u = work.toDataURL(); ids.forEach(id => document.getElementById(id).src = u); };
+  for (const [ids, cssW] of [[['vA'], S.sizeA], [['vBl', 'vBr'], S.sizeB], [['vC'], S.sizeC]]) {
+    const work = document.createElement('canvas'), px = renderPx(cssW);
+    const show = () => { const u = crop(work, px); ids.forEach(id => document.getElementById(id).src = u); };
     const t = setInterval(show, 66);
-    grow(work, P, { size: Math.round(css * dpr), seconds: 2.6 }).then(show).finally(() => clearInterval(t));
+    grow(work, P, { size: px, seconds: 2.6 }).then(show).finally(() => clearInterval(t));
   }
 };
 draw();
