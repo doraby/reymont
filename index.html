@@ -46,6 +46,21 @@
     --sheet-bleed: var(--space-7);         /* насколько лист бумаги (Paper) шире колонки с каждой стороны */
     --folio-bottom: var(--space-5);        /* номер страницы: от нижнего края листа */
     --tools-h: var(--space-6);             /* полоса иконок над текстом */
+    /* Библиотека */
+    --lib-pad-x: var(--space-6);           /* поля полки слева и справа */
+    --lib-pad-top: var(--space-7);
+    --lib-pad-bottom: var(--space-8);
+    --shelf-gap-y: var(--space-6);         /* между рядами обложек */
+    --shelf-gap-x: var(--space-5);         /* между обложками в ряду */
+    /* Правая панель: одно поле для всего содержимого (хайлайт, визуал, чат) */
+    --panel-pad-x: var(--space-5);
+    --panel-pad-bottom: var(--space-7);
+    --panel-section-gap: var(--space-5);   /* между блоками хайлайта: цитата, перевод, разделы */
+    /* Модальные окна */
+    --modal-pad-x: var(--space-6);
+    --modal-pad-y: var(--space-6);
+    --modal-edge: var(--space-4);          /* минимальный зазор модалки до края экрана */
+    --field-gap: var(--space-4);           /* между полями формы */
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   /* WebKit подсвечивает тапнутый элемент серым прямоугольником на весь хитбокс —
@@ -105,19 +120,19 @@
     pointer-events: none;
   }
   /* Выбор стиля в настройках */
-  .style-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 6px; }
+  .style-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-3); margin-top: var(--space-2); }
   .style-card { border: 2px solid var(--border); border-radius: 14px; background: var(--surface); padding: 0; cursor: pointer; overflow: hidden; text-align: left; transition: border-color .15s, transform .08s; }
   .style-card:hover { border-color: var(--accent-soft); }
   .style-card:active { transform: scale(0.985); }
   .style-card.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
-  .sc-page { height: 92px; padding: 12px; overflow: hidden; display: flex; align-items: flex-start; gap: 9px; }
+  .sc-page { height: 92px; padding: var(--space-3); overflow: hidden; display: flex; align-items: flex-start; gap: var(--space-2); }
   .sc-page > span { float: none !important; flex: none; }
   .sc-lines { flex: 1; padding-top: 6px; }
   .sc-lines i { display: block; height: 5px; border-radius: 3px; margin: 0 0 7px; opacity: .40; background: currentColor; }
   .sc-lines i:nth-child(1) { width: 92%; } .sc-lines i:nth-child(2) { width: 100%; } .sc-lines i:nth-child(3) { width: 78%; } .sc-lines i:nth-child(4) { width: 90%; }
-  .sc-name { padding: 8px 12px 10px; font-size: 13.5px; font-weight: 600; color: var(--text); display: flex; justify-content: space-between; gap: 8px; }
+  .sc-name { padding: var(--space-2) var(--space-3) var(--space-3); font-size: 13.5px; font-weight: 600; color: var(--text); display: flex; justify-content: space-between; gap: var(--space-2); }
   .sc-name small { font-weight: 400; color: var(--muted); font-size: 11.5px; }
-  .field label.check-row { display: flex; align-items: center; gap: 10px; margin: 14px 0 0; font-size: 14.5px; font-weight: 400; cursor: pointer; }
+  .field label.check-row { display: flex; align-items: center; gap: var(--space-3); margin: var(--space-4) 0 0; font-size: 14.5px; font-weight: 400; cursor: pointer; }
   .field label.check-row input[type=checkbox] { width: 18px !important; height: 18px; padding: 0; margin: 0; flex: none; accent-color: var(--accent); }
 
   .icon-btn {
@@ -144,8 +159,8 @@
 
   /* ───────────────── Library ───────────────── */
   #library { height: 100%; overflow-y: auto; }
-  .lib-inner { max-width: 960px; margin: 0 auto; padding: 48px 32px 80px; }
-  .lib-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+  .lib-inner { max-width: 960px; margin: 0 auto; padding: var(--lib-pad-top) var(--lib-pad-x) var(--lib-pad-bottom); }
+  .lib-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: var(--space-2); }
   .wordmark { font-size: 34px; font-weight: 600; letter-spacing: -0.01em; }
   .wordmark .tail { color: var(--accent); }
   .icon-btn svg.settings-mark { width: 40px; height: 19.4px; }
@@ -154,7 +169,7 @@
   .icon-btn.logo-btn:hover { color: var(--accent); }
   .app-ver { font-size: 12px; font-weight: 400; color: var(--muted); font-style: italic; letter-spacing: 0; vertical-align: 6px; }
   .modal h2 .app-ver { vertical-align: 3px; }
-  .lib-sub { color: var(--muted); font-style: italic; font-size: 15px; margin-bottom: 36px; }
+  .lib-sub { color: var(--muted); font-style: italic; font-size: 15px; margin-bottom: var(--space-6); }
 
   .book-add .book-cover {
     display: flex; align-items: center; justify-content: center;
@@ -165,12 +180,12 @@
   .book-add:hover .book-cover, .book-add.drag .book-cover { border-color: var(--accent-soft); background: var(--accent-bg); color: var(--accent); transform: none; box-shadow: none; }
   .book-add .book-meta { text-align: center; }
 
-  .banner { border-radius: 12px; padding: 14px 18px; font-size: 14px; line-height: 1.55; margin: -24px 0 44px; }
+  .banner { border-radius: 12px; padding: var(--space-4) var(--space-4); font-size: 14px; line-height: 1.55; margin: calc(-1 * var(--space-5)) 0 var(--space-7); }
   .banner.error { background: rgba(160, 58, 32, .09); color: #A03A20; border: 1px solid rgba(160, 58, 32, .25); }
   .banner.warn { background: rgba(176, 137, 0, .10); color: #7A5D1F; border: 1px solid rgba(176, 137, 0, .28); }
 
-  .shelf-title { font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-bottom: 20px; }
-  #books { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 28px 24px; }
+  .shelf-title { font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-bottom: var(--space-5); }
+  #books { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--shelf-gap-y) var(--shelf-gap-x); }
   /* На тач-устройствах быстрый повторный тап по обложке иначе ловится системным
      жестом зум-по-двойному-тапу вместо открытия книги — manipulation убирает именно
      его (и 300мс задержку клика), но не трогает скролл/свайпы страницы. */
@@ -187,16 +202,16 @@
   html:not(.is-touch) .book-card:hover .book-cover { transform: translateY(-4px); box-shadow: 0 12px 26px rgba(61,57,41,.24); }
   .book-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .book-cover .gen-title {
-    position: absolute; inset: 0; padding: 18px 14px; color: #FBF5EC;
+    position: absolute; inset: 0; padding: var(--space-4) var(--space-4); color: #FBF5EC;
     font-size: 15px; font-weight: 600; line-height: 1.35; font-style: italic;
   }
-  .book-meta { margin-top: 10px; }
+  .book-meta { margin-top: var(--space-3); }
   .book-title { font-size: 14px; font-weight: 600; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .book-author { font-size: 12.5px; color: var(--muted); margin-top: 3px; font-style: italic; }
-  .book-progress { height: 3px; background: var(--surface-2); border-radius: 2px; margin-top: 8px; overflow: hidden; }
+  .book-author { font-size: 12.5px; color: var(--muted); margin-top: var(--space-1); font-style: italic; }
+  .book-progress { height: 3px; background: var(--surface-2); border-radius: 2px; margin-top: var(--space-2); overflow: hidden; }
   .book-progress i { display: block; height: 100%; background: var(--accent-soft); border-radius: 2px; }
   .book-del {
-    position: absolute; top: 6px; right: 6px; width: 26px; height: 26px;
+    position: absolute; top: var(--space-2); right: var(--space-2); width: 26px; height: 26px;
     border-radius: 50%; border: none; background: rgba(40,35,25,.55); color: #fff;
     font-size: 14px; line-height: 1; cursor: pointer; opacity: 0; transition: opacity .15s;
     backdrop-filter: blur(4px);
@@ -205,7 +220,7 @@
   .is-touch .book-del { opacity: 1; }
   .book-del:hover { background: rgba(160,40,20,.8); }
   .book-illus {
-    position: absolute; top: 6px; left: 6px; width: 26px; height: 26px;
+    position: absolute; top: var(--space-2); left: var(--space-2); width: 26px; height: 26px;
     border-radius: 50%; border: none; background: rgba(40,35,25,.55); color: #fff;
     font-size: 13px; line-height: 1; cursor: pointer; opacity: 0; transition: opacity .15s;
     backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center;
@@ -216,14 +231,14 @@
   .book-illus.busy { opacity: 1; pointer-events: none; }
   .book-illus svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   .book-curated .book-cover { background: linear-gradient(160deg, #8C9A6E, #5E6B45); }
-  .book-add-hint { font-size: 11.5px; color: var(--accent); margin-top: 4px; font-weight: 600; }
+  .book-add-hint { font-size: 11.5px; color: var(--accent); margin-top: var(--space-1); font-weight: 600; }
   .book-curated.pending { pointer-events: none; opacity: .6; }
   #lib-empty { color: var(--muted); font-style: italic; font-size: 15px; }
-  .lib-footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--border);
+  .lib-footer { margin-top: var(--space-8); padding-top: var(--space-5); border-top: 1px solid var(--border);
     font-size: 12.5px; color: var(--muted); }
   .lib-footer a { color: var(--muted); text-decoration: none; }
   .lib-footer a:hover { color: var(--accent); text-decoration: underline; }
-  .lib-footer span { margin: 0 8px; }
+  .lib-footer span { margin: 0 var(--space-2); }
 
   /* ───────────────── Reader ───────────────── */
   #reader { display: none; height: 100%; flex-direction: column; position: relative; }
@@ -328,37 +343,37 @@
      (подсказка про выделение или содержимое хайлайта). */
   #panel-visual { display: none; flex: none; border-bottom: 1px solid var(--border); }
   #panel.vz-on #panel-visual { display: flex; flex-direction: column; }
-  #panel-visual.tiles { padding: 6px 22px 16px; }
-  .vz-bar { flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 6px; padding: 8px 16px 12px 22px; }
+  #panel-visual.tiles { padding: var(--space-2) var(--panel-pad-x) var(--space-4); }
+  .vz-bar { flex: none; display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2); padding: var(--space-2) var(--space-4) var(--space-3) var(--panel-pad-x); }
   .vz-bar .btn { border: none; background: transparent; } /* кнопки под визуалом — без обводки */
   .vz-bar .btn:hover { background: var(--surface-2); }
   .vz-title { margin-right: auto; min-width: 0; font-style: italic; font-size: 14.5px; line-height: 1.35; color: var(--text); }
-  .vz-bar .btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; font-size: 13px; }
+  .vz-bar .btn { display: inline-flex; align-items: center; gap: var(--space-1); padding: var(--space-1) var(--space-3); font-size: 13px; }
   #panel-visual .pv-media { overflow: visible; } /* без своей прокрутки — панель листается целиком */
   #panel-visual .pv-media img { max-height: 75vh; width: auto; }
   /* Полноэкранный режим картинки и игры (кнопка ⤢ под визуалом) */
   #panel-visual .pv-media img:fullscreen { max-height: none; width: 100%; height: 100%; object-fit: contain; background: #111; border-radius: 0; }
   #interactive-frame:fullscreen { height: 100% !important; }
   /* Диаграмма Mermaid рисуется тёмными линиями — подкладываем светлую подложку, чтобы её было видно и в тёмном стиле */
-  #panel-visual.dg-view .pv-media svg { background: #FAF9F5; border-radius: 10px; padding: 14px; } /* вертикальная иллюстрация видна целиком */
-  #panel-visual .io-loading { margin: 0 auto; padding: 16px 22px 20px; }
-  #panel-visual .p-error { margin: 4px 22px 16px; }
+  #panel-visual.dg-view .pv-media svg { background: #FAF9F5; border-radius: 10px; padding: var(--space-4); } /* вертикальная иллюстрация видна целиком */
+  #panel-visual .io-loading { margin: 0 auto; padding: var(--space-4) var(--panel-pad-x) var(--space-5); }
+  #panel-visual .p-error { margin: var(--space-1) var(--panel-pad-x) var(--space-4); }
   #panel-visual #interactive-frame { flex: none; height: 420px; } /* дальше высоту подгоняет сама игра (rmHeight) — без своей прокрутки */
   body:not(.split) #panel-visual .pv-media { max-height: none; }
-  .ph { padding: 4px 0 24px; }
+  .ph { padding: var(--space-1) 0 var(--space-5); }
   /* Подсказку «Select a word…» и разделитель показываем, только пока у страницы нет визуала (сверху — плитки) */
   #panel.home-view:has(#panel-visual:not(.tiles)) #panel-body .ph { display: none; }
   #panel.home-view #panel-visual:not(.tiles) { border-bottom: none; }
-  .ph-hint { font-size: 15px; line-height: 1.55; color: var(--muted); padding: 16px 2px; }
-  .ph-title { margin: 6px 0 10px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-  .ph-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .ph-hint { font-size: 15px; line-height: 1.55; color: var(--muted); padding: var(--space-4) 2px; }
+  .ph-title { margin: var(--space-2) 0 var(--space-3); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .ph-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); }
   /* Компактные плитки: иконка и подпись в одну строку */
-  .ph-tiles .rail-tile { height: 44px; flex-direction: row; gap: 7px; border-radius: 10px; }
+  .ph-tiles .rail-tile { height: 44px; flex-direction: row; gap: var(--space-2); border-radius: 10px; }
   .ph-tiles .rail-tile .rt-art { flex: none; width: 20px; height: 20px; }
   .ph-tiles .rail-tile .rt-art { color: var(--accent); } /* иконки плиток — красные (акцент), подпись остаётся серой */
   .ph-tiles .rail-tile .rt-art svg { stroke-width: 3; }
   .ph-tiles .rail-tile .rt-label { padding: 0; font-size: 13px; }
-  .ph-note { margin-top: 14px; font-size: 13px; color: var(--muted); }
+  .ph-note { margin-top: var(--space-4); font-size: 13px; color: var(--muted); }
   .ph-note a { color: inherit; text-decoration: underline; cursor: pointer; }
   .rail-tile {
     position: relative; flex: none; width: 100%;
@@ -370,28 +385,28 @@
   .rail-tile.active { border-color: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent-soft); }
   .rail-tile .rt-art { width: 58%; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
   .rail-tile .rt-art svg { width: 100%; height: 100%; max-height: 92px; fill: none; stroke: currentColor; stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; }
-  .rail-tile .rt-label { flex: none; padding: 0 6px 12px; font-size: 13px; letter-spacing: .02em; }
+  .rail-tile .rt-label { flex: none; padding: 0 var(--space-2) var(--space-3); font-size: 13px; letter-spacing: .02em; }
   .rail-tile .rt-label { position: relative; }
-  .rail-tile .rt-label b { position: absolute; margin-left: 4px; font-weight: normal; opacity: 0; transition: opacity .15s; } /* «+» не сдвигает подпись */
+  .rail-tile .rt-label b { position: absolute; margin-left: var(--space-1); font-weight: normal; opacity: 0; transition: opacity .15s; } /* «+» не сдвигает подпись */
   .rail-tile:hover .rt-label b { opacity: 1; }
   .rail-tile.has { color: var(--text); } /* у страницы уже есть эта вставка — линии темнее */
   .rail-tile.locked { opacity: .5; }
   .rail-tile.locked:hover { opacity: 1; }
   .rail-tile.busy { pointer-events: none; animation: io-pulse 1.2s ease-in-out infinite; }
   /* Диаграмма и иллюстрация страницы в панели */
-  .pv-media { flex: 1; min-height: 0; overflow: auto; padding: 16px 22px 4px; background: transparent; } /* поля как у текста панели — визуал не от края до края */
+  .pv-media { flex: 1; min-height: 0; overflow: auto; padding: var(--space-4) var(--panel-pad-x) var(--space-1); background: transparent; } /* поля как у текста панели — визуал не от края до края */
   .pv-media svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
   .pv-media img { display: block; max-width: 100%; height: auto; margin: 0 auto; border-radius: 8px; }
   /* Диаграмма на весь экран: поверх всего, с зумом и прокруткой (из iframe книги выйти за колонку нельзя) */
   #diagram-fs { display: none; position: fixed; inset: 0; z-index: 600; background: #FAF9F5; flex-direction: column; }
   #diagram-fs.open { display: flex; }
   .dfs-bar {
-    flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 8px;
-    padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 10px; border-bottom: 1px solid var(--border);
+    flex: none; display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2);
+    padding: calc(var(--space-3) + env(safe-area-inset-top, 0px)) var(--space-3) var(--space-3); border-bottom: 1px solid var(--border);
   }
   .dfs-bar .btn { min-width: 40px; }
   #dfs-zoom { min-width: 48px; text-align: center; color: var(--muted); font-variant-numeric: tabular-nums; }
-  #dfs-body { flex: 1; overflow: auto; padding: 12px; cursor: grab; -webkit-overflow-scrolling: touch; }
+  #dfs-body { flex: 1; overflow: auto; padding: var(--space-3); cursor: grab; -webkit-overflow-scrolling: touch; }
   #dfs-body.dragging { cursor: grabbing; user-select: none; }
   #dfs-body svg { display: block; margin: 0 auto; max-width: none; height: auto; }
   /* Панель с интерактивом шире обычной (на мобильном и так во всю ширину) */
@@ -401,7 +416,7 @@
   #panel-body.io { padding: 0; display: flex; flex-direction: column; overflow: hidden; }
   #io-dislike-btn, #io-delete-btn, #note-delete-btn { display: none; }
   /* «Удалить хайлайт» — под текстом перевода, а не в шапке панели */
-  .note-del-row { display: flex; justify-content: flex-end; margin-top: 6px; }
+  .note-del-row { display: flex; justify-content: flex-end; margin-top: var(--space-2); }
   .note-del { display: none; width: 30px; height: 30px; padding: 0; border: none; border-radius: 50%; background: transparent; color: var(--muted); cursor: pointer; align-items: center; justify-content: center; }
   .note-del:hover { color: var(--text); background: var(--surface-2); }
   .note-del svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
@@ -554,29 +569,29 @@
   .panel-head {
     flex: none; position: relative; z-index: 5; background: var(--surface);
     display: flex; align-items: center; justify-content: flex-end;
-    padding: 12px 16px 4px;
+    padding: var(--space-3) var(--space-4) var(--space-1);
   }
   /* #chrome-toggle-btn — фиксированная кнопка в углу (38px, right:12px) — на тач-устройствах
      физически перекрывает свою же кнопку ✕ панели в том же углу. toggleChrome() уже умеет
      закрывать панель по тапу на неё, но саму ✕ всё равно стоит увести из-под неё. */
-  .is-touch .panel-head { padding-right: 58px; }
+  .is-touch .panel-head { padding-right: calc(38px + var(--space-3) + var(--space-2)); } /* кнопка 38px + её отступ от края + зазор */
   /* На тач это уже дублирует #chrome-toggle-btn (закрывает панель по тапу в углу) —
      на мобилке своя ✕ у панели больше не нужна, только на десктопе (там угловой кнопки нет). */
   .is-touch #panel-close-btn { display: none; }
   #panel-scroll { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
-  #panel-body { flex: 1 0 auto; padding: 0 22px 40px; }
+  #panel-body { flex: 1 0 auto; padding: 0 var(--panel-pad-x) var(--panel-pad-bottom); }
 
   /* Чат о хайлайте */
-  .chat-sec { margin-top: 22px; }
-  .chat-msg { margin: 10px 0; font-size: 14.5px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
-  .chat-msg.user { background: var(--surface-2); border-radius: 18px; padding: 8px 14px; margin-left: auto; max-width: 86%; width: fit-content; }
+  .chat-sec { margin-top: var(--panel-section-gap); }
+  .chat-msg { margin: var(--space-3) 0; font-size: 14.5px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+  .chat-msg.user { background: var(--surface-2); border-radius: 18px; padding: var(--space-2) var(--space-4); margin-left: auto; max-width: 86%; width: fit-content; }
   .chat-msg.err { color: #B4432A; font-size: 13.5px; }
   /* Поле ввода — как в чате Claude: закреплено внизу панели, без рамок, мягкая «таблетка» с круглой кнопкой */
-  #chat-dock { flex: none; display: none; padding: 6px 16px calc(16px + env(safe-area-inset-bottom, 0px)); background: var(--surface); }
+  #chat-dock { flex: none; display: none; padding: var(--space-2) var(--panel-pad-x) calc(var(--space-4) + env(safe-area-inset-bottom, 0px)); background: var(--surface); }
   #panel.chat-on #chat-dock { display: block; }
-  .chat-box { display: flex; align-items: flex-end; gap: 8px; background: var(--surface-2); border-radius: 24px; padding: 6px 6px 6px 18px; }
+  .chat-box { display: flex; align-items: flex-end; gap: var(--space-2); background: var(--surface-2); border-radius: 24px; padding: var(--space-1) var(--space-1) var(--space-1) var(--space-4); }
   .chat-box textarea {
-    flex: 1; resize: none; max-height: 140px; min-height: 28px; padding: 8px 0; border: 0; outline: none; background: transparent;
+    flex: 1; resize: none; max-height: 140px; min-height: 28px; padding: var(--space-2) 0; border: 0; outline: none; background: transparent;
     color: var(--text); font: inherit; font-size: 15px; line-height: 1.45;
   }
   .chat-box textarea::placeholder { color: var(--muted); }
@@ -588,14 +603,14 @@
   .chat-box button svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
   .sel-quote {
     font-style: italic; font-size: 15.5px; line-height: 1.55; color: var(--text);
-    border-left: 3px solid var(--accent-soft); padding: 2px 0 2px 14px; margin-top: 22px; margin-bottom: 22px;
+    border-left: 3px solid var(--accent-soft); padding: 2px 0 2px var(--space-4); margin-top: var(--panel-section-gap); margin-bottom: var(--panel-section-gap);
   }
-  .p-section-title { font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); font-weight: 600; margin: 26px 0 10px; }
+  .p-section-title { font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); font-weight: 600; margin: var(--panel-section-gap) 0 var(--space-3); }
   .p-section-title:first-of-type { margin-top: 0; }
   #trans-out { font-size: 16.5px; line-height: 1.65; white-space: pre-wrap; }
   #trans-out.pending, .ctx-pending { color: var(--muted); font-style: italic; font-size: 14px; }
-  .p-error { color: #A03A20; font-size: 14px; line-height: 1.5; background: rgba(160,58,32,.08); border-radius: 10px; padding: 12px 14px; }
-  .p-error button { margin-top: 10px; }
+  .p-error { color: #A03A20; font-size: 14px; line-height: 1.5; background: rgba(160,58,32,.08); border-radius: 10px; padding: var(--space-3) var(--space-4); }
+  .p-error button { margin-top: var(--space-3); }
 
   /* Полный захват панели вместо мелкого сообщения об ошибке — это единственное,
      что видит неавторизованный читатель, попросивший свой хайлайт. Фон вешаем на сам
@@ -604,34 +619,34 @@
      контента и контейнера и было причиной лишнего скролла на iOS. */
   #panel-body.promo { padding: 0; background: linear-gradient(160deg, var(--accent-soft), var(--accent) 70%); }
   .signup-promo {
-    padding: 56px 30px 64px;
+    padding: var(--space-8) var(--space-6) var(--space-8);
     display: flex; flex-direction: column; align-items: center; text-align: center;
     color: #FBF5EC;
   }
   .signup-promo-icon {
     width: 52px; height: 52px; border-radius: 50%; background: rgba(255,255,255,.18);
-    display: flex; align-items: center; justify-content: center; margin-bottom: 24px; flex: none;
+    display: flex; align-items: center; justify-content: center; margin-bottom: var(--space-5); flex: none;
   }
   .signup-promo-icon svg { width: 26px; height: 26px; }
-  .signup-promo h2 { font-size: 25px; font-weight: 700; margin-bottom: 14px; color: #fff; }
-  .signup-promo p { font-size: 15px; line-height: 1.6; color: rgba(255,255,255,.92); max-width: 300px; margin-bottom: 30px; }
+  .signup-promo h2 { font-size: 25px; font-weight: 700; margin-bottom: var(--space-4); color: #fff; }
+  .signup-promo p { font-size: 15px; line-height: 1.6; color: rgba(255,255,255,.92); max-width: 300px; margin-bottom: var(--space-6); }
   .signup-promo .btn.primary {
     background: #fff; color: var(--accent); border-color: #fff; font-size: 15px;
-    padding: 13px 28px; font-weight: 700;
+    padding: var(--space-3) var(--space-6); font-weight: 700;
   }
   .signup-promo .btn.primary:hover { background: #FBF5EC; }
-  .signup-promo-note { font-size: 12.5px; color: rgba(255,255,255,.75); margin-top: 16px; }
+  .signup-promo-note { font-size: 12.5px; color: rgba(255,255,255,.75); margin-top: var(--space-4); }
 
 
   .illus-card {
     border-radius: 14px; overflow: hidden;
-    background: var(--bg); margin-bottom: 10px;
+    background: var(--bg); margin-bottom: var(--space-3);
   }
   .illus-card img { width: 100%; display: block; }
   /* Выбор стиля иллюстрации — тихие текстовые переключатели (Тафти): капитель, выбранный подчёркнут акцентом */
-  .illus-style { display: flex; flex-wrap: wrap; gap: 0 14px; margin: 0 0 8px; }
+  .illus-style { display: flex; flex-wrap: wrap; gap: 0 var(--space-4); margin: 0 0 var(--space-2); }
   .illus-style button {
-    background: none; border: 0; padding: 10px 0; min-height: 40px; cursor: pointer;
+    background: none; border: 0; padding: var(--space-3) 0; min-height: 40px; cursor: pointer;
     font: inherit; font-size: 14px; font-variant: small-caps; letter-spacing: .04em; color: var(--muted);
     text-decoration: underline transparent; text-underline-offset: 4px; text-decoration-thickness: 1px;
     transition: color .15s, text-decoration-color .15s;
@@ -640,22 +655,22 @@
   .illus-style button.on { color: var(--accent); text-decoration-color: var(--accent); }
   #illus-menu {
     display: none; position: fixed; z-index: 400; margin: 0;
-    width: 300px; max-width: calc(100vw - 16px); padding: 12px 14px; background: var(--bg); border: 1px solid var(--border);
+    width: 300px; max-width: calc(100vw - 2 * var(--space-2)); padding: var(--space-3) var(--space-4); background: var(--bg); border: 1px solid var(--border);
   }
   #illus-menu.open { display: block; }
-  #illus-menu .im-head { font-style: italic; color: var(--muted); font-size: 14px; margin: 0 0 8px; }
+  #illus-menu .im-head { font-style: italic; color: var(--muted); font-size: 14px; margin: 0 0 var(--space-2); }
   /* Выбор стиля иллюстрации с превью: картинка + подпись капителью; выбранный — подпись акцентом. */
-  .illus-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 14px; margin: 0; }
+  .illus-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-3) var(--space-4); margin: 0; }
   .illus-grid button { display: block; padding: 0; text-align: left; }
   .illus-grid .ip-img { display: block; width: 100%; aspect-ratio: 3 / 4; object-fit: cover; object-position: top;
     border: 1px solid var(--border); background: var(--surface); }
   .illus-grid button.on .ip-img { border-color: var(--accent); }
-  .illus-grid .ip-name { display: block; margin-top: 4px; }
+  .illus-grid .ip-name { display: block; margin-top: var(--space-1); }
   #illus-style-picker { max-width: 420px; }
 
 
   #web-out { font-size: 14.5px; line-height: 1.62; }
-  #web-out p { margin-bottom: 10px; }
+  #web-out p { margin-bottom: var(--space-3); }
   #web-out a { color: var(--accent); text-decoration: none; border-bottom: 1px solid rgba(193,95,60,.3); }
   #web-out a:hover { border-bottom-color: var(--accent); }
 
@@ -664,7 +679,7 @@
   .spinner {
     display: inline-block; width: 13px; height: 13px; border-radius: 50%;
     border: 2px solid var(--surface-2); border-top-color: var(--accent-soft);
-    animation: spin .7s linear infinite; vertical-align: -2px; margin-right: 8px;
+    animation: spin .7s linear infinite; vertical-align: -2px; margin-right: var(--space-2);
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -675,26 +690,26 @@
   }
   #overlay.open { display: flex; }
   .modal {
-    width: 460px; max-width: calc(100vw - 32px); background: var(--surface);
-    border-radius: 18px; box-shadow: var(--shadow); padding: 28px 30px 26px;
+    width: 460px; max-width: calc(100vw - 2 * var(--modal-edge)); background: var(--surface);
+    border-radius: 18px; box-shadow: var(--shadow); padding: var(--modal-pad-y) var(--modal-pad-x);
     max-height: 90vh; overflow-y: auto;
   }
-  .modal h2 { font-size: 21px; font-weight: 600; margin-bottom: 4px; }
-  .modal .m-sub { color: var(--muted); font-size: 13.5px; font-style: italic; margin-bottom: 22px; }
-  .field { margin-bottom: 18px; }
-  .field label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 7px; }
+  .modal h2 { font-size: 21px; font-weight: 600; margin-bottom: var(--space-1); }
+  .modal .m-sub { color: var(--muted); font-size: 13.5px; font-style: italic; margin-bottom: var(--space-5); }
+  .field { margin-bottom: var(--field-gap); }
+  .field label { display: block; font-size: 13px; font-weight: 600; margin-bottom: var(--space-2); }
   .field input, .field select, .field textarea {
-    width: 100%; padding: 10px 13px; border: 1px solid var(--border); border-radius: 10px;
+    width: 100%; padding: var(--space-3) var(--space-3); border: 1px solid var(--border); border-radius: 10px;
     background: var(--bg); font-family: var(--serif); font-size: 14.5px; color: var(--text); outline: none;
     transition: border-color .15s;
   }
   .field textarea { resize: vertical; min-height: 70px; line-height: 1.5; }
   .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent-soft); }
-  .field .note { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+  .field .note { font-size: 12px; color: var(--muted); margin-top: var(--space-2); line-height: 1.5; }
   .key-row { position: relative; }
-  .key-row .eye { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); }
-  .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
-  .settings-version { text-align: center; font-size: 11px; color: var(--muted); font-style: italic; margin-top: 16px; user-select: none; }
+  .key-row .eye { position: absolute; right: var(--space-2); top: 50%; transform: translateY(-50%); }
+  .modal-actions { display: flex; justify-content: flex-end; gap: var(--space-3); margin-top: var(--space-5); }
+  .settings-version { text-align: center; font-size: 11px; color: var(--muted); font-style: italic; margin-top: var(--space-4); user-select: none; }
 
   #prompt-overlay, #fb-overlay {
     position: fixed; inset: 0; background: rgba(61,57,41,.35); backdrop-filter: blur(2px);
@@ -795,7 +810,7 @@
     body.panel-open #reading-col { margin-right: 0; }
     #panel { width: 100vw; }
     :root { --page-gutter: var(--space-3); --page-top: 0px; --page-bottom: var(--space-7); --folio-bottom: var(--space-4); }
-    .lib-inner { padding: 32px 20px 60px; }
+    :root { --lib-pad-x: var(--space-5); --lib-pad-top: var(--space-6); --lib-pad-bottom: var(--space-7); --panel-pad-x: var(--space-4); --modal-pad-x: var(--space-5); --modal-pad-y: var(--space-5); }
   }
 </style>
 </head>
