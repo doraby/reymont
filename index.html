@@ -1807,20 +1807,28 @@ function iniImage(styleId, letter, v) {
 const INI_GROW_S = 2.6;
 const iniGrownEls = new WeakSet(); // абзацы, у которых рост уже сыгран (новая отрисовка главы — новые абзацы, играет снова)
 let iniReady = false; // false, пока книга открывается и восстанавливает место — анимацию тогда не видно, не тратим её
+/* Пока не ясно, будет ли рост (глава только отрисована, книга ещё открывается), готовая буквица не показывается —
+   иначе она мелькала бы целиком, исчезала и прорастала заново. Квадрат пустой (rm-ini-pending), потом либо рост
+   с пустого квадрата, либо (открыли не первую страницу главы, рост уже был, reduced motion) — сразу готовая картинка. */
+const iniReduced = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
+function iniUnpend(contents) {
+  const doc = contents && contents.document;
+  if (doc) doc.querySelectorAll('p.rm-ini-pending').forEach(p => p.classList.remove('rm-ini-pending'));
+}
 async function growInitials(contents) {
   const doc = contents && contents.document, styleId = currentStyleId();
-  if (!doc || !STYLES[styleId].initialis || iniLib === false) return;
-  try { if (matchMedia('(prefers-reduced-motion: reduce)').matches) return; } catch (e) {}
+  if (!doc || !STYLES[styleId].initialis || iniLib === false || iniReduced()) { iniUnpend(contents); return; }
   for (const p of doc.querySelectorAll('p.rm-dc.rm-ini')) {
     const cls = [...p.classList].find(c => /^rm-ini-[A-Z]-\d+$/.test(c));
     if (!cls || p.classList.contains('rm-ini-growing')) continue;
     const [, l, vs] = /^rm-ini-([A-Z])-(\d+)$/.exec(cls), v = +vs;
-    if (iniGrownEls.has(p)) continue;
+    const unpend = () => p.classList.remove('rm-ini-pending');
+    if (iniGrownEls.has(p)) { unpend(); continue; }
     iniGrownEls.add(p);
     const side = parseFloat(getComputedStyle(p).getPropertyValue('--rm-ini'));
-    if (!side) continue;
+    if (!side) { unpend(); continue; }
     if (iniLib === null) iniLib = import(new URL('vendor/initialis/lib/initialis.js', location.href).href).catch(e => { console.warn('initialis:', e); return false; });
-    const lib = await iniLib; if (!lib || !p.isConnected) continue;
+    const lib = await iniLib; if (!lib || !p.isConnected) { unpend(); continue; }
     // Кадры рисуются на холсте в окне приложения, а в книге показывается <img>, который обновляем ~15 раз в секунду:
     // холст внутри iframe книги браузер может и не показать (проверено — не отображался).
     const work = document.createElement('canvas');
@@ -1829,6 +1837,7 @@ async function growInitials(contents) {
     img.alt = ''; img.setAttribute('aria-hidden', 'true');
     p.insertBefore(img, p.firstChild);
     p.classList.add('rm-ini-growing');
+    unpend();
     const show = () => { try { img.src = work.toDataURL(); } catch (e) {} };
     const tick = setInterval(show, 66);
     const done = () => { clearInterval(tick); img.remove(); p.classList.remove('rm-ini-growing'); };
@@ -1851,8 +1860,11 @@ function applyInitials(doc, styleId, section) {
     const l = iniLetter(p); if (!l) return;
     const v = (section || 0) + k * 1000, cls = `rm-ini-${l}-${v}`;
     p.classList.add('rm-ini', cls); caps.set(cls, [l, v]);
+    if (!iniReduced()) p.classList.add('rm-ini-pending');
   });
   if (!caps.size || !doc.head) return;
+  // страховка: если ни рост, ни «показать готовую» так и не случились — через 4 с показываем готовую
+  setTimeout(() => doc.querySelectorAll('p.rm-ini-pending:not(.rm-ini-growing)').forEach(p => p.classList.remove('rm-ini-pending')), 4000);
   // библиотеку грузим заранее — чтобы рост на первой странице главы начинался сразу, без паузы на загрузку
   if (iniLib === null) iniLib = import(new URL('vendor/initialis/lib/initialis.js', location.href).href).catch(e => { console.warn('initialis:', e); return false; });
   // Квадрат на три строки ставится сразу, до картинки, чтобы вёрстка не прыгала. width у ::first-letter браузеры
@@ -1864,6 +1876,7 @@ function applyInitials(doc, styleId, section) {
 p.rm-dc.rm-ini { --rm-ini: ${side}; text-indent: 0 !important; }
 /* пока растёт орнамент, квадрат буквицы — кадр <img> в начале абзаца (тот же размер и обтекание), а сама буква не плавает */
 p.rm-dc.rm-ini.rm-ini-growing::first-letter { float: none !important; padding: 0 !important; background-image: none !important; }
+p.rm-dc.rm-ini.rm-ini-pending::first-letter { background-image: none !important; } /* ждём: будет рост или сразу готовая */
 .${INS_CLASS}.rm-ini-grow { display: block !important; float: left !important; margin: 0 !important; width: var(--rm-ini) !important; height: var(--rm-ini) !important; pointer-events: none; }
 p.rm-dc.rm-ini > :first-child { margin-left: 0 !important; text-indent: 0 !important; } /* у книг под свою буквицу бывает отрицательный отступ (Bernays: .smcap1) */
 p.rm-dc.rm-ini::first-letter { float: left !important; font-size: 0 !important; line-height: 0 !important; color: transparent !important;
@@ -2607,7 +2620,10 @@ async function openBook(id, newRec) {
     syncSplit();
     updateRail();
     // первая страница главы — проигрываем рост орнамента буквицы
-    if (iniReady && loc && loc.start && loc.start.displayed && loc.start.displayed.page === 1) rendition.getContents().forEach(c => growInitials(c));
+    if (iniReady) {
+      if (loc && loc.start && loc.start.displayed && loc.start.displayed.page === 1) rendition.getContents().forEach(c => growInitials(c));
+      else rendition.getContents().forEach(iniUnpend); // открыли не начало главы — сразу готовая буквица
+    }
     setTimeout(autoOpenPageMedia, 60);
   });
   // Перевёрстка (ширина колонки/шрифт) тоже даёт relocated — это не перелистывание, автооткрытие на неё не реагирует.
@@ -2625,7 +2641,7 @@ async function openBook(id, newRec) {
   const vl = document.querySelector('#viewer .viewer-loading'); if (vl) vl.remove();
   // книга на экране — теперь рост буквицы видно; если открылись на первой странице главы, играем сразу
   iniReady = true;
-  { const l0 = rendition.currentLocation(); if (l0 && l0.start && l0.start.displayed && l0.start.displayed.page === 1) rendition.getContents().forEach(c => growInitials(c)); }
+  { const l0 = rendition.currentLocation(); if (l0 && l0.start && l0.start.displayed && l0.start.displayed.page === 1) rendition.getContents().forEach(c => growInitials(c)); else rendition.getContents().forEach(iniUnpend); }
 
   bookNotes.forEach(addHighlight);
   renderNotesList();
