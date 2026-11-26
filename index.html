@@ -1725,17 +1725,43 @@ function iniSettings(styleId, letter, v) {
   for (const [k, list] of Object.entries(st.initialisVary || {})) P[k] = list[v % list.length];
   return P;
 }
+/* Кэш между сессиями — Cache Storage. Ключ — хэш полных настроек буквицы, размера и версии библиотеки
+   (обновили vendor/initialis — поменяйте INI_LIB_VER), так что сменившиеся настройки просто дают новые ключи.
+   Записей не больше INI_DISK_MAX: лишние, самые старые по порядку записи, удаляются. Нет Cache Storage
+   (не https, приватный режим) — работаем как раньше, только с памятью. */
+const INI_LIB_VER = 'a8136959', INI_DISK = 'rm-initialis', INI_DISK_MAX = 300;
+function iniHash(s) { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return (h >>> 0).toString(36); }
+const blobToDataURL = b => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = () => no(r.error); r.readAsDataURL(b); });
+async function iniDiskGet(url) {
+  try { if (!window.caches) return null; const r = await (await caches.open(INI_DISK)).match(url); return r ? blobToDataURL(await r.blob()) : null; } catch (e) { return null; }
+}
+async function iniDiskPut(url, blob) {
+  try {
+    if (!window.caches) return;
+    const c = await caches.open(INI_DISK);
+    await c.put(url, new Response(blob, { headers: { 'content-type': blob.type } }));
+    const keys = await c.keys();
+    for (const k of keys.slice(0, Math.max(0, keys.length - INI_DISK_MAX))) await c.delete(k);
+  } catch (e) {}
+}
 function iniImage(styleId, letter, v) {
   const key = styleId + ':' + letter + ':' + v;
   if (iniCache.has(key)) return iniCache.get(key);
-  if (iniLib === null) iniLib = import(new URL('vendor/initialis/lib/initialis.js', location.href).href).catch(e => { console.warn('initialis:', e); return false; });
-  const job = iniLib.then(async lib => {
+  const P = iniSettings(styleId, letter, v);
+  const url = new URL('__initialis/' + iniHash(JSON.stringify(P) + '|' + INI_PX + '|' + INI_LIB_VER), location.href).href;
+  const job = iniDiskGet(url).then(hit => hit || (async () => {
+    if (iniLib === null) iniLib = import(new URL('vendor/initialis/lib/initialis.js', location.href).href).catch(e => { console.warn('initialis:', e); return false; });
+    const lib = await iniLib;
     if (!lib) return null;
-    const bm = await lib.render(iniSettings(styleId, letter, v), { size: INI_PX });
+    const bm = await lib.render(P, { size: INI_PX });
     const c = document.createElement('canvas'); c.width = bm.width; c.height = bm.height;
     c.getContext('2d').drawImage(bm, 0, 0); bm.close();
-    return c.toDataURL('image/png');
-  }).catch(e => { console.warn('initialis ' + letter + ':', e); return null; });
+    // WebP втрое легче PNG; где браузер не кодирует WebP (старый Safari), toBlob сам отдаёт PNG
+    const blob = await new Promise(ok => c.toBlob(ok, 'image/webp', 0.9));
+    if (!blob) return c.toDataURL('image/png');
+    iniDiskPut(url, blob);
+    return blobToDataURL(blob);
+  })()).catch(e => { console.warn('initialis ' + letter + ':', e); return null; });
   iniCache.set(key, job);
   return job;
 }
