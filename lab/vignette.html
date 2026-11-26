@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Виньетка — лаборатория</title>
+<!-- Временная страница для экспериментов: виньетка из орнамента INITIĀLIS перед иконкой игры на странице книги.
+     Не часть приложения; когда вариант выбран, настройки переносятся в index.html, а страницу можно удалить. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap">
+<style>
+  :root { --bg: #E6E3DC; --paper: #FFFFFF; --ink: #1F1E1B; --muted: #86827A; --acc: #B3261E; --line: #DAD6CC; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 'Libre Baskerville', Georgia, serif; }
+  .wrap { display: grid; grid-template-columns: 300px 1fr; min-height: 100vh; }
+  aside { background: #F6F4EF; border-right: 1px solid var(--line); padding: 16px; overflow: auto; max-height: 100vh; position: sticky; top: 0; }
+  aside h1 { font-size: 16px; margin: 0 0 4px; }
+  aside p.hint { color: var(--muted); font-style: italic; font-size: 12px; margin: 0 0 12px; }
+  .row { margin: 0 0 10px; }
+  .row label { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+  .row select, .row input[type=range] { width: 100%; }
+  .row input[type=color] { width: 44px; height: 26px; border: 1px solid var(--line); padding: 0; background: none; }
+  .btns { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+  button { font: inherit; font-size: 13px; padding: 6px 10px; border: 1px solid var(--line); background: #fff; border-radius: 6px; cursor: pointer; }
+  button:hover { border-color: var(--acc); color: var(--acc); }
+  pre { font: 11px/1.4 ui-monospace, Menlo, monospace; background: #fff; border: 1px solid var(--line); padding: 8px; white-space: pre-wrap; word-break: break-all; }
+  main { padding: 24px 16px 64px; display: flex; flex-direction: column; align-items: center; gap: 24px; }
+  .sheet { width: min(100%, 760px); background: var(--paper); box-shadow: 0 0 0 1px rgba(0,0,0,.05), 0 24px 60px rgba(40,35,25,.16); padding: 40px 48px 56px; }
+  .sheet h2 { text-align: center; font-size: 34px; margin: 8px 0 28px; }
+  .sheet p { font-size: 17px; line-height: 1.85; text-align: justify; hyphens: auto; margin: 0 0 .9em; }
+  .mode-title { font-size: 12px; color: var(--muted); font-style: italic; text-align: center; margin: 0 0 6px; }
+  /* строка иконки — как в приложении (insMarker) */
+  .marker { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 8px 0 20px; }
+  .marker .rule { flex: 0 1 7em; height: 0; border-top: 1px dotted var(--muted); }
+  .btn { width: 32px; height: 32px; border-radius: 50%; background: var(--acc); display: inline-flex; align-items: center; justify-content: center; flex: none; position: relative; z-index: 1; }
+  .vig { display: block; margin: 0 auto; }
+  .stack { display: flex; flex-direction: column; align-items: center; }
+  .side { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 8px 0 20px; }
+  .side .vig { margin: 0; }
+  .side img.r { transform: scaleX(-1); }
+  .medal { position: relative; display: flex; align-items: center; justify-content: center; margin: 8px auto 20px; }
+  .medal img { display: block; }
+  .medal .btn { position: absolute; box-shadow: 0 0 0 4px var(--paper); }
+  .busy { opacity: .55; }
+  @media (max-width: 760px) { .wrap { grid-template-columns: 1fr; } aside { position: static; max-height: none; } .sheet { padding: 24px 16px 40px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+<aside>
+  <h1>Виньетка</h1>
+  <p class="hint">Орнамент INITIĀLIS без буквы. Меняйте ползунки — картинка перерисуется. Справа три раскладки у иконки игры.</p>
+  <div id="controls"></div>
+  <div class="btns">
+    <button id="grow">Прорасти ▶</button>
+    <button id="reset">Сбросить</button>
+    <button id="rand">Случайный seed</button>
+    <button id="copy">Копировать настройки</button>
+  </div>
+  <pre id="json"></pre>
+</aside>
+<main>
+  <div class="sheet" id="sheet">
+    <p class="mode-title">A — виньетка над иконкой</p>
+    <div class="stack"><img class="vig" id="vA" alt=""><div class="marker"><span class="rule"></span><span class="btn" data-icon></span><span class="rule"></span></div></div>
+
+    <p class="mode-title">B — виньетка вместо линий (слева и зеркально справа)</p>
+    <div class="side"><img class="vig" id="vBl" alt=""><span class="btn" data-icon></span><img class="vig r" id="vBr" alt=""></div>
+
+    <p class="mode-title">C — медальон, иконка в центре</p>
+    <div class="medal"><img id="vC" alt=""><span class="btn" data-icon></span></div>
+
+    <h2>Rozdział II</h2>
+    <p>Na borynowym podworcu obstawionym z trzech stron budowlami gospodarskimi, a z czwartej sadem, który go oddzielał od drogi, już się zebrało dość narodu; kilka kobiet radziło i wydziwiało nad ogromną czerwono-białą krową, leżącą przed oborą na kupie nawozu.</p>
+    <p>Stary pies, kulawy nieco i z obłazłą na bokach sierścią, oganiał graniastą, obwąchiwał ją, szczekał, to wypadał w opłotki i gnał dzieci na drogę.</p>
+  </div>
+</main>
+</div>
+<script type="module">
+import { render, grow } from '../vendor/initialis/lib/initialis.js';
+
+const ICON = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="#fff" d="M7.5 7h9a4.5 4.5 0 0 1 4.4 3.6l.9 4.6a2.6 2.6 0 0 1-4.6 2.1L15.6 15H8.4l-1.6 2.3a2.6 2.6 0 0 1-4.6-2.1l.9-4.6A4.5 4.5 0 0 1 7.5 7z"/><path d="M7.75 9.6v2.8M6.35 11h2.8" stroke="#B3261E" stroke-width="1.4" stroke-linecap="round" fill="none"/><circle cx="15.6" cy="10.1" r=".95" fill="#B3261E"/><circle cx="17.4" cy="11.9" r=".95" fill="#B3261E"/></svg>`;
+document.querySelectorAll('[data-icon]').forEach(n => n.innerHTML = ICON);
+
+// Управление: [ключ, подпись, тип, значение по умолчанию, варианты или [min,max,step]]
+const C = [
+  ['frame', 'форма', 'sel', 'none', ['none', 'rect', 'rounded', 'circle', 'arch', 'pointed', 'shield', 'lozenge', 'octagon', 'quatrefoil', 'scallop']],
+  ['ground', 'фон формы', 'sel', 'нет', ['нет', 'красный (буквы белые)']],
+  ['sizeA', 'размер A, px', 'num', 120, [40, 260, 2]],
+  ['sizeB', 'размер B, px', 'num', 64, [24, 160, 2]],
+  ['sizeC', 'размер C, px', 'num', 96, [48, 200, 2]],
+  ['oLeaf', 'лист', 'sel', 'ivy', ['none', 'acanthus', 'lance', 'willow', 'ovate', 'teardrop', 'oak', 'ivy', 'trefoil', 'cinquefoil', 'fern', 'dot', 'pod', 'dotted', 'comma', 'fan', 'needles', 'heart']],
+  ['oFlower', 'цветок', 'sel', 'rose', ['none', 'rosette', 'daisy', 'rose', 'star', 'phyllo', 'target', 'burst', 'dotring', 'quatre', 'tulip', 'bell', 'bud', 'pomegranate', 'thistle']],
+  ['oDensity', 'плотность', 'num', 0.4, [0, 1, 0.01]],
+  ['oStemW', 'толщина стебля', 'num', 14, [0.6, 32, 0.2]],
+  ['oLeafSize', 'размер листа', 'num', 1.6, [0.2, 3, 0.05]],
+  ['oFlowerSize', 'размер цветка', 'num', 1.5, [0.3, 3, 0.05]],
+  ['oFlowerChance', 'сколько цветов', 'num', 0.3, [0, 1, 0.01]],
+  ['oBerries', 'ягоды', 'num', 0.4, [0, 1, 0.01]],
+  ['oCurl', 'завиток', 'num', 0.65, [0, 1, 0.01]],
+  ['oSym', 'симметрия', 'sel', 'mirror', ['none', 'mirror']],
+  ['oSeeds', 'откуда растёт', 'sel', 'root', ['gaps', 'frame', 'corners', 'root', 'letter']],
+  ['seed', 'seed', 'num', 7, [1, 200, 1]],
+  ['inkA', 'краска', 'color', '#B3261E'],
+  ['rough', 'шероховатость печати', 'num', 0.2, [0, 2, 0.01]],
+];
+const S = Object.fromEntries(C.map(c => [c[0], c[3]]));
+try { Object.assign(S, JSON.parse(localStorage.getItem('rm-lab-vignette') || '{}')); } catch (e) {}
+
+const box = document.getElementById('controls');
+for (const [k, label, type, , opt] of C) {
+  const row = document.createElement('div'); row.className = 'row';
+  const val = document.createElement('span');
+  const lab = document.createElement('label'); lab.append(label, val); row.append(lab);
+  let el;
+  if (type === 'sel') { el = document.createElement('select'); for (const o of opt) el.append(new Option(o, o)); }
+  else if (type === 'color') { el = document.createElement('input'); el.type = 'color'; }
+  else { el = document.createElement('input'); el.type = 'range'; [el.min, el.max, el.step] = opt; }
+  el.value = S[k];
+  const upd = () => { S[k] = type === 'num' ? +el.value : el.value; val.textContent = type === 'num' ? S[k] : ''; };
+  upd();
+  el.addEventListener('input', () => { upd(); schedule(); });
+  el.id = 'c-' + k; row.append(el); box.append(row);
+}
+
+// настройки для библиотеки: без буквы, лоза краской A; фон формы — по выбору
+function params() {
+  const red = S.ground !== 'нет';
+  const P = { text: ' ', font: 'abril-fatface-400', paper: '#FFFFFF', inkA: S.inkA, inkB: '#1F1E1B',
+    frame: S.frame, fRules: 0, fField: red ? 'A' : 'paper', oFill: red ? 'paper' : 'A',
+    oLeaf: S.oLeaf, oFlower: S.oFlower, oDensity: S.oDensity, oStemW: S.oStemW, oLeafSize: S.oLeafSize,
+    oFlowerSize: S.oFlowerSize, oFlowerChance: S.oFlowerChance, oBerries: S.oBerries, oCurl: S.oCurl,
+    oSym: S.oSym, oSeeds: S.oSeeds, seed: S.seed, rough: S.rough };
+  return P;
+}
+const dpr = Math.min(2, devicePixelRatio || 1);
+async function toURL(P, css) {
+  const bm = await render(P, { size: Math.round(css * dpr) });
+  const c = document.createElement('canvas'); c.width = bm.width; c.height = bm.height;
+  c.getContext('2d').drawImage(bm, 0, 0); bm.close();
+  return c.toDataURL();
+}
+const set = (id, url, css) => { const im = document.getElementById(id); im.src = url; im.style.width = im.style.height = css + 'px'; };
+let timer = 0, run = 0;
+function schedule() { clearTimeout(timer); timer = setTimeout(draw, 250); }
+async function draw() {
+  const me = ++run, P = params();
+  document.getElementById('json').textContent = JSON.stringify(P, null, 1);
+  try { localStorage.setItem('rm-lab-vignette', JSON.stringify(S)); } catch (e) {}
+  document.getElementById('sheet').classList.add('busy');
+  try {
+    const [a, b, c] = await Promise.all([toURL(P, S.sizeA), toURL(P, S.sizeB), toURL(P, S.sizeC)]);
+    if (me !== run) return;
+    set('vA', a, S.sizeA); set('vBl', b, S.sizeB); set('vBr', b, S.sizeB); set('vC', c, S.sizeC);
+  } catch (e) { document.getElementById('json').textContent = 'Ошибка: ' + e.message; }
+  document.getElementById('sheet').classList.remove('busy');
+}
+document.getElementById('reset').onclick = () => { try { localStorage.removeItem('rm-lab-vignette'); } catch (e) {} location.reload(); };
+document.getElementById('rand').onclick = () => { S.seed = 1 + Math.floor(Math.random() * 200); document.getElementById('c-seed').value = S.seed; draw(); };
+document.getElementById('copy').onclick = () => navigator.clipboard && navigator.clipboard.writeText(JSON.stringify(params()));
+// «Прорасти»: проигрываем рост во всех трёх местах (кадры — на холсте, показываем через img, как в приложении)
+document.getElementById('grow').onclick = () => {
+  const P = params();
+  for (const [ids, css] of [[['vA'], S.sizeA], [['vBl', 'vBr'], S.sizeB], [['vC'], S.sizeC]]) {
+    const work = document.createElement('canvas');
+    const show = () => { const u = work.toDataURL(); ids.forEach(id => document.getElementById(id).src = u); };
+    const t = setInterval(show, 66);
+    grow(work, P, { size: Math.round(css * dpr), seconds: 2.6 }).then(show).finally(() => clearInterval(t));
+  }
+};
+draw();
+</script>
+</body>
+</html>
