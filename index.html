@@ -4343,7 +4343,7 @@ function insMarker(doc, attr, key, k, title, onOpen) {
   b.title = title; b.setAttribute('aria-label', title);
   b.innerHTML = artSvg(k, 18, 2.6);
   b.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); onOpen(); });
-  // иконка по центру колонки, по бокам — разделитель: волосяная линия с ромбиком на внешнем конце
+  // иконка по центру колонки, по бокам — разделитель: волосяная линия
   const rule = side => { const r = doc.createElement('span'); r.className = 'rm-ins-rule rm-ins-' + side; return r; };
   wrap.append(rule('l'), b, rule('r'));
   return wrap;
@@ -4362,10 +4362,7 @@ function insMarkerCss(doc) {
 .${INS_CLASS} button { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 32px; height: 32px; padding: 0; margin: 0;
   border: 1px solid color-mix(in srgb, var(--rm-acc) 45%, transparent); border-radius: 50%; background: transparent; color: var(--rm-acc); cursor: pointer; }
 .${INS_CLASS} .rm-ins-rule { position: relative; flex: 0 1 4.5em; height: 0; border-top: 1px solid color-mix(in srgb, var(--rm-acc) 38%, transparent); }
-.${INS_CLASS} .rm-ins-rule::after { content: ''; position: absolute; top: -3.5px; width: 5px; height: 5px; transform: rotate(45deg);
-  background: color-mix(in srgb, var(--rm-acc) 55%, transparent); }
-.${INS_CLASS} .rm-ins-l::after { left: -2px; }
-.${INS_CLASS} .rm-ins-r::after { right: -2px; }`;
+`;
   doc.head.appendChild(s);
 }
 const RAIL = {
