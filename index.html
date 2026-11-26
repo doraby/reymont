@@ -1805,9 +1805,11 @@ function iniImage(styleId, letter, v) {
 /* Рост орнамента: когда читатель на первой странице главы, поверх буквицы ставится холст и библиотека
    проигрывает, как орнамент прорастает (grow — кадры с печатным проходом из воркеров). Потом кадр убирается,
    под ним та же готовая картинка. Кадр — <img>-вставка с INS_CLASS: epub.js не считает её в CFI, а withoutInsertions
-   убирает её на время пересчётов. Один раз за сессию на каждую буквицу; при prefers-reduced-motion не играем. */
+   убирает её на время пересчётов. Играет при каждом показе первой страницы главы (но не пока книга открывается
+   и восстанавливает место); при prefers-reduced-motion не играем. */
 const INI_GROW_S = 2.6;
-const iniGrown = new Set();
+const iniGrownEls = new WeakSet(); // абзацы, у которых рост уже сыгран (новая отрисовка главы — новые абзацы, играет снова)
+let iniReady = false; // false, пока книга открывается и восстанавливает место — анимацию тогда не видно, не тратим её
 async function growInitials(contents) {
   const doc = contents && contents.document, styleId = currentStyleId();
   if (!doc || !STYLES[styleId].initialis || iniLib === false) return;
@@ -1815,9 +1817,9 @@ async function growInitials(contents) {
   for (const p of doc.querySelectorAll('p.rm-dc.rm-ini')) {
     const cls = [...p.classList].find(c => /^rm-ini-[A-Z]-\d+$/.test(c));
     if (!cls || p.classList.contains('rm-ini-growing')) continue;
-    const [, l, vs] = /^rm-ini-([A-Z])-(\d+)$/.exec(cls), v = +vs, key = styleId + ':' + l + ':' + v;
-    if (iniGrown.has(key)) continue;
-    iniGrown.add(key);
+    const [, l, vs] = /^rm-ini-([A-Z])-(\d+)$/.exec(cls), v = +vs;
+    if (iniGrownEls.has(p)) continue;
+    iniGrownEls.add(p);
     const side = parseFloat(getComputedStyle(p).getPropertyValue('--rm-ini'));
     if (!side) continue;
     if (iniLib === null) iniLib = import(new URL('vendor/initialis/lib/initialis.js', location.href).href).catch(e => { console.warn('initialis:', e); return false; });
@@ -1854,6 +1856,8 @@ function applyInitials(doc, styleId, section) {
     p.classList.add('rm-ini', cls); caps.set(cls, [l, v]);
   });
   if (!caps.size || !doc.head) return;
+  // библиотеку грузим заранее — чтобы рост на первой странице главы начинался сразу, без паузы на загрузку
+  if (iniLib === null) iniLib = import(new URL('vendor/initialis/lib/initialis.js', location.href).href).catch(e => { console.warn('initialis:', e); return false; });
   // Квадрат на три строки ставится сразу, до картинки, чтобы вёрстка не прыгала. width у ::first-letter браузеры
   // не применяют (и height тоже), поэтому кегль буквы — 0, а квадрат задают padding. Длина — в em абзаца: @property
   // делает --rm-ini абсолютной на <p>, и буквица наследует уже пиксели (иначе em считались бы от её нулевого кегля).
@@ -2524,6 +2528,7 @@ function blobUrlToDataUrl(url) {
 
 /* ════════════════════════ Reader ════════════════════════ */
 async function openBook(id, newRec) {
+  iniReady = false; // пока книга открывается, рост буквиц не играем (см. growInitials)
   const rec = newRec || await dbGet('books', id);
   if (!rec) { toast('Book not found'); return; }
   const curated = curatedById(id);
@@ -2604,8 +2609,8 @@ async function openBook(id, newRec) {
     hideSelFab();
     syncSplit();
     updateRail();
-    // первая страница главы — проигрываем рост орнамента буквицы (один раз за сессию)
-    if (loc && loc.start && loc.start.displayed && loc.start.displayed.page === 1) rendition.getContents().forEach(c => growInitials(c));
+    // первая страница главы — проигрываем рост орнамента буквицы
+    if (iniReady && loc && loc.start && loc.start.displayed && loc.start.displayed.page === 1) rendition.getContents().forEach(c => growInitials(c));
     setTimeout(autoOpenPageMedia, 60);
   });
   // Перевёрстка (ширина колонки/шрифт) тоже даёт relocated — это не перелистывание, автооткрытие на неё не реагирует.
@@ -2621,6 +2626,9 @@ async function openBook(id, newRec) {
   }
   persistPos = sp.ok; // база недоступна — не сохраняем, чтобы не затереть настоящее место
   const vl = document.querySelector('#viewer .viewer-loading'); if (vl) vl.remove();
+  // книга на экране — теперь рост буквицы видно; если открылись на первой странице главы, играем сразу
+  iniReady = true;
+  { const l0 = rendition.currentLocation(); if (l0 && l0.start && l0.start.displayed && l0.start.displayed.page === 1) rendition.getContents().forEach(c => growInitials(c)); }
 
   bookNotes.forEach(addHighlight);
   renderNotesList();
