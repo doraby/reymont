@@ -4428,7 +4428,8 @@ function insMarkerCss(doc) {
 .${INS_CLASS}.rm-ins-vig { width: 100%; max-width: ${VIG_CSS_W}px; margin-inline: auto !important; aspect-ratio: ${Math.round(VIG_CROP.w)} / ${Math.round(VIG_CROP.h)};
   background: center / contain no-repeat; }
 .${INS_CLASS}.rm-ins-vig .rm-ins-rule { display: none; }
-.${INS_CLASS}.rm-ins-vig button { box-shadow: 0 0 0 5px var(--rm-paper); }
+.${INS_CLASS}.rm-ins-vig button { width: 44px; height: 44px; box-shadow: 0 0 0 6px var(--rm-paper); }
+.${INS_CLASS}.rm-ins-vig button svg { width: 24px; height: 24px; }
 .${INS_CLASS} + .${INS_CLASS}.rm-ins-vig { background: none !important; aspect-ratio: auto; } /* в группе вставок полоса только у первой */
 `;
   doc.head.appendChild(s);
