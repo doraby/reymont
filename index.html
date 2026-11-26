@@ -496,7 +496,9 @@
   .il-item { display: flex; gap: 12px; align-items: center; }
   .il-item img { width: 46px; height: 62px; object-fit: cover; border-radius: 6px; flex: none; }
   .ni-io { font-style: normal; color: var(--accent); font-weight: 600; border-left-color: var(--accent); }
-  .ni-text { font-size: 14px; font-style: italic; line-height: 1.4; border-left: 2px solid var(--accent-soft); padding-left: 9px; }
+  .ni-text { font-size: 14px; font-style: italic; line-height: 1.4; border-left: 2px solid var(--accent-soft); padding-left: 9px; display: flex; gap: 10px; align-items: baseline; }
+  .ni-text > span:first-child { flex: 1; min-width: 0; }
+  .ni-page { flex: none; font-style: normal; font-weight: 400; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .ni-demo-badge {
     display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
     font-style: normal; color: #8A6D0A; background: rgba(212,160,23,.16); border-radius: 5px;
@@ -1078,7 +1080,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.153</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.154</div>
   </div>
 </div>
 
@@ -1184,7 +1186,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.153'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.154'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -2451,6 +2453,7 @@ async function openBook(id, newRec) {
   locationsReady = false;
   book.opened.then(() => book.locations.generate(800)).then(() => {
     locationsReady = true;
+    renderNotesList(); // в списке хайлайтов появятся номера страниц
     const loc = rendition.currentLocation();
     if (loc && loc.start) { updateProgress(loc); logPosition('your page', loc); if (persistPos) savePosition(id, loc.start.cfi, curPct); }
   }).catch(e => console.warn('locations:', e));
@@ -3844,7 +3847,7 @@ const SIDE = {
 function sideToRow(k, bookId, rec) {
   const t = rec.t || (k.name === 'diagram' ? 1 : Date.now());
   return Object.assign({ id: sideRowId(k.prefix, bookId, rec.cfi), book_id: bookId, cfi_range: rec.cfi, text: (rec.text || k.fallbackText).slice(0, 2000), para: '',
-    lang: k.lang, translation: (rec.title || '').slice(0, 120), wiki_html: '', web_html: k.data(rec), img_html: '', illustration: '', created: t, updated: t }, k.toRow(rec));
+    lang: k.lang, translation: (rec.title || '').slice(0, 120), wiki_html: '', web_html: k.data(rec), img_html: '', illustration: '', created: rec.c || t, updated: t }, k.toRow(rec));
 }
 function writeSide(k, bookId, list) {
   list = list.slice(-k.max());
@@ -3890,7 +3893,7 @@ async function syncSide(k, remoteAll) { // remoteAll — все строки hig
       const rmap = new Map(rrows.map(r => [r.cfi_range, r]));
       const list = k.load(bookId);
       const lmap = new Map(list.map(x => [x.cfi, x]));
-      const fromRow = r => Object.assign({ cfi: r.cfi_range, text: r.text || '', title: r.translation || '', t: Number(r.updated || r.created), synced: true }, k.fromRow(r));
+      const fromRow = r => Object.assign({ cfi: r.cfi_range, text: r.text || '', title: r.translation || '', c: Number(r.created) || undefined, t: Number(r.updated || r.created), synced: true }, k.fromRow(r));
       const next = [];
       for (const rec of list) {
         const r = rmap.get(rec.cfi);
@@ -4222,7 +4225,7 @@ async function ensureVisualTitle(k, rec, pageText) {
     if (!title) return;
     const K = SIDE[k], list = K.load(bookId), cur = list.find(x => x.cfi === rec.cfi);
     rec.title = title;
-    if (cur) { cur.title = title; cur.t = Date.now(); writeSide(K, bookId, list); cloudUpsertSide(K, bookId, cur); }
+    if (cur) { cur.title = title; if (!cur.c) cur.c = cur.t; cur.t = Date.now(); writeSide(K, bookId, list); cloudUpsertSide(K, bookId, cur); }
     console.log(`[title] ${K.name}: «${title}»`);
     const shown = vzOwner === k + '-view' && (k === 'io' ? currentInteractive : panelMediaRec);
     if (shown && shown.cfi === rec.cfi) { shown.title = title; const el = $('vz-title'); if (el) el.textContent = title; }
@@ -4620,32 +4623,36 @@ async function deleteNote(id) {
 /* Список хайлайтов живёт в правой панели (#panel), не в левом TOC-дровере —
    это тот же контейнер, что показывает перевод конкретного хайлайта. */
 let panelShowingList = false; // true, пока в #panel открыт именно список, а не перевод
+/* Список хайлайтов: все виды вперемешку, сверху самые новые; у каждого — номер страницы (когда страницы посчитаны). */
+const itemCreated = r => Number(r.c || r.t || r.created || 0); // c — когда создан (t обновляется при правках, например при названии)
+function pageTag(cfi) { const p = cfi ? pageOfCfi(cfi) : null; return p ? `<span class="ni-page">p. ${p.page}</span>` : ''; }
 function notesListHtml() {
-  const ios = currentBookId ? loadInteractives(currentBookId).sort((a, b) => (b.t || 0) - (a.t || 0)) : [];
-  const dgs = currentBookId ? loadDiagrams(currentBookId).sort((a, b) => (b.t || 0) - (a.t || 0)) : [];
-  const ils = currentBookId ? loadIllustrations(currentBookId).sort((a, b) => (b.t || 0) - (a.t || 0)) : [];
+  const ios = currentBookId ? loadInteractives(currentBookId) : [];
+  const dgs = currentBookId ? loadDiagrams(currentBookId) : [];
+  const ils = currentBookId ? loadIllustrations(currentBookId) : [];
   if (!bookNotes.length && !ios.length && !dgs.length && !ils.length) return '<div class="notes-empty">Select text in the book — highlights with translations will appear here.</div>';
-  const ioHtml = ios.map(r => `
+  const snip = (t, n) => t ? `<div class="ni-trans">${esc(t.slice(0, n))}${t.length > n ? '…' : ''}</div>` : '';
+  const items = [
+    ...ios.map(r => ({ at: itemCreated(r), html: `
     <div class="note-item io-item" data-cfi="${esc(r.cfi)}" title="Open this game and go to its page">
-      <div class="ni-text ni-io">✦ ${esc(r.title || 'Game')}</div>
-      ${r.text ? `<div class="ni-trans">${esc(r.text.slice(0, 90))}${r.text.length > 90 ? '…' : ''}</div>` : ''}
-    </div>`).join('');
-  const dgHtml = dgs.map(d => `
+      <div class="ni-text ni-io"><span>✦ ${esc(r.title || 'Game')}</span>${pageTag(r.cfi)}</div>${snip(r.text, 90)}
+    </div>` })),
+    ...dgs.map(d => ({ at: itemCreated(d), html: `
     <div class="note-item dg-item" data-cfi="${esc(d.cfi)}" title="Open this diagram and go to its page">
-      <div class="ni-text ni-io">◇ ${esc(d.title || 'Diagram')}</div>
-      ${d.text ? `<div class="ni-trans">${esc(d.text.slice(0, 90))}${d.text.length > 90 ? '…' : ''}</div>` : ''}
-    </div>`).join('');
-  const ilHtml = ils.map(d => `
+      <div class="ni-text ni-io"><span>◇ ${esc(d.title || 'Diagram')}</span>${pageTag(d.cfi)}</div>${snip(d.text, 90)}
+    </div>` })),
+    ...ils.map(d => ({ at: itemCreated(d), html: `
     <div class="note-item il-item" data-cfi="${esc(d.cfi)}" title="Go to this illustration">
       <img src="${esc(d.url)}" alt="" loading="lazy">
-      <div><div class="ni-text ni-io">▣ ${esc(d.title || 'Illustration')}</div>${d.text ? `<div class="ni-trans">${esc(d.text.slice(0, 80))}${d.text.length > 80 ? '…' : ''}</div>` : ''}</div>
-    </div>`).join('');
-  const notesHtml = bookNotes.map(n => `
+      <div style="flex:1;min-width:0"><div class="ni-text ni-io"><span>▣ ${esc(d.title || 'Illustration')}</span>${pageTag(d.cfi)}</div>${snip(d.text, 80)}</div>
+    </div>` })),
+    ...bookNotes.map(n => ({ at: Number(n.created || 0), html: `
     <div class="note-item" data-id="${n.id}">
-      <div class="ni-text">${n.demo ? '<span class="ni-demo-badge">Preview</span> ' : ''}${esc(n.text.slice(0, 80))}${n.text.length > 80 ? '…' : ''}</div>
+      <div class="ni-text"><span>${n.demo ? '<span class="ni-demo-badge">Preview</span> ' : ''}${esc(n.text.slice(0, 80))}${n.text.length > 80 ? '…' : ''}</span>${pageTag(n.cfiRange)}</div>
       ${n.translation ? `<div class="ni-trans">${esc(n.translation.split('\n')[0].slice(0, 90))}</div>` : ''}
-    </div>`).join('');
-  return ioHtml + dgHtml + ilHtml + notesHtml;
+    </div>` })),
+  ];
+  return items.sort((a, b) => b.at - a.at).map(x => x.html).join('');
 }
 function openHighlightsPanel() {
   panelShowingList = true;
