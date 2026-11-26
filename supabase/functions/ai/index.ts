@@ -232,8 +232,13 @@ Deno.serve(async (req) => {
         `Make it visual first: the main thing on screen is a large picture drawn with d3/SVG (a scene, a map, figures, objects, a chart), not text and not a form. ` +
         `Few and large: at most 3–4 interactive elements on screen at a time, each big and easy to see; one short line of text per step at most; no small cards, thumbnails, tables or dense labels. ` +
         `Not a relationship graph, and no tabs unless the idea really needs them. ` +
-        `Design: a minimal, clean, modern interface of the kind a good product studio would ship today. Lots of white space, a restrained palette (neutral background, one accent colour), one well-chosen typeface (a system font stack or a single Google Fonts family via <link>), a clear type hierarchy, ` +
-        `subtle rounded corners, thin lines, quiet transitions (about 0.2s, respect prefers-reduced-motion). Controls are obvious, comfortable to tap (at least 44px) and have visible keyboard focus. No clutter, no decoration for its own sake, no emoji. Works at phone width. ` +
+        `Design: refined and elegant, like a page from a finely printed old book with ornamental initials — engraved botanical drop caps with fine vines, leaves, flowers and berries in two inks on paper. ` +
+        `Palette: warm paper ground #FBF8F1; ink #1F1E1B for drawing and text; one deep red #B3261E as the main colour; at most one more natural ink (moss green #5E6B45 or ochre #A8742A) where the scene needs it; no other colours, no gradients, no shadows, no glow. ` +
+        `Drawing: everything in the picture is drawn like an engraving or woodcut, by hand — fine lines of varied weight (0.75–2px), hatching or stippling for tone, solid red or ink silhouettes; people, animals, buildings and objects are drawn with care and character, never flat clip-art, emoji-like icons or coloured boxes. ` +
+        `Natural ornament frames the scene: thin vines with small leaves, flowers or wheat along the edges or corners, a ruled border, a small fleuron as a divider — delicate and sparse, never covering the content. ` +
+        `Type: one Google Fonts book serif via <link> (Cormorant Garamond or EB Garamond), with italic for notes and translations and small caps with slight letter-spacing for labels; no sans-serif anywhere, including buttons. ` +
+        `Controls look like typography, not app widgets: words in small caps, underlined in red when active, ‹ › arrows, numerals in a quiet row, a slider drawn as a hairline with a small red lozenge; no dark or filled pill buttons, no rounded cards, no heavy boxes. Each control is comfortable to tap (at least 44px, by padding) and has visible keyboard focus. ` +
+        `Quiet transitions (about 0.3s, ink or opacity, respect prefers-reduced-motion). Lots of air, no clutter, no emoji. Works at phone width. ` +
         `Technical: inline SVG + CSS + vanilla JS; the only external resource allowed is a Google Fonts stylesheet. The d3 library (v7) is already loaded as the global "d3" — do not import or load it; use it when a chart helps (timelines, counts, distributions, scales, force or hierarchy layouts), drawn only from data in the passage, with direct labels instead of a legend. Layout: it is shown in a narrow side panel (about 400–600px wide, usually 480), so stack everything vertically in one column — the picture first (full width), controls below it; works from 320 to 900px wide, no horizontal scroll, html and body height 100%. Base text at least 18px, key words and labels on the picture at least 20px. ` +
         `No title or caption naming the book, author or passage — start straight with the content. ` +
         `Output ONLY the full HTML starting with <!doctype html>, no markdown. ` +
@@ -250,7 +255,7 @@ Deno.serve(async (req) => {
         ? sysHtml + ` You are given the CURRENT version of the document and the reader's feedback on it. ` +
           `If the current document has a title, kicker, subtitle or any text naming the book or describing the passage, REMOVE it. ` +
           `Return an improved COMPLETE document that fixes what the reader disliked (if the feedback is empty, fix the most obvious weaknesses: ` +
-          `emptiness, unreadable text, broken interactions, weak layout). Also bring the whole document in line with the Design direction above: minimal, clean, modern. Keep what already works. The same hard rules apply.`
+          `emptiness, unreadable text, broken interactions, weak layout). Also bring the whole document in line with the Design direction above: refined, elegant, engraved, two inks on paper with natural ornament. Keep what already works. The same hard rules apply.`
         : sysHtml;
       const inputFinal = improve
         ? `${userMsgHtml}\n<reader_feedback>${feedback || "(no comment — improve the visualisation in general)"}</reader_feedback>\n<current_html>${currentHtml}</current_html>`
