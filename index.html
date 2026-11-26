@@ -1692,9 +1692,13 @@ const HINT_DAYS_MS = 24 * 60 * 60 * 1000;
    ссылкой <link> (из родителя они туда не попадают); у Classic тело книги остаётся как было. */
 const STYLES = {
   classic: {
-    label: 'Classic', blurb: 'warm paper', theme: '#F0EEE5', fonts: '', capsDefault: false,
+    label: 'Classic', blurb: 'warm paper', theme: '#F0EEE5', fonts: '', capsDefault: true,
     book: { font: "'Lora', Georgia, serif", ink: '#3D3929', head: '#3D3929', headWeight: '600', link: '#C15F3C', sel: 'rgba(217,119,87,0.35)', lh: '1.7', scale: '' },
     cap: { 'float': 'left', 'font-family': "'Playfair Display', 'Lora', Georgia, serif", 'font-weight': '800', 'font-size': '3.5em', 'line-height': '0.8', 'padding': '0.06em 0.1em 0 0', 'color': '#C15F3C' },
+    // орнаментальные буквицы — как в Paper, в акценте темы (см. paper.initialis)
+    initialis: { font: 'abril-fatface-400', inkA: '#C15F3C', inkB: '#3D3929', paper: '#FFFFFF' },
+    initialisVary: { oLeaf: ['acanthus', 'ivy', 'oak', 'trefoil', 'fern', 'willow', 'ovate'],
+      oFlower: ['rosette', 'daisy', 'rose', 'tulip', 'pomegranate', 'quatre', 'bell', 'thistle'] },
     hl: { fill: '#D97757', opacity: '0.22', blend: 'multiply' },
     preview: { bg: '#F0EEE5', ink: '#3D3929' },
   },
@@ -1715,6 +1719,9 @@ const STYLES = {
     // «newthought»: начало главы набирается капителью с разрядкой (вместо буквицы)
     firstLine: { 'font-variant': 'small-caps', 'letter-spacing': '0.06em', 'font-size': '1.06em' },
     cap: {},
+    initialis: { font: 'abril-fatface-400', inkA: '#2C4A6B', inkB: '#111111', paper: '#FFFFFF' },
+    initialisVary: { oLeaf: ['acanthus', 'ivy', 'oak', 'trefoil', 'fern', 'willow', 'ovate'],
+      oFlower: ['rosette', 'daisy', 'rose', 'tulip', 'pomegranate', 'quatre', 'bell', 'thistle'] },
     hl: { fill: '#2C4A6B', opacity: '0.14', blend: 'multiply' }, // бледный оттенок акцентного синего
     preview: { bg: '#FFFFF8', ink: '#111111', lead: { text: 'The first', css: 'font-variant:small-caps;letter-spacing:.06em;font-size:1.3em;line-height:1' } },
   },
@@ -1747,6 +1754,9 @@ const STYLES = {
     },
     cap: { 'float': 'left', 'font-family': "'Playfair Display', 'Cormorant Garamond', Georgia, serif", 'font-style': 'italic', 'font-weight': '800', 'font-size': '4em', 'line-height': '0.82',
       'padding': '0.02em 0.1em 0 0', 'margin': '0.04em 0.04em 0 0', 'color': '#D2B1A0' },
+    initialis: { font: 'abril-fatface-400', inkA: '#D2B1A0', inkB: '#E7E3DA', paper: '#FFFFFF' },
+    initialisVary: { oLeaf: ['acanthus', 'ivy', 'oak', 'trefoil', 'fern', 'willow', 'ovate'],
+      oFlower: ['rosette', 'daisy', 'rose', 'tulip', 'pomegranate', 'quatre', 'bell', 'thistle'] },
     hl: { fill: '#D2B1A0', opacity: '0.30', blend: 'screen' },
     preview: { bg: '#232528', ink: '#E7E3DA' },
   },
@@ -1786,7 +1796,8 @@ const INI_PX = 384;
 let iniLib = null; // промис модуля; null → ещё не грузили, false → не работает в этом браузере
 const iniCache = new Map(); // `${style}:${letter}:${variant}` → промис data-URL (или null, если не вышло)
 function iniLetter(p) {
-  const m = /^\s*([A-Za-z])/.exec(p.textContent || ''); // только латиница A–Z и только если абзац начинается прямо с буквы
+  // только латиница A–Z; впереди может стоять тире реплики, кавычка или скобка — они уходят под картинку (::first-letter)
+  const m = /^[\s\u00a0"'“”„«»‘’(\[–—-]*([A-Za-z])/.exec(p.textContent || '');
   return m ? m[1].toUpperCase() : null;
 }
 function iniSettings(styleId, letter, v) {
@@ -1842,7 +1853,7 @@ function iniImage(styleId, letter, v) {
    а так каждая половина нормальной высоты, вся полоса — длинная и низкая (≈ 1/15 ширины). */
 const VIG_DEFAULT = {
   box: { fBoxW: 1, fBoxH: 0.112, fBoxR: 0.11 },
-  ink: '#1F1E1B', // краска лозы (чёрная, как текст Paper); красная — STYLES.paper.initialis.inkA
+  ink: 'auto', // краска лозы: 'auto' — цвет текста темы (book.ink); или конкретный цвет
   // oLeaf/oFlower: 'auto' — из вариантов буквиц (initialisVary) по странице
   look: { oLeaf: 'auto', oFlower: 'auto', oStemStyle: 'dotted', oDensity: 0.55, oStemW: 8, oLeafSize: 1, oFlowerSize: 1.4, oBerrySize: 0.2, oFlowerChance: 0.29, oBerries: 0.08, oCurl: 0.28, oSeeds: 'gaps', rough: 0 },
   cssW: 680, // ширина полосы на широкой колонке (на узкой — во всю колонку)
@@ -1862,7 +1873,7 @@ function vigSettings(styleId, v) {
   const st = STYLES[styleId], look = {};
   for (const [k, x] of Object.entries(VIG.look)) if (x !== 'auto') look[k] = x;
   const P = Object.assign({}, st.initialis, VIG.box,
-    { text: ' ', frame: 'box', fRules: 0, fField: 'paper', oFill: 'A', seed: v + 1, inkA: VIG.ink });
+    { text: ' ', frame: 'box', fRules: 0, fField: 'paper', oFill: 'A', seed: v + 1, inkA: VIG.ink === 'auto' ? st.book.ink : VIG.ink });
   for (const [k, list] of Object.entries(st.initialisVary || {})) P[k] = list[v % list.length];
   return Object.assign(P, look);
 }
@@ -1932,7 +1943,10 @@ const VT_SPEC = [ // [где, ключ, подпись, тип, варианты
   ['look', 'rough', 'print roughness', 'num', [0, 2, 0.01]],
 ];
 let vtVariant = 7, vtTimer = 0, vtRun = 0;
-function vtGet(where, k) { return where === 'vt' ? vtVariant : where === 'root' ? VIG[k] : VIG[where][k]; }
+function vtGet(where, k) {
+  if (where === 'root' && k === 'ink' && VIG.ink === 'auto') return STYLES[currentStyleId()].book.ink; // 'auto' — показываем цвет текста темы
+  return where === 'vt' ? vtVariant : where === 'root' ? VIG[k] : VIG[where][k];
+}
 function vtSet(where, k, v) { if (where === 'vt') vtVariant = v; else if (where === 'root') VIG[k] = v; else VIG[where][k] = v; }
 function vtBuild() {
   const box = $('vt-controls'); box.innerHTML = '';
@@ -2084,13 +2098,16 @@ function applyDropCaps(contents) {
   if (!doc || !doc.body) return;
   doc.querySelectorAll('p.rm-dc').forEach(p => p.classList.remove('rm-dc'));
   if (!dropcapsOn()) return;
-  const okStart = t => t.length >= 60 && /^[\s"'“”„«»‘’(\[]*\p{L}/u.test(t);
+  // начало главы: буква (можно после кавычки или скобки); реплика через тире — только под орнаментальную буквицу
+  // (тире входит в ::first-letter и прячется под картинкой); CSS-буквицу на тире не ставим
+  const ornOk = STYLES[currentStyleId()].initialis && window.CSS && CSS.registerProperty && typeof OffscreenCanvas !== 'undefined';
+  const okStart = t => t.length >= 2 && (/^[\s"'“”„«»‘’(\[]*\p{L}/u.test(t) || (ornOk && /^[–—-][\s\u00a0]*[A-Za-z]/.test(t)));
   const real = el => !el.closest('.' + INS_CLASS);
   // заголовки глав: h1–h3, а у книг Wolne Lektury («Chłopi») — div.naglowek_rozdzial*
   const heads = [...doc.querySelectorAll('h1, h2, h3, [class^="naglowek_rozdzial"], [class*=" naglowek_rozdzial"]')].filter(real);
   if (!heads.length) return;
   const FOLLOWING = Node.DOCUMENT_POSITION_FOLLOWING;
-  const ps = [...doc.querySelectorAll('p')].filter(p => real(p) && (p.textContent || '').trim().length >= 20); // мимо пустых «маркеров страниц»
+  const ps = [...doc.querySelectorAll('p')].filter(p => real(p) && (p.textContent || '').trim().length >= 3); // мимо пустых «маркеров страниц»
   heads.forEach((h, i) => {
     // первый абзац ПОСЛЕ заголовка в порядке документа (он может лежать и в соседнем блоке, а не рядом с <h>)
     const p = ps.find(q => (h.compareDocumentPosition(q) & FOLLOWING) && !h.contains(q));
