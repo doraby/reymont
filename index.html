@@ -4562,8 +4562,14 @@ function uniqueSubgraphIds(code) {
     return `${m[1]}subgraph sg${i}${label}`;
   }).join('\n');
 }
+/* Диаграммы — вертикального формата (панель узкая и высокая): если модель всё же дала flowchart слева направо,
+   разворачиваем его сверху вниз, в том числе внутри подграфов. */
+function verticalFlowchart(code) {
+  if (!/^\s*(?:flowchart|graph)\b/m.test(code)) return code;
+  return code.replace(/^(\s*(?:flowchart|graph))\s+(?:LR|RL)\b/m, '$1 TD').replace(/^(\s*direction)\s+(?:LR|RL)\b/gm, '$1 TB');
+}
 async function renderMermaidSafe(mermaid, code) {
-  code = uniqueSubgraphIds(tidySequence(code));
+  code = verticalFlowchart(uniqueSubgraphIds(tidySequence(code)));
   try { return await mermaid.render('rm-diagram-' + Date.now(), code); }
   catch (e) {
     const fixed = sanitizeMermaid(code);

@@ -325,8 +325,9 @@ Deno.serve(async (req) => {
       return json({ html, model: htmlModel, provider: "openai" }, 200, cors);
     }
     const sys =
-      `Turn the passage from a book into ONE small Mermaid diagram: a scene (flowchart with subgraphs), who does or says what to whom (sequenceDiagram), or a sequence of events (timeline). ` +
+      `Turn the passage from a book into ONE small Mermaid diagram: a scene (flowchart with subgraphs), who does or says what to whom (sequenceDiagram), or a sequence of events (a top-to-bottom flowchart chain). ` +
       `Output ONLY valid Mermaid code — no fences, comments or explanations. ` +
+      `Vertical format: it is shown in a narrow, tall side panel (about 480px wide), so it must be taller than wide. A flowchart is always "flowchart TD", subgraphs stack top to bottom (never "direction LR"), at most 3 nodes side by side on any level; never use timeline. A sequenceDiagram has at most 4 participants. Keep labels short so nodes stay narrow. ` +
       `At most 12 nodes, at most 5 characters, at most 10 messages of up to 6 words each, retold in your own words. Every sequenceDiagram message has non-empty text after the colon. ` +
       `Every id is unique, short ASCII, with no spaces; a subgraph never shares an id with a node. Every label is in double quotes, with no HTML, parentheses or quotes inside. No click, link or style directives. ` +
       `Language: each label is the original text of the passage, then " · ", then its translation into ${lang}${lang.toLowerCase() === "english" ? "" : " (not English)"}. ` +
