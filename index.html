@@ -1799,13 +1799,13 @@ function iniImage(styleId, letter, v) {
   iniCache.set(key, job);
   return job;
 }
-/* Виньетки у иконок вставок (игра, диаграмма, иллюстрация) — вместо точечных линий: слева полоса лозы, справа она же
-   зеркально. Тот же орнамент INITIĀLIS, что у буквиц (листья и цветы из initialisVary, краски стиля), но без буквы,
+/* Виньетки у иконок вставок (игра, диаграмма, иллюстрация) — вместо точечных линий: одна сплошная несимметричная
+   полоса лозы на всю ширину колонки, иконка — по центру поверх неё. Тот же орнамент INITIĀLIS, что у буквиц (листья и цветы из initialisVary, краски стиля), но без буквы,
    красным по бумаге, в узкой форме «box» (vendor/initialis-kinds/box.js); картинка обрезается по форме.
    Вариант орнамента — от ключа вставки, у страницы он всегда один и тот же. Кэш — как у буквиц (память + Cache Storage). */
-const VIG_BOX = { fBoxW: 0.85, fBoxH: 0.13, fBoxR: 0.11 };
+const VIG_BOX = { fBoxW: 1, fBoxH: 0.09, fBoxR: 0.11 };
 const VIG_LOOK = { oStemStyle: 'dotted', oDensity: 0.55, oStemW: 5, oLeafSize: 1.5, oFlowerSize: 0.8, oFlowerChance: 0.35, oBerries: 0.79, oCurl: 0.66, oSeeds: 'root', rough: 0.06 };
-const VIG_CSS_W = 320; // ширина одной виньетки на широкой колонке (на узкой — ужимается)
+const VIG_CSS_W = 680; // ширина полосы на широкой колонке (на узкой — во всю колонку)
 // где на квадрате 1000×1000 лежит форма (поле внутри полей fMargin = 40) — по этой рамке обрезаем
 const VIG_CROP = (() => { const f = 920, pad = 10, w = f * VIG_BOX.fBoxW + 2 * pad, h = f * VIG_BOX.fBoxH + 2 * pad; return { x: 500 - w / 2, y: 500 - h / 2, w, h }; })();
 let vigBoxReady = null;
@@ -4384,6 +4384,7 @@ function insMarker(doc, attr, key, k, title, onOpen) {
   wrap.className = INS_CLASS; // не считается в CFI
   wrap.setAttribute(attr, key);
   const root = getComputedStyle(document.documentElement);
+  wrap.style.setProperty('--rm-paper', (STYLES[currentStyleId()].preview || {}).bg || '#FFFFFF'); // кольцо вокруг иконки на виньетке
   wrap.style.setProperty('--rm-acc', root.getPropertyValue('--accent').trim() || '#C15F3C'); // цвет акцента — как у плиток в панели
   wrap.style.setProperty('--rm-muted', root.getPropertyValue('--muted').trim() || '#8A8778');
   insMarkerCss(doc);
@@ -4400,7 +4401,7 @@ function insMarker(doc, attr, key, k, title, onOpen) {
   if (STYLES[styleId].initialis && typeof OffscreenCanvas !== 'undefined') {
     vigImage(styleId, parseInt(iniHash(attr + '|' + key), 36) % 1000).then(url => {
       if (!url) return;
-      [l, r].forEach(n => { n.style.backgroundImage = `url("${url}")`; });
+      wrap.style.backgroundImage = `url("${url}")`;
       wrap.classList.add('rm-ins-vig');
     });
   }
@@ -4422,9 +4423,12 @@ function insMarkerCss(doc) {
 .${INS_CLASS} button:hover { filter: brightness(1.08); }
 .${INS_CLASS} button svg { display: block; }
 .${INS_CLASS} .rm-ins-rule { position: relative; flex: 0 1 7em; height: 0; border-top: 1px dotted var(--rm-muted); }
-.${INS_CLASS}.rm-ins-vig .rm-ins-rule { flex: 0 1 ${VIG_CSS_W}px; min-width: 0; height: auto; aspect-ratio: ${Math.round(VIG_CROP.w)} / ${Math.round(VIG_CROP.h)};
-  border-top: 0; background: center / contain no-repeat; }
-.${INS_CLASS}.rm-ins-vig .rm-ins-r { transform: scaleX(-1); }
+/* виньетка: сама строка вставки — полоса орнамента, иконка по центру поверх, с кольцом цвета бумаги */
+.${INS_CLASS}.rm-ins-vig { width: 100%; max-width: ${VIG_CSS_W}px; margin-inline: auto !important; aspect-ratio: ${Math.round(VIG_CROP.w)} / ${Math.round(VIG_CROP.h)};
+  background: center / contain no-repeat; }
+.${INS_CLASS}.rm-ins-vig .rm-ins-rule { display: none; }
+.${INS_CLASS}.rm-ins-vig button { box-shadow: 0 0 0 5px var(--rm-paper); }
+.${INS_CLASS} + .${INS_CLASS}.rm-ins-vig { background: none !important; aspect-ratio: auto; } /* в группе вставок полоса только у первой */
 `;
   doc.head.appendChild(s);
 }
