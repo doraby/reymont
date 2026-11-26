@@ -358,7 +358,7 @@
   #panel-visual.dg-view .pv-media svg { background: #FAF9F5; border-radius: 10px; padding: var(--space-4); } /* вертикальная иллюстрация видна целиком */
   #panel-visual .io-loading { margin: 0 auto; padding: var(--space-4) var(--panel-pad-x) var(--space-5); }
   #panel-visual .p-error { margin: var(--space-1) var(--panel-pad-x) var(--space-4); }
-  #panel-visual #interactive-frame { flex: none; height: 420px; } /* дальше высоту подгоняет сама игра (rmHeight) — без своей прокрутки */
+  #panel-visual #interactive-frame { flex: none; height: 420px; } /* сразу же — во всю высоту панели (ioFit), выше — если игра выше (rmHeight) */
   body:not(.split) #panel-visual .pv-media { max-height: none; }
   .ph { padding: var(--space-1) 0 var(--space-5); }
   /* Подсказку «Select a word…» и разделитель показываем, только пока у страницы нет визуала (сверху — плитки) */
@@ -4129,10 +4129,22 @@ const HEIGHT_SCRIPT = `<script>(function(){var last=0,n=0;function s(){var d=doc
 function withHeightScript(html) {
   return /<\/body>/i.test(html) ? html.replace(/<\/body>/i, HEIGHT_SCRIPT + '</body>') : html + HEIGHT_SCRIPT;
 }
+/* Интерактив во всю высоту панели: рамка не ниже видимой части панели (без полосы кнопок под ней);
+   если игра сама выше — растёт под неё. */
+let ioContentH = 0;
+function ioFit() {
+  const frame = $('interactive-frame'), sc = $('panel-scroll');
+  if (!frame || !sc) return;
+  const z = $('panel-visual'), bar = z && z.querySelector('.vz-bar'), note = z && z.querySelector('.io-notice');
+  const avail = sc.clientHeight - (bar ? bar.offsetHeight : 0) - (note ? note.offsetHeight : 0);
+  frame.style.height = Math.round(Math.min(4000, Math.max(360, avail, ioContentH))) + 'px';
+}
+addEventListener('resize', () => { if (vzOwner === 'io-view') ioFit(); });
 window.addEventListener('message', e => {
   const frame = $('interactive-frame'), h = e.data && e.data.rmHeight;
   if (!frame || e.source !== frame.contentWindow || typeof h !== 'number') return;
-  frame.style.height = Math.round(Math.min(4000, Math.max(420, h))) + 'px';
+  ioContentH = h;
+  ioFit();
 });
 function withSnapshotScript(html) {
   return /<\/body>/i.test(html) ? html.replace(/<\/body>/i, SNAPSHOT_SCRIPT + '</body>') : html + SNAPSHOT_SCRIPT;
@@ -4155,6 +4167,7 @@ function showInteractiveInPanel(rec, notice) {
       + vzRedraw('redrawGame()') + vzFullscreen(), rec.title));
   ensureVisualTitle('io', rec);
   const frame = $('interactive-frame');
+  ioContentH = 0; requestAnimationFrame(ioFit);
   loadD3Src().then(lib => { if (frame.isConnected) frame.srcdoc = withCsp(withHeightScript(rec.snap ? rec.html : withSnapshotScript(rec.html)), lib); });
 }
 function deleteInteractive() {

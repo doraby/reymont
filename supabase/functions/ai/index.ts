@@ -141,6 +141,62 @@ async function getStyleRef(): Promise<string | null> {
   return styleRefB64;
 }
 
+/* Набор вёрстки интерактива: рамка, веточки в углах и образцы элементов схемы (по макету panel-p26-scheme).
+   Модель копирует его и строит игру внутри рамки. Меняя стиль интерактивов, правьте здесь. */
+const INTERACTIVE_KIT = `<!doctype html>
+<html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap">
+<style>
+html,body{height:100%;margin:0}
+body{background:#F6F1E8;color:#2B2623;font-family:'EB Garamond',Georgia,serif;display:flex;flex-direction:column;gap:16px;padding:16px;box-sizing:border-box}
+.frame{position:relative;flex:1;min-height:320px;border:1px solid #2B2623;background:#FDFBF7}
+.frame::before{content:'';position:absolute;inset:7px;border:1px solid #A23B33;opacity:.5;pointer-events:none}
+.frame>svg.scene{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.sprig{position:absolute;width:56px;height:56px;overflow:visible;pointer-events:none}
+.sprig.tl{left:8px;top:8px}.sprig.tr{right:8px;top:8px;transform:scaleX(-1)}.sprig.bl{left:8px;bottom:8px;transform:scaleY(-1)}.sprig.br{right:8px;bottom:8px;transform:scale(-1,-1)}
+.lbl{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:17px;fill:#2B2623;letter-spacing:.02em}
+.lbl.quiet{fill:#6E655C}
+.tok{font-family:'Cormorant Garamond',serif;font-weight:600;font-size:19px;text-anchor:middle;dominant-baseline:central}
+.goal{font-size:22px;line-height:30px;text-align:center;text-wrap:balance;margin:0}
+.tr{font-style:italic;font-size:17px;line-height:24px;color:#6E655C;text-align:center;text-wrap:balance;margin:0}
+.choices{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 18px}
+.choice{appearance:none;background:none;border:0;border-bottom:2px solid transparent;font:500 21px 'Cormorant Garamond',serif;color:#2B2623;padding:10px 6px;min-height:44px;cursor:pointer}
+.choice:hover,.choice[aria-pressed=true]{color:#A23B33;border-color:#A23B33}
+.choice:focus-visible{outline:1px solid #A23B33;outline-offset:2px}
+.right{color:#A23B33}.wrong{color:#6E655C;text-decoration:line-through}
+</style></head><body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+ <symbol id="sprig" viewBox="0 0 56 56" overflow="visible"><path d="M3 53C5 30 20 12 52 4" stroke="#6F7F5E" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+  <g fill="#8A9A78" fill-opacity=".28" stroke="#6F7F5E" stroke-width=".9" stroke-linejoin="round"><path d="M0 0C3-6 10-7 15-3C10 2 3 3 0 0Z" transform="translate(6 42) rotate(-125)"/><path d="M0 0C3-6 10-7 15-3C10 2 3 3 0 0Z" transform="translate(9 31) rotate(-30)"/><path d="M0 0C3-6 10-7 15-3C10 2 3 3 0 0Z" transform="translate(16 22) rotate(-100)"/><path d="M0 0C3-6 10-7 15-3C10 2 3 3 0 0Z" transform="translate(26 15) rotate(5)"/><path d="M0 0C3-6 10-7 15-3C10 2 3 3 0 0Z" transform="translate(39 9) rotate(-70)"/></g>
+  <path d="M26 15L29 22M39 9L42 16M16 22L17 28" stroke="#6F7F5E" stroke-width=".8" stroke-linecap="round"/>
+  <circle cx="29.5" cy="24" r="2.3" fill="#A23B33"/><circle cx="42.5" cy="18" r="2.3" fill="#A23B33"/><circle cx="17.5" cy="30" r="1.8" fill="#A23B33" fill-opacity=".8"/><circle cx="52" cy="4" r="1.3" fill="#6F7F5E"/></symbol>
+ <pattern id="hatch" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(135)"><line y2="9" stroke="#2B2623" stroke-opacity=".28"/></pattern>
+ <marker id="arrow" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0L4 2 0 4Z" fill="#A23B33"/></marker>
+</defs></svg>
+<p class="goal">Kto stał na progu obory?</p><p class="tr">Кто стоял на пороге хлева?</p>
+<div class="frame">
+ <svg class="sprig tl"><use href="#sprig"/></svg><svg class="sprig tr"><use href="#sprig"/></svg><svg class="sprig bl"><use href="#sprig"/></svg><svg class="sprig br"><use href="#sprig"/></svg>
+ <svg class="scene" viewBox="0 0 560 420" preserveAspectRatio="xMidYMid meet">
+  <!-- дорога: полоса с пунктирной осью; ограда: пунктир чернилами -->
+  <rect x="28" y="108" width="504" height="64" fill="#F0E8DA"/><line x1="28" y1="140" x2="532" y2="140" stroke="#B9A98F" stroke-dasharray="4 4"/>
+  <line x1="28" y1="204" x2="532" y2="204" stroke="#2B2623" stroke-width="1.5" stroke-dasharray="5 5"/>
+  <text class="lbl quiet" x="44" y="134">droga</text><text class="lbl" x="516" y="196" text-anchor="end">opłotki</text>
+  <!-- постройка: контур, крыша, штриховка внутри, красная черта — дверь -->
+  <path d="M270 270L370 236 470 270" fill="none" stroke="#2B2623" stroke-width="1.5"/><rect x="270" y="270" width="200" height="112" fill="none" stroke="#2B2623" stroke-width="1.5"/>
+  <rect x="292" y="292" width="64" height="64" fill="url(#hatch)"/><rect x="268" y="321" width="4" height="36" rx="2" fill="#A23B33"/><text class="lbl" x="370" y="306" text-anchor="middle">obora</text>
+  <!-- путь или взгляд: красный точечный пунктир со стрелкой -->
+  <path d="M270 317V178" fill="none" stroke="#A23B33" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="1 6" marker-end="url(#arrow)"/>
+  <!-- персонаж: кружок с инициалом или именем; главный — красный ромб; животное или предмет — розовый ромб -->
+  <g transform="translate(270 339)"><circle r="22" fill="#fff" stroke="#2B2623" stroke-width="1.4"/><text class="tok">M</text></g>
+  <g transform="translate(270 140)"><circle r="28" fill="#fff" stroke="#2B2623" stroke-width="1.4"/><text class="tok" font-size="17">Józia</text></g>
+  <g transform="translate(382 62)"><rect x="-16" y="-16" width="32" height="32" transform="rotate(45)" fill="#A23B33"/><text class="tok" fill="#fff">A</text></g>
+  <g transform="translate(150 335)"><rect x="-32" y="-32" width="64" height="64" transform="rotate(45)" fill="#EBCFCA"/><text class="tok" fill="#7E2A24" font-size="17">krowa</text></g>
+ </svg>
+</div>
+<div class="choices"><button class="choice">Józia</button><button class="choice" aria-pressed="true">M</button><button class="choice">Ambroży</button></div>
+<p class="tr" aria-live="polite"><span class="right">Tak — M stała na progu.</span></p>
+</body></html>`;
+
 async function generateImage(prompt: string, size = "1024x1536"): Promise<ImageResult> {
   try {
     return await callOpenAIImage(prompt, size);
@@ -247,27 +303,27 @@ Deno.serve(async (req) => {
       // изолированной рамке (sandbox без allow-same-origin + CSP без сети), поэтому внешних
       // ресурсов в нём быть не должно.
       const sysHtml =
-        `Turn the passage from a book into ONE self-contained HTML page that makes THIS passage come alive — something the reader can't get from the text alone. ` +
-        `Pick one strong idea that fits the passage (a map you can move characters on, a scene that plays out step by step, a cause-and-effect chain, a close-up object with hotspots, a small puzzle…) and make it genuinely interactive. ` +
-        `Make it visual first: the main thing on screen is a large picture drawn with d3/SVG (a scene, a map, figures, objects, a chart), not text and not a form. ` +
-        `Few and large: at most 3–4 interactive elements on screen at a time, each big and easy to see; one short line of text per step at most; no small cards, thumbnails, tables or dense labels. ` +
-        `Not a relationship graph, and no tabs unless the idea really needs them. ` +
-        `Design: refined and elegant, like a page from a finely printed old book with ornamental initials — engraved botanical drop caps with fine vines, leaves, flowers and berries in two inks on paper. ` +
-        `If an image of ornamental initials is attached, it is this app's own style reference: match its look in the picture, the ornament and the frames — the deep red, the fine paper-white vines, leaves, flowers and berries, the printed, slightly rough ink, the ruled borders, the classic serif capitals; do not copy the letters themselves or embed the image. ` +
-        `Palette: warm paper ground #FBF8F1; ink #1F1E1B for drawing and text; one deep red #B3261E as the main colour; at most one more natural ink (moss green #5E6B45 or ochre #A8742A) where the scene needs it; no other colours, no gradients, no shadows, no glow. ` +
-        `Drawing: schematic, not realistic — do not try to draw people, animals or objects accurately; drawn figures come out crude. Show the scene the way an old map, a plan or a printer's emblem would: a simple ground plan or a diagram of the place, ` +
-        `each character or animal as a small sign — a roundel or lozenge with its initial or name in small caps, a dot with a short label, a simple geometric glyph — and buildings and objects as plain outlines or symbols. ` +
-        `Meaning comes from position, arrows, paths, distances and short labels, not from detailed figures. Lines are fine and engraved-looking (0.75–2px), with hatching or stippling only for areas such as fields, water or a yard; no attempts at anatomy, faces or perspective, no flat clip-art, emoji-like icons or coloured boxes. ` +
-        `Natural ornament frames the scene: thin vines with small leaves, flowers or wheat along the edges or corners, a ruled border, a small fleuron as a divider — delicate and sparse, never covering the content. ` +
-        `Type: one Google Fonts book serif via <link> (Cormorant Garamond or EB Garamond), with italic for notes and translations and small caps with slight letter-spacing for labels; no sans-serif anywhere, including buttons. ` +
-        `Controls look like typography, not app widgets: words in small caps, underlined in red when active, ‹ › arrows, numerals in a quiet row, a slider drawn as a hairline with a small red lozenge; no dark or filled pill buttons, no rounded cards, no heavy boxes. Each control is comfortable to tap (at least 44px, by padding) and has visible keyboard focus. ` +
-        `Quiet transitions (about 0.3s, ink or opacity, respect prefers-reduced-motion). Lots of air, no clutter, no emoji. Works at phone width. ` +
-        `Technical: inline SVG + CSS + vanilla JS; the only external resource allowed is a Google Fonts stylesheet. The d3 library (v7) is already loaded as the global "d3" — do not import or load it; use it when a chart helps (timelines, counts, distributions, scales, force or hierarchy layouts), drawn only from data in the passage, with direct labels instead of a legend. Layout: it is shown in a narrow side panel (about 400–600px wide, usually 480), so stack everything vertically in one column — the picture first (full width), controls below it; works from 320 to 900px wide, no horizontal scroll, html and body height 100%. Base text at least 18px, key words and labels on the picture at least 20px. ` +
-        `No title or caption naming the book, author or passage — start straight with the content. ` +
+        `Turn the passage from a book into ONE small self-contained HTML GAME about THIS passage — something the reader plays, not reads. ` +
+        `Game: pick the ONE mechanic that fits this passage best and build it fully — vary it from passage to passage, for example: ` +
+        `place the characters where the text puts them (drag tokens onto the plan); trace a route or a gaze across the plan; put events in order; match lines of dialogue to who says them; find on the plan the places or things the text names; ` +
+        `predict what happens next, then reveal it; move a slider for time, distance or light and watch the scene change; solve a small puzzle built from facts in the passage (counts, distances, who is where). ` +
+        `It has a goal stated in one short line, a real action (drag, tap on the plan, choose, order, trace, slide), immediate quiet feedback on every move, and an ending that shows the line from the passage it was about. ` +
+        `NEVER a step-by-step story pager or slideshow: no numbered steps or pages, no "1 2 3 4" row, no ‹ › arrows to page through moments, no "step N of M", no retelling the passage in slides. ` +
+        `Layout and look: copy the template below — its fonts, colours, frame (double rule with a sprig of leaves and berries in each corner), and its plan elements. Keep the frame; replace the example scene, goal and choices with this passage's game. ` +
+        `The page fills the whole panel height: html and body height 100%, a column — the goal line (and its translation) on top, the frame with the scene filling the remaining height (flex: 1), below it only what the game needs (choices, a feedback line); no page scroll at heights from 600px up. ` +
+        `Plan elements (use them, scaled and placed for this scene): people as white roundels with an initial or a name; the key character as a small red lozenge with a white initial; animals and important things as pale pink lozenges with a name; buildings as plain outlines with a roof line and hatching; ` +
+        `a road as a tinted band with a dashed axis; a fence as a dashed ink line; movement, a gaze or a route as a red dotted line with an arrowhead; names of places in italic. ` +
+        `Drawing stays schematic, like a plan: never try to draw people, animals or objects realistically, no faces, anatomy, perspective, clip-art or emoji. Only the template's colours; no gradients, no shadows, no glow, no rounded cards, no filled or dark buttons. ` +
+        `If an image of ornamental initials is attached, take from it only the mood (fine botanical ornament, printed ink); the template decides the layout and the elements. ` +
+        `Controls are typography like the template's .choice buttons (at least 44px to tap, visible keyboard focus); quiet transitions about 0.3s, respect prefers-reduced-motion. ` +
+        `Technical: inline SVG + CSS + vanilla JS; the only external resource allowed is the Google Fonts stylesheet from the template. The d3 library (v7) is already loaded as the global "d3" — do not import or load it; use it for dragging or a scale when it helps. Pointer events for drag and tap (works with mouse and touch). ` +
+        `Shown in a narrow side panel (about 400–600px wide, usually 480): works from 320 to 900px wide, no horizontal scroll; base text at least 18px, labels on the plan at least 16px. ` +
+        `No title or caption naming the book, author or passage. ` +
         `Output ONLY the full HTML starting with <!doctype html>, no markdown. ` +
-        `Language: write the content in the original language of the passage and put its translation into ${lang}${lang.toLowerCase() === "english" ? "" : " (not English)"} next to it, smaller, italic, grey. ` +
-        `Interface words (buttons, hints) are in ${lang}. Proper names need no translation. If the passage is already in ${lang}, write everything once, with no translations. ` +
-        `Use only facts from the passage. Up to about 400 lines, no JavaScript errors.`;
+        `Language: write the content in the original language of the passage and put its translation into ${lang}${lang.toLowerCase() === "english" ? "" : " (not English)"} next to it, smaller, italic, grey (like the template's .tr). ` +
+        `Interface words (buttons, hints, feedback) are in ${lang}. Proper names need no translation. If the passage is already in ${lang}, write everything once, with no translations. ` +
+        `Use only facts from the passage. Up to about 400 lines, no JavaScript errors.\n\n` +
+        `TEMPLATE (frame, layout and example elements — the example scene, goal and choices are placeholders):\n` + INTERACTIVE_KIT;
       // Доработка по отзыву читателя (👎): модель получает текущий код и жалобу и возвращает улучшенный
       // документ целиком. Один запрос, без цепочек.
       const improve = body.action === "diagram_html_improve";
@@ -278,7 +334,7 @@ Deno.serve(async (req) => {
         ? sysHtml + ` You are given the CURRENT version of the document and the reader's feedback on it. ` +
           `If the current document has a title, kicker, subtitle or any text naming the book or describing the passage, REMOVE it. ` +
           `Return an improved COMPLETE document that fixes what the reader disliked (if the feedback is empty, fix the most obvious weaknesses: ` +
-          `emptiness, unreadable text, broken interactions, weak layout). Also bring the whole document in line with the Design direction above: refined, elegant, engraved, two inks on paper with natural ornament. Keep what already works. The same hard rules apply.`
+          `emptiness, unreadable text, broken interactions, weak layout). Also bring the whole document in line with the template above (frame, layout, elements) and make it a real game, not a step-by-step pager. Keep what already works. The same hard rules apply.`
         : sysHtml;
       const inputFinal = improve
         ? `${userMsgHtml}\n<reader_feedback>${feedback || "(no comment — improve the visualisation in general)"}</reader_feedback>\n<current_html>${currentHtml}</current_html>`
