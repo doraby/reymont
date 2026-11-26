@@ -88,7 +88,7 @@ const ILLUS_STYLES: Record<string, string> = {
     `a clean, minimal explanatory infographic in the tradition of classic statistical-graphics books: warm off-white paper background, ` +
     `fine black hairlines of even weight, at most one restrained accent colour (deep red), flat shapes, no gradients, no shadows, no 3D, no ornament. ` +
     `Reduce the scene to a precise diagram-like drawing — a floor plan, map, cross-section, timeline strip or figure layout — that shows who and what is where and how they relate. ` +
-    `Maximum information, minimum ink, lots of calm white space; wordless, without labels.`,
+    `Maximum information, minimum ink, lots of calm white space; short direct labels next to people, places and objects, using the book's own words.`,
   artnouveau:
     `the style of a decorative Art Nouveau / early Art Deco poster and book illustration: elegant flowing contour lines, ` +
     `flat areas of soft muted colour (sage green, ochre, dusty rose, pale gold), stylised natural ornament, ` +
@@ -419,7 +419,10 @@ Deno.serve(async (req) => {
         `${chapter ? ` (from the chapter/section "${chapter}")` : ""}.\n` +
         `Depicted moment (the reader's highlighted text): "${text}"\n` +
         (para ? `Context — a couple of paragraphs before and after the highlighted moment:\n"""${para}"""\n` : "") +
-        `Do not draw any text in the image: no quotations or fragments of the book, no captions, titles, lettering, signs, speech bubbles or watermarks — purely visual.\n` +
+        `Words from the book in the image: label the key people, places and objects with their exact words from the passage (names and nouns as written there, in the original language), ` +
+        `and add one short quotation from the highlighted text or its context (up to about 8 words) as a caption. Copy every word letter for letter, with all diacritics (ą, ę, ł, ś, ż…); never translate, paraphrase or invent words. ` +
+        `Lettering: a classic book serif or small caps, small and sparse, set right next to what it names or in a caption line or ribbon, part of the composition. ` +
+        `No other text: no titles, speech bubbles, signs with invented words or watermarks.\n` +
         `Use ${ILLUS_STYLES[String(body.style)] ?? ILLUS_STYLES.artnouveau}`;
     } else {
       if (!title) return err("No title", 400, cors);
