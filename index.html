@@ -1804,6 +1804,7 @@ function iniImage(styleId, letter, v) {
    красным по бумаге, в узкой форме «box» (vendor/initialis-kinds/box.js); картинка обрезается по форме.
    Вариант орнамента — от ключа вставки, у страницы он всегда один и тот же. Кэш — как у буквиц (память + Cache Storage). */
 const VIG_BOX = { fBoxW: 1, fBoxH: 0.09, fBoxR: 0.11 };
+const VIG_INK = '#1F1E1B'; // краска лозы виньетки (чёрная, как текст Paper); красная — STYLES.paper.initialis.inkA
 const VIG_LOOK = { oStemStyle: 'dotted', oDensity: 0.55, oStemW: 5, oLeafSize: 1.5, oFlowerSize: 0.8, oFlowerChance: 0.35, oBerries: 0.79, oCurl: 0.66, oSeeds: 'root', rough: 0.06 };
 const VIG_CSS_W = 680; // ширина полосы на широкой колонке (на узкой — во всю колонку)
 // где на квадрате 1000×1000 лежит форма (поле внутри полей fMargin = 40) — по этой рамке обрезаем
@@ -1811,7 +1812,7 @@ const VIG_CROP = (() => { const f = 920, pad = 10, w = f * VIG_BOX.fBoxW + 2 * p
 let vigBoxReady = null;
 function vigSettings(styleId, v) {
   const st = STYLES[styleId], P = Object.assign({}, st.initialis, VIG_LOOK, VIG_BOX,
-    { text: ' ', frame: 'box', fRules: 0, fField: 'paper', oFill: 'A', seed: v + 1 });
+    { text: ' ', frame: 'box', fRules: 0, fField: 'paper', oFill: 'A', seed: v + 1, inkA: VIG_INK });
   for (const [k, list] of Object.entries(st.initialisVary || {})) P[k] = list[v % list.length];
   return P;
 }
