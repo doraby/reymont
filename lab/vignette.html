@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Виньетка — лаборатория</title>
+<title>Vignette lab</title>
 <!-- Временная страница для экспериментов: виньетка из орнамента INITIĀLIS перед иконкой игры на странице книги.
      Не часть приложения; когда вариант выбран, настройки переносятся в index.html, а страницу можно удалить. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap">
@@ -50,26 +50,26 @@
 <body>
 <div class="wrap">
 <aside>
-  <h1>Виньетка</h1>
-  <p class="hint">Орнамент INITIĀLIS без буквы. Меняйте ползунки — картинка перерисуется. Справа три раскладки у иконки игры.</p>
+  <h1>Vignette</h1>
+  <p class="hint">INITIĀLIS ornament without a letter. Move the sliders and the picture redraws. On the right: three layouts around the game icon.</p>
   <div id="controls"></div>
   <div class="btns">
-    <button id="grow">Прорасти ▶</button>
-    <button id="reset">Сбросить</button>
-    <button id="rand">Случайный seed</button>
-    <button id="copy">Копировать настройки</button>
+    <button id="grow">Grow ▶</button>
+    <button id="reset">Reset</button>
+    <button id="rand">Random seed</button>
+    <button id="copy">Copy settings</button>
   </div>
   <pre id="json"></pre>
 </aside>
 <main>
   <div class="sheet" id="sheet">
-    <p class="mode-title">A — виньетка над иконкой</p>
+    <p class="mode-title">A — vignette above the icon</p>
     <div class="stack"><img class="vig" id="vA" alt=""><div class="marker"><span class="rule"></span><span class="btn" data-icon></span><span class="rule"></span></div></div>
 
-    <p class="mode-title">B — виньетка вместо линий (слева и зеркально справа)</p>
+    <p class="mode-title">B — vignettes instead of lines (left, mirrored right)</p>
     <div class="side"><img class="vig" id="vBl" alt=""><span class="btn" data-icon></span><img class="vig r" id="vBr" alt=""></div>
 
-    <p class="mode-title">C — медальон, иконка в центре</p>
+    <p class="mode-title">C — medallion, icon in the middle</p>
     <div class="medal"><img id="vC" alt=""><span class="btn" data-icon></span></div>
 
     <h2>Rozdział II</h2>
@@ -88,62 +88,62 @@ document.querySelectorAll('[data-icon]').forEach(n => n.innerHTML = ICON);
 
 // Управление: [ключ, подпись, тип, значение по умолчанию, варианты или [min,max,step]]
 const C = [
-  ['#', 'Готовые варианты'],
-  ['preset', 'пресет — выберите, потом подправьте', 'sel', '—', ['—', 'лоза: трилистник и маргаритки', 'лоза: плющ и розы, симметрия', 'лоза на красном', 'тонкая лоза с бусинами', 'только точки (stipple)', 'кораллы', 'пузырьки', 'волны', 'сэйгаиха', 'асаноха', 'меандр', 'чешуя', 'гравюра (engrave)']],
-  ['#', 'Форма и размер'],
-  ['frame', 'форма', 'sel', 'box', ['box', 'none', 'rect', 'rounded', 'circle', 'arch', 'pointed', 'shield', 'lozenge', 'octagon', 'quatrefoil', 'scallop']],
-  ['fBoxW', 'ширина формы (box)', 'num', 1, [0.1, 1, 0.01]],
-  ['fBoxH', 'высота формы (box)', 'num', 0.25, [0.05, 1, 0.01]],
-  ['fBoxR', 'скругление углов (box)', 'num', 0, [0, 0.5, 0.01]],
-  ['ground', 'фон формы', 'sel', 'нет', ['нет', 'красный (узор белый)']],
-  ['fullA', 'A на всю ширину колонки', 'sel', 'да', ['да', 'нет']],
-  ['sizeA', 'ширина A, px (если не на всю)', 'num', 220, [40, 700, 2]],
-  ['sizeB', 'ширина B, px', 'num', 140, [24, 320, 2]],
-  ['sizeC', 'ширина C, px', 'num', 120, [48, 320, 2]],
-  ['#', 'Растущая лоза'],
-  ['orn', 'лоза', 'sel', 'grow', ['grow', 'none']],
-  ['oLeaf', 'лист', 'sel', 'trefoil', ['none', 'acanthus', 'lance', 'willow', 'ovate', 'teardrop', 'oak', 'ivy', 'trefoil', 'cinquefoil', 'fern', 'dot', 'pod', 'dotted', 'comma', 'fan', 'needles', 'heart']],
-  ['oFlower', 'цветок', 'sel', 'daisy', ['none', 'rosette', 'daisy', 'rose', 'star', 'phyllo', 'target', 'burst', 'dotring', 'quatre', 'tulip', 'bell', 'bud', 'pomegranate', 'thistle']],
-  ['oStemStyle', 'стебель', 'sel', 'solid', ['solid', 'dotted', 'beaded', 'dashed', 'double', 'thorny']],
-  ['oTerminal', 'концы стеблей', 'sel', 'flower', ['curl', 'ball', 'leaf', 'flower', 'point']],
-  ['oDensity', 'плотность', 'num', 0.4, [0, 1, 0.01]],
-  ['oStemW', 'толщина стебля', 'num', 32, [0.6, 32, 0.2]],
-  ['oLeafSize', 'размер листа', 'num', 2.45, [0.2, 3, 0.05]],
-  ['oFlowerSize', 'размер цветка', 'num', 0.6, [0.3, 3, 0.05]],
-  ['oFlowerChance', 'сколько цветов', 'num', 0.43, [0, 1, 0.01]],
-  ['oBerries', 'ягоды', 'num', 0.79, [0, 1, 0.01]],
-  ['oCurl', 'завиток', 'num', 0.66, [0, 1, 0.01]],
-  ['oSym', 'симметрия', 'sel', 'none', ['none', 'mirror']],
-  ['oSeeds', 'откуда растёт', 'sel', 'root', ['gaps', 'frame', 'corners', 'root', 'letter']],
-  ['#', 'Текстура в просветах лозы'],
-  ['tKind', 'текстура', 'sel', 'none', ['none', 'stipple', 'bubbles', 'ripples', 'streams', 'fur', 'cells', 'truchet', 'coral']],
-  ['tScale', 'шаг текстуры', 'num', 9, [2, 60, 0.5]],
-  ['#', 'Паттерн по всей форме'],
-  ['fPattern', 'паттерн', 'sel', 'none', ['none', 'hatch', 'cross', 'waves', 'dots', 'stipple', 'checker', 'diaper', 'scales', 'rays', 'rings', 'grid', 'seigaiha', 'asanoha', 'kikko', 'shippo', 'frets', 'ice', 'contour', 'engrave', 'halftone', 'mosaic', 'wash', 'frost', 'mycelium']],
-  ['fPatScale', 'шаг паттерна', 'num', 14, [2, 60, 0.5]],
-  ['fPatW', 'толщина линий паттерна', 'num', 2, [0.3, 10, 0.1]],
-  ['#', 'Печать'],
+  ['#', 'Presets'],
+  ['preset', 'preset — pick one, then adjust', 'sel', '—', ['—', 'vine: trefoil and daisies', 'vine: ivy and roses, mirrored', 'vine on red', 'thin beaded vine', 'stipple only', 'coral', 'bubbles', 'waves', 'seigaiha', 'asanoha', 'meander', 'scales', 'engraving']],
+  ['#', 'Shape and size'],
+  ['frame', 'shape', 'sel', 'box', ['box', 'none', 'rect', 'rounded', 'circle', 'arch', 'pointed', 'shield', 'lozenge', 'octagon', 'quatrefoil', 'scallop']],
+  ['fBoxW', 'shape width (box)', 'num', 1, [0.1, 1, 0.01]],
+  ['fBoxH', 'shape height (box)', 'num', 0.25, [0.05, 1, 0.01]],
+  ['fBoxR', 'corner radius (box)', 'num', 0, [0, 0.5, 0.01]],
+  ['ground', 'shape ground', 'sel', 'none', ['none', 'red (white pattern)']],
+  ['fullA', 'A full column width', 'sel', 'yes', ['yes', 'none']],
+  ['sizeA', 'width A, px (if not full)', 'num', 220, [40, 700, 2]],
+  ['sizeB', 'width B, px', 'num', 140, [24, 320, 2]],
+  ['sizeC', 'width C, px', 'num', 120, [48, 320, 2]],
+  ['#', 'Growing vine'],
+  ['orn', 'vine', 'sel', 'grow', ['grow', 'none']],
+  ['oLeaf', 'leaf', 'sel', 'trefoil', ['none', 'acanthus', 'lance', 'willow', 'ovate', 'teardrop', 'oak', 'ivy', 'trefoil', 'cinquefoil', 'fern', 'dot', 'pod', 'dotted', 'comma', 'fan', 'needles', 'heart']],
+  ['oFlower', 'flower', 'sel', 'daisy', ['none', 'rosette', 'daisy', 'rose', 'star', 'phyllo', 'target', 'burst', 'dotring', 'quatre', 'tulip', 'bell', 'bud', 'pomegranate', 'thistle']],
+  ['oStemStyle', 'stem', 'sel', 'solid', ['solid', 'dotted', 'beaded', 'dashed', 'double', 'thorny']],
+  ['oTerminal', 'stem ends', 'sel', 'flower', ['curl', 'ball', 'leaf', 'flower', 'point']],
+  ['oDensity', 'density', 'num', 0.4, [0, 1, 0.01]],
+  ['oStemW', 'stem width', 'num', 32, [0.6, 32, 0.2]],
+  ['oLeafSize', 'leaf size', 'num', 2.45, [0.2, 3, 0.05]],
+  ['oFlowerSize', 'flower size', 'num', 0.6, [0.3, 3, 0.05]],
+  ['oFlowerChance', 'flower amount', 'num', 0.43, [0, 1, 0.01]],
+  ['oBerries', 'berries', 'num', 0.79, [0, 1, 0.01]],
+  ['oCurl', 'curl', 'num', 0.66, [0, 1, 0.01]],
+  ['oSym', 'symmetry', 'sel', 'none', ['none', 'mirror']],
+  ['oSeeds', 'grows from', 'sel', 'root', ['gaps', 'frame', 'corners', 'root', 'letter']],
+  ['#', 'Texture in the gaps'],
+  ['tKind', 'texture', 'sel', 'none', ['none', 'stipple', 'bubbles', 'ripples', 'streams', 'fur', 'cells', 'truchet', 'coral']],
+  ['tScale', 'texture step', 'num', 9, [2, 60, 0.5]],
+  ['#', 'Pattern over the whole shape'],
+  ['fPattern', 'pattern', 'sel', 'none', ['none', 'hatch', 'cross', 'waves', 'dots', 'stipple', 'checker', 'diaper', 'scales', 'rays', 'rings', 'grid', 'seigaiha', 'asanoha', 'kikko', 'shippo', 'frets', 'ice', 'contour', 'engrave', 'halftone', 'mosaic', 'wash', 'frost', 'mycelium']],
+  ['fPatScale', 'pattern step', 'num', 14, [2, 60, 0.5]],
+  ['fPatW', 'pattern line width', 'num', 2, [0.3, 10, 0.1]],
+  ['#', 'Print'],
   ['seed', 'seed', 'num', 180, [1, 200, 1]],
-  ['inkA', 'краска', 'color', '#B3261E'],
-  ['rough', 'шероховатость печати', 'num', 0.06, [0, 2, 0.01]],
+  ['inkA', 'ink', 'color', '#B3261E'],
+  ['rough', 'print roughness', 'num', 0.06, [0, 2, 0.01]],
 ];
 // Пресеты: меняют только перечисленное, остальное остаётся как было
 const PRESETS = {
-  'лоза: трилистник и маргаритки': { orn: 'grow', ground: 'нет', fPattern: 'none', tKind: 'none', oLeaf: 'trefoil', oFlower: 'daisy', oStemStyle: 'solid', oDensity: 0.4, oStemW: 32, oLeafSize: 2.45, oFlowerSize: 0.6, oFlowerChance: 0.43, oBerries: 0.79, oSym: 'none', oSeeds: 'root', seed: 180 },
-  'лоза: плющ и розы, симметрия': { orn: 'grow', ground: 'нет', fPattern: 'none', tKind: 'none', oLeaf: 'ivy', oFlower: 'rose', oStemStyle: 'solid', oDensity: 0.45, oStemW: 14, oLeafSize: 1.6, oFlowerSize: 1.5, oFlowerChance: 0.3, oBerries: 0.4, oSym: 'mirror', oSeeds: 'root', seed: 7 },
-  'лоза на красном': { orn: 'grow', ground: 'красный (узор белый)', fPattern: 'none', tKind: 'none', oLeaf: 'acanthus', oFlower: 'rosette', oStemStyle: 'solid', oDensity: 0.75, oStemW: 9, oLeafSize: 1, oFlowerSize: 1, oSym: 'none', oSeeds: 'gaps' },
-  'тонкая лоза с бусинами': { orn: 'grow', ground: 'нет', fPattern: 'none', tKind: 'none', oLeaf: 'willow', oFlower: 'bud', oStemStyle: 'beaded', oDensity: 0.6, oStemW: 5, oLeafSize: 1.2, oFlowerSize: 1.2, oSym: 'mirror', oSeeds: 'root' },
-  'только точки (stipple)': { orn: 'none', ground: 'нет', fPattern: 'none', tKind: 'stipple', tScale: 9 },
-  'кораллы': { orn: 'none', ground: 'нет', fPattern: 'none', tKind: 'coral', tScale: 12 },
-  'пузырьки': { orn: 'none', ground: 'нет', fPattern: 'none', tKind: 'bubbles', tScale: 14 },
-  'волны': { orn: 'none', ground: 'нет', tKind: 'none', fPattern: 'waves', fPatScale: 14, fPatW: 2 },
-  'сэйгаиха': { orn: 'none', ground: 'нет', tKind: 'none', fPattern: 'seigaiha', fPatScale: 22, fPatW: 2 },
-  'асаноха': { orn: 'none', ground: 'нет', tKind: 'none', fPattern: 'asanoha', fPatScale: 26, fPatW: 1.6 },
-  'меандр': { orn: 'none', ground: 'нет', tKind: 'none', fPattern: 'frets', fPatScale: 18, fPatW: 2.5 },
-  'чешуя': { orn: 'none', ground: 'нет', tKind: 'none', fPattern: 'scales', fPatScale: 18, fPatW: 2 },
-  'гравюра (engrave)': { orn: 'none', ground: 'красный (узор белый)', tKind: 'none', fPattern: 'engrave', fPatScale: 10, fPatW: 2 },
+  'vine: trefoil and daisies': { orn: 'grow', ground: 'none', fPattern: 'none', tKind: 'none', oLeaf: 'trefoil', oFlower: 'daisy', oStemStyle: 'solid', oDensity: 0.4, oStemW: 32, oLeafSize: 2.45, oFlowerSize: 0.6, oFlowerChance: 0.43, oBerries: 0.79, oSym: 'none', oSeeds: 'root', seed: 180 },
+  'vine: ivy and roses, mirrored': { orn: 'grow', ground: 'none', fPattern: 'none', tKind: 'none', oLeaf: 'ivy', oFlower: 'rose', oStemStyle: 'solid', oDensity: 0.45, oStemW: 14, oLeafSize: 1.6, oFlowerSize: 1.5, oFlowerChance: 0.3, oBerries: 0.4, oSym: 'mirror', oSeeds: 'root', seed: 7 },
+  'vine on red': { orn: 'grow', ground: 'red (white pattern)', fPattern: 'none', tKind: 'none', oLeaf: 'acanthus', oFlower: 'rosette', oStemStyle: 'solid', oDensity: 0.75, oStemW: 9, oLeafSize: 1, oFlowerSize: 1, oSym: 'none', oSeeds: 'gaps' },
+  'thin beaded vine': { orn: 'grow', ground: 'none', fPattern: 'none', tKind: 'none', oLeaf: 'willow', oFlower: 'bud', oStemStyle: 'beaded', oDensity: 0.6, oStemW: 5, oLeafSize: 1.2, oFlowerSize: 1.2, oSym: 'mirror', oSeeds: 'root' },
+  'stipple only': { orn: 'none', ground: 'none', fPattern: 'none', tKind: 'stipple', tScale: 9 },
+  'coral': { orn: 'none', ground: 'none', fPattern: 'none', tKind: 'coral', tScale: 12 },
+  'bubbles': { orn: 'none', ground: 'none', fPattern: 'none', tKind: 'bubbles', tScale: 14 },
+  'waves': { orn: 'none', ground: 'none', tKind: 'none', fPattern: 'waves', fPatScale: 14, fPatW: 2 },
+  'seigaiha': { orn: 'none', ground: 'none', tKind: 'none', fPattern: 'seigaiha', fPatScale: 22, fPatW: 2 },
+  'asanoha': { orn: 'none', ground: 'none', tKind: 'none', fPattern: 'asanoha', fPatScale: 26, fPatW: 1.6 },
+  'meander': { orn: 'none', ground: 'none', tKind: 'none', fPattern: 'frets', fPatScale: 18, fPatW: 2.5 },
+  'scales': { orn: 'none', ground: 'none', tKind: 'none', fPattern: 'scales', fPatScale: 18, fPatW: 2 },
+  'engraving': { orn: 'none', ground: 'red (white pattern)', tKind: 'none', fPattern: 'engrave', fPatScale: 10, fPatW: 2 },
 };
-const LSKEY = 'rm-lab-vignette-3';
+const LSKEY = 'rm-lab-vignette-4';
 const S = Object.fromEntries(C.filter(c => c[0] !== '#').map(c => [c[0], c[3]]));
 try { Object.assign(S, JSON.parse(localStorage.getItem(LSKEY) || '{}')); } catch (e) {}
 
@@ -173,7 +173,7 @@ for (const [k, label, type, , opt] of C) {
 
 // настройки для библиотеки: без буквы, лоза краской A; фон формы — по выбору
 function params() {
-  const red = S.ground !== 'нет';
+  const red = S.ground !== 'none';
   const P = { text: ' ', font: 'abril-fatface-400', paper: '#FFFFFF', inkA: S.inkA, inkB: '#1F1E1B',
     frame: S.frame, fRules: 0, fField: red ? 'A' : 'paper', oFill: red ? 'paper' : 'A',
     oLeaf: S.oLeaf, oFlower: S.oFlower, oDensity: S.oDensity, oStemW: S.oStemW, oLeafSize: S.oLeafSize,
@@ -212,8 +212,8 @@ function set(id, url, cssW) {
 let timer = 0, run = 0;
 function schedule() { clearTimeout(timer); timer = setTimeout(draw, 250); }
 // ширина A: на всю колонку текста листа (без его полей) или из ползунка
-const widthA = () => { if (S.fullA !== 'да') return S.sizeA; const sh = document.getElementById('sheet'), cs = getComputedStyle(sh); return Math.floor(sh.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)); };
-addEventListener('resize', () => { if (S.fullA === 'да') schedule(); });
+const widthA = () => { if (S.fullA !== 'yes') return S.sizeA; const sh = document.getElementById('sheet'), cs = getComputedStyle(sh); return Math.floor(sh.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)); };
+addEventListener('resize', () => { if (S.fullA === 'yes') schedule(); });
 async function draw() {
   const me = ++run, P = params();
   document.getElementById('json').textContent = JSON.stringify(P, null, 1);
@@ -223,7 +223,7 @@ async function draw() {
     const [a, b, c] = await Promise.all([toURL(P, widthA()), toURL(P, S.sizeB), toURL(P, S.sizeC)]);
     if (me !== run) return;
     set('vA', a, widthA()); set('vBl', b, S.sizeB); set('vBr', b, S.sizeB); set('vC', c, S.sizeC);
-  } catch (e) { document.getElementById('json').textContent = 'Ошибка: ' + e.message; }
+  } catch (e) { document.getElementById('json').textContent = 'Error: ' + e.message; }
   document.getElementById('sheet').classList.remove('busy');
 }
 document.getElementById('reset').onclick = () => { try { localStorage.removeItem(LSKEY); } catch (e) {} location.reload(); };

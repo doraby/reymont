@@ -1153,13 +1153,13 @@
   <svg viewBox="0 0 24 24"><path d="M3 15c3-6 6-6 9 0s6 6 9 0"/><circle cx="7" cy="9" r="1.4"/><circle cx="17" cy="19" r="1.4"/><path d="M12 15c1-3 3-4 5-4"/></svg>
 </button>
 <div id="vig-tune" aria-label="Vignette pattern settings">
-  <div class="vt-head"><b>Виньетка — паттерн</b><button class="vt-x" onclick="toggleVigTune(false)" aria-label="Close">✕</button></div>
+  <div class="vt-head"><b>Vignette pattern</b><button class="vt-x" onclick="toggleVigTune(false)" aria-label="Close">✕</button></div>
   <div class="vt-prev"><img id="vt-img" alt=""><span id="vt-busy"></span></div>
   <div id="vt-controls"></div>
   <div class="vt-btns">
-    <button class="btn primary" onclick="vigTuneApply()">Применить на странице</button>
-    <button class="btn" onclick="vigTuneReset()">Сбросить</button>
-    <button class="btn" onclick="vigTuneCopy()">Копировать</button>
+    <button class="btn primary" onclick="vigTuneApply()">Apply to page</button>
+    <button class="btn" onclick="vigTuneReset()">Reset</button>
+    <button class="btn" onclick="vigTuneCopy()">Copy settings</button>
   </div>
 </div>
 <div id="dbg">
@@ -1844,7 +1844,7 @@ const VIG_DEFAULT = {
   box: { fBoxW: 1, fBoxH: 0.112, fBoxR: 0.11 },
   ink: '#1F1E1B', // краска лозы (чёрная, как текст Paper); красная — STYLES.paper.initialis.inkA
   // oLeaf/oFlower: 'auto' — из вариантов буквиц (initialisVary) по странице
-  look: { oLeaf: 'auto', oFlower: 'auto', oStemStyle: 'dotted', oDensity: 0.55, oStemW: 5, oLeafSize: 1.5, oFlowerSize: 0.8, oBerrySize: 1, oFlowerChance: 0.35, oBerries: 0.79, oCurl: 0.66, oSeeds: 'gaps', rough: 0.06 },
+  look: { oLeaf: 'auto', oFlower: 'auto', oStemStyle: 'dotted', oDensity: 0.55, oStemW: 8, oLeafSize: 1, oFlowerSize: 1.4, oBerrySize: 0.2, oFlowerChance: 0.29, oBerries: 0.08, oCurl: 0.28, oSeeds: 'gaps', rough: 0 },
   cssW: 680, // ширина полосы на широкой колонке (на узкой — во всю колонку)
 };
 /* Текущие настройки: по умолчанию из кода, поверх — правки из временной панели (кнопка рядом с bug), в этом браузере. */
@@ -1913,23 +1913,23 @@ function refreshVignettes() {
 const VT_LEAVES = ['auto', 'none', 'acanthus', 'lance', 'willow', 'ovate', 'teardrop', 'oak', 'ivy', 'trefoil', 'cinquefoil', 'fern', 'dot', 'pod', 'dotted', 'comma', 'fan', 'needles', 'heart'];
 const VT_FLOWERS = ['auto', 'none', 'rosette', 'daisy', 'rose', 'star', 'phyllo', 'target', 'burst', 'dotring', 'quatre', 'tulip', 'bell', 'bud', 'pomegranate', 'thistle'];
 const VT_SPEC = [ // [где, ключ, подпись, тип, варианты или [min,max,step]]
-  ['vt', 'variant', 'вариант для превью (у страниц — свой)', 'num', [0, 999, 1]],
-  ['root', 'ink', 'краска', 'color'],
-  ['root', 'cssW', 'ширина полосы, px', 'num', [240, 900, 10]],
-  ['box', 'fBoxH', 'высота половины полосы (box)', 'num', [0.06, 0.4, 0.002]],
-  ['look', 'oLeaf', 'лист', 'sel', VT_LEAVES],
-  ['look', 'oFlower', 'цветок', 'sel', VT_FLOWERS],
-  ['look', 'oStemStyle', 'стебель', 'sel', ['solid', 'dotted', 'beaded', 'dashed', 'double', 'thorny']],
-  ['look', 'oSeeds', 'откуда растёт', 'sel', ['gaps', 'frame', 'corners', 'root']],
-  ['look', 'oDensity', 'плотность', 'num', [0, 1, 0.01]],
-  ['look', 'oStemW', 'толщина стебля', 'num', [0.6, 32, 0.2]],
-  ['look', 'oLeafSize', 'размер листа', 'num', [0.2, 3, 0.05]],
-  ['look', 'oFlowerSize', 'размер цветка', 'num', [0.2, 3, 0.05]],
-  ['look', 'oBerrySize', 'размер ягод', 'num', [0.2, 3, 0.05]],
-  ['look', 'oFlowerChance', 'сколько цветов', 'num', [0, 1, 0.01]],
-  ['look', 'oBerries', 'ягоды', 'num', [0, 1, 0.01]],
-  ['look', 'oCurl', 'завиток', 'num', [0, 1, 0.01]],
-  ['look', 'rough', 'шероховатость печати', 'num', [0, 2, 0.01]],
+  ['vt', 'variant', 'preview variant (each page has its own)', 'num', [0, 999, 1]],
+  ['root', 'ink', 'ink', 'color'],
+  ['root', 'cssW', 'strip width, px', 'num', [240, 900, 10]],
+  ['box', 'fBoxH', 'strip height (box)', 'num', [0.06, 0.4, 0.002]],
+  ['look', 'oLeaf', 'leaf', 'sel', VT_LEAVES],
+  ['look', 'oFlower', 'flower', 'sel', VT_FLOWERS],
+  ['look', 'oStemStyle', 'stem', 'sel', ['solid', 'dotted', 'beaded', 'dashed', 'double', 'thorny']],
+  ['look', 'oSeeds', 'grows from', 'sel', ['gaps', 'frame', 'corners', 'root']],
+  ['look', 'oDensity', 'density', 'num', [0, 1, 0.01]],
+  ['look', 'oStemW', 'stem width', 'num', [0.6, 32, 0.2]],
+  ['look', 'oLeafSize', 'leaf size', 'num', [0.2, 3, 0.05]],
+  ['look', 'oFlowerSize', 'flower size', 'num', [0.2, 3, 0.05]],
+  ['look', 'oBerrySize', 'berry size', 'num', [0.2, 3, 0.05]],
+  ['look', 'oFlowerChance', 'flower amount', 'num', [0, 1, 0.01]],
+  ['look', 'oBerries', 'berries', 'num', [0, 1, 0.01]],
+  ['look', 'oCurl', 'curl', 'num', [0, 1, 0.01]],
+  ['look', 'rough', 'print roughness', 'num', [0, 2, 0.01]],
 ];
 let vtVariant = 7, vtTimer = 0, vtRun = 0;
 function vtGet(where, k) { return where === 'vt' ? vtVariant : where === 'root' ? VIG[k] : VIG[where][k]; }
@@ -1955,10 +1955,10 @@ function vtPreviewSoon() { clearTimeout(vtTimer); vtTimer = setTimeout(vtPreview
 async function vtPreview() {
   const me = ++vtRun; vigRev++;
   const styleId = STYLES[currentStyleId()].initialis ? currentStyleId() : 'paper';
-  $('vt-busy').textContent = 'рисую…';
+  $('vt-busy').textContent = 'drawing…';
   const url = await vigImage(styleId, vtVariant);
   if (me !== vtRun) return;
-  $('vt-busy').textContent = url ? '' : 'не нарисовалось';
+  $('vt-busy').textContent = url ? '' : 'failed to draw';
   if (url) $('vt-img').src = url;
 }
 function toggleVigTune(force) {
@@ -1968,7 +1968,7 @@ function toggleVigTune(force) {
 }
 function vigTuneApply() {
   try { localStorage.setItem(VIG_TUNE_KEY, JSON.stringify({ box: VIG.box, look: VIG.look, ink: VIG.ink, cssW: VIG.cssW })); } catch (e) {}
-  vigRev++; refreshVignettes(); toast('Виньетки перерисованы');
+  vigRev++; refreshVignettes(); toast('Vignettes redrawn');
 }
 function vigTuneReset() {
   try { localStorage.removeItem(VIG_TUNE_KEY); } catch (e) {}
@@ -1976,7 +1976,7 @@ function vigTuneReset() {
 }
 function vigTuneCopy() {
   const t = JSON.stringify({ box: VIG.box, ink: VIG.ink, look: VIG.look, cssW: VIG.cssW });
-  (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast('Настройки скопированы'), () => prompt('Настройки:', t));
+  (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast('Settings copied'), () => prompt('Settings:', t));
 }
 /* Рост орнамента: когда читатель на первой странице главы, поверх буквицы ставится холст и библиотека
    проигрывает, как орнамент прорастает (grow — кадры с печатным проходом из воркеров). Потом кадр убирается,
