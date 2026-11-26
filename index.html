@@ -414,7 +414,7 @@
      На десктопе чуть шире прежних 400px, чтобы схемам и играм хватало места. */
   @media (min-width: 901px) { :root { --panel-w: clamp(400px, 38vw, 600px); } }
   #panel-body.io { padding: 0; display: flex; flex-direction: column; overflow: hidden; }
-  #io-dislike-btn, #io-delete-btn, #note-delete-btn { display: none; }
+  #io-delete-btn, #note-delete-btn { display: none; }
   /* «Удалить хайлайт» — под текстом перевода, а не в шапке панели */
   .note-del-row { display: flex; justify-content: flex-end; margin-top: var(--space-2); }
   .note-del { display: none; width: 30px; height: 30px; padding: 0; border: none; border-radius: 50%; background: transparent; color: var(--muted); cursor: pointer; align-items: center; justify-content: center; }
@@ -919,9 +919,6 @@
     </button>
     <button id="io-delete-btn" class="icon-btn" onclick="deletePanelItem()" title="Delete" aria-label="Delete">
       <svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
-    </button>
-    <button id="io-dislike-btn" class="icon-btn" onclick="openFeedback()" title="Don’t like it — tell the AI what to improve" aria-label="Don’t like it">
-      <svg viewBox="0 0 24 24"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.7a2 2 0 0 0-2 1.7l-1.4 9a2 2 0 0 0 2 2.3z"/><path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg>
     </button>
     <button id="panel-close-btn" class="icon-btn" onclick="panelCloseClick()" title="Close panel" aria-label="Close panel">✕</button>
   </div>
@@ -4171,8 +4168,7 @@ window.addEventListener('message', e => {
 function showInteractiveInPanel(rec, notice) {
   currentInteractive = rec;
   vzShow('io-view', `${notice ? `<div class="io-notice">${esc(notice)}</div>` : ''}<iframe id="interactive-frame" sandbox="allow-scripts" title="Game"></iframe>`
-    + vzBar(`<button class="btn" onclick="openFeedback()" title="Don’t like it — tell the AI what to improve" aria-label="Improve">👎</button>`
-      + vzRedraw('redrawGame()') + vzFullscreen(), rec.title));
+    + vzBar(vzRedraw('redrawGame()') + vzFullscreen(), rec.title)); // как у диаграммы и иллюстрации: одна кнопка «перерисовать»
   ensureVisualTitle('io', rec);
   const frame = $('interactive-frame');
   ioContentH = 0; requestAnimationFrame(ioFit);
