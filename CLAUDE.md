@@ -13,3 +13,6 @@
   `--panel-pad-bottom`, `--panel-section-gap`) и модалок (`--modal-pad-*`, `--modal-edge`, `--field-gap`).
   Новые отступы раскладки задавай через них, а не числами (1–3px для бордеров и мелких сдвигов — можно числом);
   мобильные значения переопределяются в `@media (max-width: 900px)`.
+- Виньетки у иконок вставок (стиль Paper): тот же орнамент INITIĀLIS без буквы в узкой форме `box`
+  (`vendor/initialis-kinds/box.js`), настройки — `VIG_*` и `vigSettings()` в `index.html`. Подбирать вид — на
+  `lab/vignette.html` (временная страница-лаборатория).

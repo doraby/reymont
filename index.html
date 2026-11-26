@@ -1799,6 +1799,44 @@ function iniImage(styleId, letter, v) {
   iniCache.set(key, job);
   return job;
 }
+/* Виньетки у иконок вставок (игра, диаграмма, иллюстрация) — вместо точечных линий: слева полоса лозы, справа она же
+   зеркально. Тот же орнамент INITIĀLIS, что у буквиц (листья и цветы из initialisVary, краски стиля), но без буквы,
+   красным по бумаге, в узкой форме «box» (vendor/initialis-kinds/box.js); картинка обрезается по форме.
+   Вариант орнамента — от ключа вставки, у страницы он всегда один и тот же. Кэш — как у буквиц (память + Cache Storage). */
+const VIG_BOX = { fBoxW: 0.85, fBoxH: 0.13, fBoxR: 0.11 };
+const VIG_LOOK = { oStemStyle: 'dotted', oDensity: 0.55, oStemW: 5, oLeafSize: 1.5, oFlowerSize: 0.8, oFlowerChance: 0.35, oBerries: 0.79, oCurl: 0.66, oSeeds: 'root', rough: 0.06 };
+const VIG_CSS_W = 320; // ширина одной виньетки на широкой колонке (на узкой — ужимается)
+// где на квадрате 1000×1000 лежит форма (поле внутри полей fMargin = 40) — по этой рамке обрезаем
+const VIG_CROP = (() => { const f = 920, pad = 10, w = f * VIG_BOX.fBoxW + 2 * pad, h = f * VIG_BOX.fBoxH + 2 * pad; return { x: 500 - w / 2, y: 500 - h / 2, w, h }; })();
+let vigBoxReady = null;
+function vigSettings(styleId, v) {
+  const st = STYLES[styleId], P = Object.assign({}, st.initialis, VIG_LOOK, VIG_BOX,
+    { text: ' ', frame: 'box', fRules: 0, fField: 'paper', oFill: 'A', seed: v + 1 });
+  for (const [k, list] of Object.entries(st.initialisVary || {})) P[k] = list[v % list.length];
+  return P;
+}
+function vigImage(styleId, v) {
+  const key = 'vig:' + styleId + ':' + v;
+  if (iniCache.has(key)) return iniCache.get(key);
+  const P = vigSettings(styleId, v), px = Math.round(VIG_CSS_W * 2 * 1000 / VIG_CROP.w);
+  const url = new URL('__initialis/' + iniHash('vig|' + JSON.stringify(P) + '|' + px + '|' + INI_LIB_VER), location.href).href;
+  const job = iniDiskGet(url).then(hit => hit || (async () => {
+    if (iniLib === null) iniLib = import(new URL('vendor/initialis/lib/initialis.js', location.href).href).catch(e => { console.warn('initialis:', e); return false; });
+    const lib = await iniLib;
+    if (!lib) return null;
+    if (!vigBoxReady) vigBoxReady = lib.use(new URL('vendor/initialis-kinds/box.js', location.href).href);
+    await vigBoxReady;
+    const bm = await lib.render(P, { size: px }), k = px / 1000;
+    const c = document.createElement('canvas'); c.width = Math.round(VIG_CROP.w * k); c.height = Math.round(VIG_CROP.h * k);
+    c.getContext('2d').drawImage(bm, VIG_CROP.x * k, VIG_CROP.y * k, VIG_CROP.w * k, VIG_CROP.h * k, 0, 0, c.width, c.height); bm.close();
+    const blob = await new Promise(ok => c.toBlob(ok, 'image/webp', 0.9));
+    if (!blob) return c.toDataURL('image/png');
+    iniDiskPut(url, blob);
+    return blobToDataURL(blob);
+  })()).catch(e => { console.warn('vignette:', e); return null; });
+  iniCache.set(key, job);
+  return job;
+}
 /* Рост орнамента: когда читатель на первой странице главы, поверх буквицы ставится холст и библиотека
    проигрывает, как орнамент прорастает (grow — кадры с печатным проходом из воркеров). Потом кадр убирается,
    под ним та же готовая картинка. Кадр — <img>-вставка с INS_CLASS: epub.js не считает её в CFI, а withoutInsertions
@@ -4355,7 +4393,17 @@ function insMarker(doc, attr, key, k, title, onOpen) {
   b.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); onOpen(); });
   // иконка по центру колонки (залитый кружок акцента с белым значком), по бокам — точечные линии
   const rule = side => { const r = doc.createElement('span'); r.className = 'rm-ins-rule rm-ins-' + side; return r; };
-  wrap.append(rule('l'), b, rule('r'));
+  const l = rule('l'), r = rule('r');
+  wrap.append(l, b, r);
+  // в стилях с орнаментальными буквицами (Paper) линии заменяются виньетками; пока рисуется — точечные линии
+  const styleId = currentStyleId();
+  if (STYLES[styleId].initialis && typeof OffscreenCanvas !== 'undefined') {
+    vigImage(styleId, parseInt(iniHash(attr + '|' + key), 36) % 1000).then(url => {
+      if (!url) return;
+      [l, r].forEach(n => { n.style.backgroundImage = `url("${url}")`; });
+      wrap.classList.add('rm-ins-vig');
+    });
+  }
   return wrap;
 }
 /* Стили иконок-вставок — один <style> на главу. Несколько вставок подряд (диаграмма, игра, картинка одной страницы)
@@ -4374,6 +4422,9 @@ function insMarkerCss(doc) {
 .${INS_CLASS} button:hover { filter: brightness(1.08); }
 .${INS_CLASS} button svg { display: block; }
 .${INS_CLASS} .rm-ins-rule { position: relative; flex: 0 1 7em; height: 0; border-top: 1px dotted var(--rm-muted); }
+.${INS_CLASS}.rm-ins-vig .rm-ins-rule { flex: 0 1 ${VIG_CSS_W}px; min-width: 0; height: auto; aspect-ratio: ${Math.round(VIG_CROP.w)} / ${Math.round(VIG_CROP.h)};
+  border-top: 0; background: center / contain no-repeat; }
+.${INS_CLASS}.rm-ins-vig .rm-ins-r { transform: scaleX(-1); }
 `;
   doc.head.appendChild(s);
 }
