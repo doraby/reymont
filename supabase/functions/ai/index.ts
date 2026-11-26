@@ -121,6 +121,26 @@ async function callOpenAIImage(prompt: string, size: string): Promise<ImageResul
   return { b64 };
 }
 
+/* Образец стиля для интерактивов — лист орнаментальных буквиц приложения (assets/interactive-style.jpg на сайте).
+   Скачиваем один раз на инстанс функции и прикладываем к запросу картинкой. Не скачалось — интерактив строится
+   без образца, по одному тексту промпта (следующий запрос попробует снова). Отключить: секрет INTERACTIVE_STYLE_REF=off. */
+const STYLE_REF_URL = Deno.env.get("INTERACTIVE_STYLE_REF") ?? "https://reymont.app/assets/interactive-style.jpg";
+let styleRefB64: string | null = null;
+async function getStyleRef(): Promise<string | null> {
+  if (styleRefB64 || STYLE_REF_URL === "off") return styleRefB64;
+  try {
+    const r = await fetch(STYLE_REF_URL, { signal: AbortSignal.timeout(5000) });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const bytes = new Uint8Array(await r.arrayBuffer());
+    let bin = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    styleRefB64 = btoa(bin);
+  } catch (e) {
+    console.warn(`[interactive] style reference not loaded: ${e instanceof Error ? e.message : e}`);
+  }
+  return styleRefB64;
+}
+
 async function generateImage(prompt: string, size = "1024x1536"): Promise<ImageResult> {
   try {
     return await callOpenAIImage(prompt, size);
@@ -233,6 +253,7 @@ Deno.serve(async (req) => {
         `Few and large: at most 3–4 interactive elements on screen at a time, each big and easy to see; one short line of text per step at most; no small cards, thumbnails, tables or dense labels. ` +
         `Not a relationship graph, and no tabs unless the idea really needs them. ` +
         `Design: refined and elegant, like a page from a finely printed old book with ornamental initials — engraved botanical drop caps with fine vines, leaves, flowers and berries in two inks on paper. ` +
+        `If an image of ornamental initials is attached, it is this app's own style reference: match its look in the picture, the ornament and the frames — the deep red, the fine paper-white vines, leaves, flowers and berries, the printed, slightly rough ink, the ruled borders, the classic serif capitals; do not copy the letters themselves or embed the image. ` +
         `Palette: warm paper ground #FBF8F1; ink #1F1E1B for drawing and text; one deep red #B3261E as the main colour; at most one more natural ink (moss green #5E6B45 or ochre #A8742A) where the scene needs it; no other colours, no gradients, no shadows, no glow. ` +
         `Drawing: everything in the picture is drawn like an engraving or woodcut, by hand — fine lines of varied weight (0.75–2px), hatching or stippling for tone, solid red or ink silhouettes; people, animals, buildings and objects are drawn with care and character, never flat clip-art, emoji-like icons or coloured boxes. ` +
         `Natural ornament frames the scene: thin vines with small leaves, flowers or wheat along the edges or corners, a ruled border, a small fleuron as a divider — delicate and sparse, never covering the content. ` +
@@ -260,6 +281,7 @@ Deno.serve(async (req) => {
       const inputFinal = improve
         ? `${userMsgHtml}\n<reader_feedback>${feedback || "(no comment — improve the visualisation in general)"}</reader_feedback>\n<current_html>${currentHtml}</current_html>`
         : userMsgHtml;
+      const styleRef = await getStyleRef(); // лист буквиц — образец стиля (или null)
       const clean = (t: string) => t.trim().replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/, "").trim().slice(0, 80000);
 
       // Провайдер интерактива: секрет INTERACTIVE_PROVIDER ("anthropic" по умолчанию | "openai" — прежний путь
@@ -285,7 +307,9 @@ Deno.serve(async (req) => {
             max_tokens: 16000,
             output_config: { effort: "medium" },
             system: sysFinal,
-            messages: [{ role: "user", content: inputFinal }],
+            messages: [{ role: "user", content: styleRef
+              ? [{ type: "image" as const, source: { type: "base64" as const, media_type: "image/jpeg" as const, data: styleRef } }, { type: "text" as const, text: inputFinal }]
+              : inputFinal }],
             ...(useFallbacks ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" } : {}),
           });
           const msg = await stream.finalMessage();
@@ -293,7 +317,7 @@ Deno.serve(async (req) => {
           if (msg.stop_reason === "max_tokens") return err("Claude's answer was cut off — try again", 502, cors);
           const html = clean(msg.content.filter((b: { type: string }) => b.type === "text").map((b: { text: string }) => b.text).join(""));
           if (!/<html|<!doctype/i.test(html)) return err("Empty interactive diagram", 502, cors);
-          console.log(`[interactive] ${body.action} ok: provider=anthropic model=${msg.model ?? claudeModel} html=${html.length} chars` + (improve ? ` feedback=${JSON.stringify(feedback)} unchanged=${html === currentHtml.trim()}` : ""));
+          console.log(`[interactive] ${body.action} ok: provider=anthropic model=${msg.model ?? claudeModel} html=${html.length} chars style_ref=${!!styleRef}` + (improve ? ` feedback=${JSON.stringify(feedback)} unchanged=${html === currentHtml.trim()}` : ""));
           await countIt();
           return json({ html, model: msg.model ?? claudeModel, provider: "anthropic" }, 200, cors);
         } catch (e) {
@@ -309,7 +333,10 @@ Deno.serve(async (req) => {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },
         body: JSON.stringify({
-          model: htmlModel, instructions: sysFinal, input: inputFinal, max_output_tokens: 12000,
+          model: htmlModel, instructions: sysFinal, max_output_tokens: 12000,
+          input: styleRef
+            ? [{ role: "user", content: [{ type: "input_image", image_url: `data:image/jpeg;base64,${styleRef}` }, { type: "input_text", text: inputFinal }] }]
+            : inputFinal,
           ...(/^(gpt-5|o\d)/.test(htmlModel) ? { reasoning: { effort: "low" } } : {}),
         }),
       });
@@ -325,7 +352,7 @@ Deno.serve(async (req) => {
       }
       const html = clean(parts.join(""));
       if (!/<html|<!doctype/i.test(html)) return err("Empty interactive diagram", 502, cors);
-      console.log(`[interactive] ${body.action} ok: model=${htmlModel} html=${html.length} chars` + (improve ? ` feedback=${JSON.stringify(feedback)} unchanged=${html === currentHtml.trim()}` : ""));
+      console.log(`[interactive] ${body.action} ok: model=${htmlModel} html=${html.length} chars style_ref=${!!styleRef}` + (improve ? ` feedback=${JSON.stringify(feedback)} unchanged=${html === currentHtml.trim()}` : ""));
       await countIt();
       return json({ html, model: htmlModel, provider: "openai" }, 200, cors);
     }
