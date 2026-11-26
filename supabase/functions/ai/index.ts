@@ -149,7 +149,7 @@ const INTERACTIVE_KIT = `<!doctype html>
 <style>
 html,body{height:100%;margin:0}
 body{background:#F6F1E8;color:#2B2623;font-family:'EB Garamond',Georgia,serif;display:flex;flex-direction:column;gap:16px;padding:16px;box-sizing:border-box}
-.frame{position:relative;flex:1;min-height:320px;border:1px solid #2B2623;background:#FDFBF7}
+.frame{position:relative;flex:1;min-height:320px;background:#FDFBF7}
 .frame::before{content:'';position:absolute;inset:7px;border:1px solid #A23B33;opacity:.5;pointer-events:none}
 .frame>svg.scene{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
 .sprig{position:absolute;width:56px;height:56px;overflow:visible;pointer-events:none}
@@ -309,7 +309,7 @@ Deno.serve(async (req) => {
         `predict what happens next, then reveal it; move a slider for time, distance or light and watch the scene change; solve a small puzzle built from facts in the passage (counts, distances, who is where). ` +
         `It has a goal stated in one short line, a real action (drag, tap on the plan, choose, order, trace, slide), immediate quiet feedback on every move, and an ending that shows the line from the passage it was about. ` +
         `NEVER a step-by-step story pager or slideshow: no numbered steps or pages, no "1 2 3 4" row, no ‹ › arrows to page through moments, no "step N of M", no retelling the passage in slides. ` +
-        `Layout and look: copy the template below — its fonts, colours, frame (double rule with a sprig of leaves and berries in each corner), and its plan elements. Keep the frame; replace the example scene, goal and choices with this passage's game. ` +
+        `Layout and look: copy the template below — its fonts, colours, frame (a single thin red rule inside the paper field, no outer ink border, with a sprig of leaves and berries in each corner), and its plan elements. Keep the frame; replace the example scene, goal and choices with this passage's game. ` +
         `The page fills the whole panel height: html and body height 100%, a column — the goal line (and its translation) on top, the frame with the scene filling the remaining height (flex: 1), below it only what the game needs (choices, a feedback line); no page scroll at heights from 600px up. ` +
         `Plan elements (use them, scaled and placed for this scene): people as white roundels with an initial or a name; the key character as a small red lozenge with a white initial; animals and important things as pale pink lozenges with a name; buildings as plain outlines with a roof line and hatching; ` +
         `a road as a tinted band with a dashed axis; a fence as a dashed ink line; movement, a gaze or a route as a red dotted line with an arrowhead; names of places in italic. ` +

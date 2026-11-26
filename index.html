@@ -4147,6 +4147,9 @@ let currentInteractive = null;
 const HEIGHT_SCRIPT = `<script>(function(){var last=0,n=0;function s(){var d=document.documentElement,h=Math.max(d.scrollHeight,document.body?document.body.scrollHeight:0);` +
   `if(Math.abs(h-last)>2&&n<20){last=h;n++;parent.postMessage({rmHeight:h},'*');}}` +
   `addEventListener('load',s);setTimeout(s,300);setTimeout(s,1500);if(window.ResizeObserver)new ResizeObserver(s).observe(document.documentElement);})();<\/script>`;
+// Рамка игры без внешней чернильной линии — и у уже сгенерированных (шаблон раньше её рисовал)
+const FRAME_FIX = '<style>.frame{border:0!important}</style>';
+function withFrameFix(html) { return /<\/head>/i.test(html) ? html.replace(/<\/head>/i, FRAME_FIX + '</head>') : FRAME_FIX + html; }
 function withHeightScript(html) {
   return /<\/body>/i.test(html) ? html.replace(/<\/body>/i, HEIGHT_SCRIPT + '</body>') : html + HEIGHT_SCRIPT;
 }
@@ -4188,7 +4191,7 @@ function showInteractiveInPanel(rec, notice) {
   ensureVisualTitle('io', rec);
   const frame = $('interactive-frame');
   ioContentH = 0; requestAnimationFrame(ioFit);
-  loadD3Src().then(lib => { if (frame.isConnected) frame.srcdoc = withCsp(withHeightScript(rec.snap ? rec.html : withSnapshotScript(rec.html)), lib); });
+  loadD3Src().then(lib => { if (frame.isConnected) frame.srcdoc = withCsp(withHeightScript(withFrameFix(rec.snap ? rec.html : withSnapshotScript(rec.html))), lib); });
 }
 function deleteInteractive() {
   const rec = currentInteractive;
