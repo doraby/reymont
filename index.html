@@ -1661,6 +1661,10 @@ const STYLES = {
     // Орнаментальные буквицы INITIĀLIS (vendor/initialis): настройки — только отличия от DEFAULTS в render/src/params.js.
     // Шрифты библиотеки содержат лишь латинские A–Z, для остальных букв (Ś, Ł, кириллица…) остаётся CSS-буквица выше.
     initialis: { font: 'abril-fatface-400', inkA: '#B3261E', inkB: '#1F1E1B', paper: '#FFFFFF' },
+    // У каждой главы свой орнамент: seed = номер варианта, а из списков ниже берётся элемент по кругу. Длины 7 и 8
+    // взаимно просты — 56 разных сочетаний листа и цветка подряд, прежде чем повторится пара.
+    initialisVary: { oLeaf: ['acanthus', 'ivy', 'oak', 'trefoil', 'fern', 'willow', 'ovate'],
+      oFlower: ['rosette', 'daisy', 'rose', 'tulip', 'pomegranate', 'quatre', 'bell', 'thistle'] },
     hl: { fill: '#F2C94C', opacity: '0.45', blend: 'multiply' },
     preview: { bg: '#FFFFFF', ink: '#1F1E1B' },
   },
@@ -1711,18 +1715,23 @@ function bookRules(id) {
    текстовые узлы не трогаем, поэтому CFI хайлайтов не меняются, а буква остаётся в тексте (поиск, выделение). */
 const INI_PX = 384;
 let iniLib = null; // промис модуля; null → ещё не грузили, false → не работает в этом браузере
-const iniCache = new Map(); // `${style}:${letter}` → промис data-URL (или null, если не вышло)
+const iniCache = new Map(); // `${style}:${letter}:${variant}` → промис data-URL (или null, если не вышло)
 function iniLetter(p) {
   const m = /^\s*([A-Za-z])/.exec(p.textContent || ''); // только латиница A–Z и только если абзац начинается прямо с буквы
   return m ? m[1].toUpperCase() : null;
 }
-function iniImage(styleId, letter) {
-  const key = styleId + ':' + letter;
+function iniSettings(styleId, letter, v) {
+  const st = STYLES[styleId], P = Object.assign({}, st.initialis, { text: letter, seed: v + 1 });
+  for (const [k, list] of Object.entries(st.initialisVary || {})) P[k] = list[v % list.length];
+  return P;
+}
+function iniImage(styleId, letter, v) {
+  const key = styleId + ':' + letter + ':' + v;
   if (iniCache.has(key)) return iniCache.get(key);
   if (iniLib === null) iniLib = import(new URL('vendor/initialis/lib/initialis.js', location.href).href).catch(e => { console.warn('initialis:', e); return false; });
   const job = iniLib.then(async lib => {
     if (!lib) return null;
-    const bm = await lib.render(Object.assign({}, STYLES[styleId].initialis, { text: letter }), { size: INI_PX });
+    const bm = await lib.render(iniSettings(styleId, letter, v), { size: INI_PX });
     const c = document.createElement('canvas'); c.width = bm.width; c.height = bm.height;
     c.getContext('2d').drawImage(bm, 0, 0); bm.close();
     return c.toDataURL('image/png');
@@ -1730,14 +1739,20 @@ function iniImage(styleId, letter) {
   iniCache.set(key, job);
   return job;
 }
-function applyInitials(doc, styleId) {
+// section — номер главы в spine (contents.sectionIndex): от него вариант орнамента, так что у главы он всегда один и тот же.
+function applyInitials(doc, styleId, section) {
   doc.querySelectorAll('p.rm-ini').forEach(p => p.classList.remove(...[...p.classList].filter(c => c.startsWith('rm-ini'))));
   const old = doc.getElementById('rm-ini-css'); if (old) old.remove();
   if (!STYLES[styleId].initialis || iniLib === false) return;
   if (!(window.CSS && CSS.registerProperty) || typeof OffscreenCanvas === 'undefined') return; // без @property квадрат схлопнется; без OffscreenCanvas нет рендера
-  const letters = new Set();
-  doc.querySelectorAll('p.rm-dc').forEach(p => { const l = iniLetter(p); if (l) { p.classList.add('rm-ini', 'rm-ini-' + l); letters.add(l); } });
-  if (!letters.size || !doc.head) return;
+  const caps = new Map(); // класс абзаца → [буква, вариант]
+  // в одном файле главы бывает несколько заголовков — k разводит их варианты между собой
+  [...doc.querySelectorAll('p.rm-dc')].forEach((p, k) => {
+    const l = iniLetter(p); if (!l) return;
+    const v = (section || 0) + k * 1000, cls = `rm-ini-${l}-${v}`;
+    p.classList.add('rm-ini', cls); caps.set(cls, [l, v]);
+  });
+  if (!caps.size || !doc.head) return;
   // Квадрат на три строки ставится сразу, до картинки, чтобы вёрстка не прыгала. width у ::first-letter браузеры
   // не применяют (и height тоже), поэтому кегль буквы — 0, а квадрат задают padding. Длина — в em абзаца: @property
   // делает --rm-ini абсолютной на <p>, и буквица наследует уже пиксели (иначе em считались бы от её нулевого кегля).
@@ -1750,10 +1765,10 @@ p.rm-dc.rm-ini::first-letter { float: left !important; font-size: 0 !important; 
   padding: 0 var(--rm-ini) var(--rm-ini) 0 !important; margin: 0.25em 0.45em 0 0 !important;
   background: center / contain no-repeat !important; }\n`;
   doc.head.appendChild(css);
-  letters.forEach(l => iniImage(styleId, l).then(url => {
+  caps.forEach(([l, v], cls) => iniImage(styleId, l, v).then(url => {
     if (!css.isConnected) return; // стиль успели сменить
-    if (url) { css.textContent += `p.rm-dc.rm-ini-${l}::first-letter { background-image: url("${url}") !important; }\n`; return; }
-    doc.querySelectorAll('p.rm-ini-' + l).forEach(p => p.classList.remove('rm-ini', 'rm-ini-' + l)); // не нарисовалось — обычная CSS-буквица
+    if (url) { css.textContent += `p.rm-dc.${cls}::first-letter { background-image: url("${url}") !important; }\n`; return; }
+    doc.querySelectorAll('p.' + cls).forEach(p => p.classList.remove('rm-ini', cls)); // не нарисовалось — обычная CSS-буквица
   }));
 }
 function ensureFonts(doc, id) {
@@ -1791,7 +1806,7 @@ function applyStyleToContents(contents) {
   if (!contents || !contents.document) return;
   ensureFonts(contents.document, currentStyleId());
   applyDropCaps(contents);
-  applyInitials(contents.document, currentStyleId());
+  applyInitials(contents.document, currentStyleId(), contents.sectionIndex);
 }
 function styleHighlight() { return STYLES[currentStyleId()].hl; }
 function applyStyle(id) {
