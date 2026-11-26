@@ -1803,9 +1803,11 @@ function iniImage(styleId, letter, v) {
    полоса лозы на всю ширину колонки, иконка — по центру поверх неё. Тот же орнамент INITIĀLIS, что у буквиц (листья и цветы из initialisVary, краски стиля), но без буквы,
    красным по бумаге, в узкой форме «box» (vendor/initialis-kinds/box.js); картинка обрезается по форме.
    Вариант орнамента — от ключа вставки, у страницы он всегда один и тот же. Кэш — как у буквиц (память + Cache Storage). */
-const VIG_BOX = { fBoxW: 1, fBoxH: 0.09, fBoxR: 0.11 };
+/* Полоса собирается из двух половин (разный seed, шов — под иконкой): в слишком тонкой форме лоза не прорастает,
+   а так каждая половина нормальной высоты, вся полоса — длинная и низкая (≈ 1/15 ширины). */
+const VIG_BOX = { fBoxW: 1, fBoxH: 0.112, fBoxR: 0.11 };
 const VIG_INK = '#1F1E1B'; // краска лозы виньетки (чёрная, как текст Paper); красная — STYLES.paper.initialis.inkA
-const VIG_LOOK = { oStemStyle: 'dotted', oDensity: 0.55, oStemW: 5, oLeafSize: 1.5, oFlowerSize: 0.8, oFlowerChance: 0.35, oBerries: 0.79, oCurl: 0.66, oSeeds: 'root', rough: 0.06 };
+const VIG_LOOK = { oStemStyle: 'dotted', oDensity: 0.55, oStemW: 5, oLeafSize: 1.5, oFlowerSize: 0.8, oBerrySize: 1, oFlowerChance: 0.35, oBerries: 0.79, oCurl: 0.66, oSeeds: 'gaps', rough: 0.06 };
 const VIG_CSS_W = 680; // ширина полосы на широкой колонке (на узкой — во всю колонку)
 // где на квадрате 1000×1000 лежит форма (поле внутри полей fMargin = 40) — по этой рамке обрезаем
 const VIG_CROP = (() => { const f = 920, pad = 10, w = f * VIG_BOX.fBoxW + 2 * pad, h = f * VIG_BOX.fBoxH + 2 * pad; return { x: 500 - w / 2, y: 500 - h / 2, w, h }; })();
@@ -1819,17 +1821,19 @@ function vigSettings(styleId, v) {
 function vigImage(styleId, v) {
   const key = 'vig:' + styleId + ':' + v;
   if (iniCache.has(key)) return iniCache.get(key);
-  const P = vigSettings(styleId, v), px = Math.round(VIG_CSS_W * 2 * 1000 / VIG_CROP.w);
-  const url = new URL('__initialis/' + iniHash('vig|' + JSON.stringify(P) + '|' + px + '|' + INI_LIB_VER), location.href).href;
+  const P = vigSettings(styleId, v), px = Math.round(VIG_CSS_W / 2 * 2 * 1000 / VIG_CROP.w); // каждая половина — VIG_CSS_W/2
+  const url = new URL('__initialis/' + iniHash('vig2|' + JSON.stringify(P) + '|' + px + '|' + INI_LIB_VER), location.href).href;
   const job = iniDiskGet(url).then(hit => hit || (async () => {
     if (iniLib === null) iniLib = import(new URL('vendor/initialis/lib/initialis.js', location.href).href).catch(e => { console.warn('initialis:', e); return false; });
     const lib = await iniLib;
     if (!lib) return null;
     if (!vigBoxReady) vigBoxReady = lib.use(new URL('vendor/initialis-kinds/box.js', location.href).href);
     await vigBoxReady;
-    const bm = await lib.render(P, { size: px }), k = px / 1000;
-    const c = document.createElement('canvas'); c.width = Math.round(VIG_CROP.w * k); c.height = Math.round(VIG_CROP.h * k);
-    c.getContext('2d').drawImage(bm, VIG_CROP.x * k, VIG_CROP.y * k, VIG_CROP.w * k, VIG_CROP.h * k, 0, 0, c.width, c.height); bm.close();
+    const k = px / 1000, hw = Math.round(VIG_CROP.w * k);
+    const [b1, b2] = await Promise.all([lib.render(P, { size: px }), lib.render(Object.assign({}, P, { seed: P.seed + 500 }), { size: px })]);
+    const c = document.createElement('canvas'); c.width = hw * 2; c.height = Math.round(VIG_CROP.h * k);
+    const g = c.getContext('2d');
+    [b1, b2].forEach((bm, i) => { g.drawImage(bm, VIG_CROP.x * k, VIG_CROP.y * k, VIG_CROP.w * k, VIG_CROP.h * k, i * hw, 0, hw, c.height); bm.close(); });
     const blob = await new Promise(ok => c.toBlob(ok, 'image/webp', 0.9));
     if (!blob) return c.toDataURL('image/png');
     iniDiskPut(url, blob);
@@ -4425,7 +4429,7 @@ function insMarkerCss(doc) {
 .${INS_CLASS} button svg { display: block; }
 .${INS_CLASS} .rm-ins-rule { position: relative; flex: 0 1 7em; height: 0; border-top: 1px dotted var(--rm-muted); }
 /* виньетка: сама строка вставки — полоса орнамента, иконка по центру поверх, с кольцом цвета бумаги */
-.${INS_CLASS}.rm-ins-vig { width: 100%; max-width: ${VIG_CSS_W}px; margin-inline: auto !important; aspect-ratio: ${Math.round(VIG_CROP.w)} / ${Math.round(VIG_CROP.h)};
+.${INS_CLASS}.rm-ins-vig { width: 100%; max-width: ${VIG_CSS_W}px; margin-inline: auto !important; aspect-ratio: ${Math.round(VIG_CROP.w * 2)} / ${Math.round(VIG_CROP.h)};
   background: center / contain no-repeat; }
 .${INS_CLASS}.rm-ins-vig .rm-ins-rule { display: none; }
 /* круг иконки — во всю высоту полосы виньетки (и масштабируется вместе с ней), значок — половина круга */
