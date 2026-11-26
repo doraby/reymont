@@ -1,0 +1,509 @@
+[
+ {
+  "slug": "cinzel",
+  "name": "Cinzel",
+  "group": "roman",
+  "note": "Trajan-style inscriptional capitals",
+  "license": "OFL",
+  "files": {
+   "400": "cinzel-400.ttf",
+   "700": "cinzel-700.ttf",
+   "900": "cinzel-900.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "marcellus",
+  "name": "Marcellus",
+  "group": "roman",
+  "note": "flared Roman capitals, carved feel",
+  "license": "OFL",
+  "files": {
+   "400": "marcellus-400.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "cormorant-garamond",
+  "name": "Cormorant Garamond",
+  "group": "roman",
+  "note": "display Garamond, sharp and light",
+  "license": "OFL",
+  "files": {
+   "500": "cormorant-garamond-500.ttf",
+   "700": "cormorant-garamond-700.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "eb-garamond",
+  "name": "EB Garamond",
+  "group": "roman",
+  "note": "Claude Garamond via the Egenolff-Berner specimen",
+  "license": "OFL",
+  "files": {
+   "400": "eb-garamond-400.ttf",
+   "700": "eb-garamond-700.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "im-fell-french-canon",
+  "name": "IM Fell French Canon",
+  "group": "roman",
+  "note": "Fell types, 1680s Oxford, rough cut",
+  "license": "OFL",
+  "files": {
+   "400": "im-fell-french-canon-400.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "im-fell-great-primer",
+  "name": "IM Fell Great Primer",
+  "group": "roman",
+  "note": "Fell types, wider and softer",
+  "license": "OFL",
+  "files": {
+   "400": "im-fell-great-primer-400.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "im-fell-dw-pica",
+  "name": "IM Fell DW Pica",
+  "group": "roman",
+  "note": "Fell types, small-size roughness",
+  "license": "OFL",
+  "files": {
+   "400": "im-fell-dw-pica-400.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "sorts-mill-goudy",
+  "name": "Sorts Mill Goudy",
+  "group": "roman",
+  "note": "Goudy Oldstyle revival",
+  "license": "OFL",
+  "files": {
+   "400": "sorts-mill-goudy-400.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "linden-hill",
+  "name": "Linden Hill",
+  "group": "roman",
+  "note": "Goudy Deepdene revival, calligraphic roman",
+  "license": "OFL",
+  "files": {
+   "400": "linden-hill-400.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "libre-caslon-display",
+  "name": "Libre Caslon Display",
+  "group": "roman",
+  "note": "Caslon display, high contrast",
+  "license": "OFL",
+  "files": {
+   "400": "libre-caslon-display-400.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "luxurious-roman",
+  "name": "Luxurious Roman",
+  "group": "roman",
+  "note": "soft flared roman",
+  "license": "OFL",
+  "files": {
+   "400": "luxurious-roman-400.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "forum",
+  "name": "Forum",
+  "group": "roman",
+  "note": "condensed classical capitals",
+  "license": "OFL",
+  "files": {
+   "400": "forum-400.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "playfair-display",
+  "name": "Playfair Display",
+  "group": "didone",
+  "note": "transitional-Didone, ball terminals",
+  "license": "OFL",
+  "files": {
+   "400": "playfair-display-400.ttf",
+   "900": "playfair-display-900.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "bodoni-moda",
+  "name": "Bodoni Moda",
+  "group": "didone",
+  "note": "Bodoni, hairline serifs",
+  "license": "OFL",
+  "files": {
+   "400": "bodoni-moda-400.ttf",
+   "700": "bodoni-moda-700.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "abril-fatface",
+  "name": "Abril Fatface",
+  "group": "didone",
+  "note": "Victorian fat face",
+  "license": "OFL",
+  "files": {
+   "400": "abril-fatface-400.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "rozha-one",
+  "name": "Rozha One",
+  "group": "didone",
+  "note": "heavy high-contrast display",
+  "license": "OFL",
+  "files": {
+   "400": "rozha-one-400.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "cinzel-decorative",
+  "name": "Cinzel Decorative",
+  "group": "decorative",
+  "note": "Cinzel with swash capitals",
+  "license": "OFL",
+  "files": {
+   "400": "cinzel-decorative-400.ttf",
+   "700": "cinzel-decorative-700.ttf",
+   "900": "cinzel-decorative-900.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "almendra-display",
+  "name": "Almendra Display",
+  "group": "decorative",
+  "note": "calligraphic display with ornamental caps",
+  "license": "OFL",
+  "files": {
+   "400": "almendra-display-400.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "elsie-swash-caps",
+  "name": "Elsie Swash Caps",
+  "group": "decorative",
+  "note": "Victorian swash capitals",
+  "license": "OFL",
+  "files": {
+   "400": "elsie-swash-caps-400.ttf",
+   "900": "elsie-swash-caps-900.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "macondo-swash-caps",
+  "name": "Macondo Swash Caps",
+  "group": "decorative",
+  "note": "Lombardic-feeling swash capitals",
+  "license": "OFL",
+  "files": {
+   "400": "macondo-swash-caps-400.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "berkshire-swash",
+  "name": "Berkshire Swash",
+  "group": "decorative",
+  "note": "swash caps, rounded",
+  "license": "OFL",
+  "files": {
+   "400": "berkshire-swash-400.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "rye",
+  "name": "Rye",
+  "group": "decorative",
+  "note": "Western wood type with inline ornament",
+  "license": "OFL",
+  "files": {
+   "400": "rye-400.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "uncial-antiqua",
+  "name": "Uncial Antiqua",
+  "group": "uncial",
+  "note": "uncial letterforms",
+  "license": "OFL",
+  "files": {
+   "400": "uncial-antiqua-400.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "medievalsharp",
+  "name": "MedievalSharp",
+  "group": "uncial",
+  "note": "chiselled medieval capitals",
+  "license": "OFL",
+  "files": {
+   "400": "medievalsharp-400.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "metamorphous",
+  "name": "Metamorphous",
+  "group": "uncial",
+  "note": "Lombardic-ish rounded caps",
+  "license": "OFL",
+  "files": {
+   "400": "metamorphous-400.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "eagle-lake",
+  "name": "Eagle Lake",
+  "group": "uncial",
+  "note": "calligraphic italic, broad-nib",
+  "license": "OFL",
+  "files": {
+   "400": "eagle-lake-400.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "fondamento",
+  "name": "Fondamento",
+  "group": "uncial",
+  "note": "broad-pen italic",
+  "license": "OFL",
+  "files": {
+   "400": "fondamento-400.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "unifrakturmaguntia",
+  "name": "UnifrakturMaguntia",
+  "group": "blackletter",
+  "note": "textura/fraktur after 18th-c. Mainz",
+  "license": "OFL",
+  "files": {
+   "400": "unifrakturmaguntia-400.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "unifrakturcook",
+  "name": "UnifrakturCook",
+  "group": "blackletter",
+  "note": "heavy fraktur, very decorated caps",
+  "license": "OFL",
+  "files": {
+   "700": "unifrakturcook-700.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "fruktur",
+  "name": "Fruktur",
+  "group": "blackletter",
+  "note": "modern fraktur, fat",
+  "license": "OFL",
+  "files": {
+   "400": "fruktur-400.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "pirata-one",
+  "name": "Pirata One",
+  "group": "blackletter",
+  "note": "condensed textura",
+  "license": "OFL",
+  "files": {
+   "400": "pirata-one-400.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "grenze-gotisch",
+  "name": "Grenze Gotisch",
+  "group": "blackletter",
+  "note": "hybrid gothic, variable",
+  "license": "OFL",
+  "files": {
+   "400": "grenze-gotisch-400.ttf",
+   "700": "grenze-gotisch-700.ttf",
+   "900": "grenze-gotisch-900.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "texturina",
+  "name": "Texturina",
+  "group": "blackletter",
+  "note": "textura for text",
+  "license": "OFL",
+  "files": {
+   "400": "texturina-400.ttf",
+   "700": "texturina-700.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "germania-one",
+  "name": "Germania One",
+  "group": "blackletter",
+  "note": "condensed gothic display",
+  "license": "OFL",
+  "files": {
+   "400": "germania-one-400.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "pinyon-script",
+  "name": "Pinyon Script",
+  "group": "script",
+  "note": "English roundhand, engraved",
+  "license": "OFL",
+  "files": {
+   "400": "pinyon-script-400.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "monsieur-la-doulaise",
+  "name": "Monsieur La Doulaise",
+  "group": "script",
+  "note": "flourished Victorian copperplate",
+  "license": "OFL",
+  "files": {
+   "400": "monsieur-la-doulaise-400.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "great-vibes",
+  "name": "Great Vibes",
+  "group": "script",
+  "note": "formal script",
+  "license": "OFL",
+  "files": {
+   "400": "great-vibes-400.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "mea-culpa",
+  "name": "Mea Culpa",
+  "group": "script",
+  "note": "flourished italic capitals",
+  "license": "OFL",
+  "files": {
+   "400": "mea-culpa-400.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "ballet",
+  "name": "Ballet",
+  "group": "script",
+  "note": "sharp pointed-pen script",
+  "license": "OFL",
+  "files": {
+   "400": "ballet-400.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "herr-von-muellerhoff",
+  "name": "Herr Von Muellerhoff",
+  "group": "script",
+  "note": "loose engraved script",
+  "license": "OFL",
+  "files": {
+   "400": "herr-von-muellerhoff-400.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "federo",
+  "name": "Federo",
+  "group": "deco",
+  "note": "Art Deco geometric",
+  "license": "OFL",
+  "files": {
+   "400": "federo-400.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "poiret-one",
+  "name": "Poiret One",
+  "group": "deco",
+  "note": "thin deco",
+  "license": "OFL",
+  "files": {
+   "400": "poiret-one-400.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "limelight",
+  "name": "Limelight",
+  "group": "deco",
+  "note": "deco display, flared",
+  "license": "OFL",
+  "files": {
+   "400": "limelight-400.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "monoton",
+  "name": "Monoton",
+  "group": "deco",
+  "note": "multi-line deco",
+  "license": "OFL",
+  "files": {
+   "400": "monoton-400.ttf"
+  },
+  "caps": true
+ },
+ {
+  "slug": "della-respira",
+  "name": "Della Respira",
+  "group": "deco",
+  "note": "1920s roman",
+  "license": "OFL",
+  "files": {
+   "400": "della-respira-400.ttf"
+  },
+  "caps": true
+ }
+]

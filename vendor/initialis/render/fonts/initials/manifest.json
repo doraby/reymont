@@ -1,0 +1,54 @@
+[
+ {
+  "slug": "hentzau-initials",
+  "file": "hentzau-initials.ttf",
+  "name": "Hentzau Initials",
+  "designer": "Paul Lloyd",
+  "year": 2002,
+  "license": "100% Free (dafont)",
+  "source": "https://www.dafont.com/hentzau-initials.font",
+  "style": "fraktur",
+  "coverage": "A-Z",
+  "notes": "Huge flourished blackletter cadels with hairline scrollwork spilling far past the em box (wider than the cell); uppercase only",
+  "caps": true
+ },
+ {
+  "slug": "victorian-initials-one",
+  "file": "victorian-initials-one.ttf",
+  "name": "Victorian Initials One",
+  "designer": "Dieter Steffmann (Typographer Mediengestaltung)",
+  "year": 2001,
+  "license": "100% Free (dafont)",
+  "source": "https://www.dafont.com/victorian-initials-.font",
+  "style": "victorian",
+  "coverage": "A-Z",
+  "notes": "Engraved script capitals wreathed in small flowers, berries and vines, with a flourish; light and airy; uppercase only",
+  "caps": true
+ },
+ {
+  "slug": "elzevier-caps",
+  "file": "elzevier-caps.ttf",
+  "name": "Elzevier Caps",
+  "designer": "Dieter Steffmann (Typographer Mediengestaltung), from David Rakowski's EPS art",
+  "year": 2000,
+  "license": "1001Fonts Free For Commercial Use License (FFC)",
+  "source": "https://www.1001fonts.com/elzevier-caps-font.html",
+  "style": "art-nouveau",
+  "coverage": "A-Z",
+  "notes": "Roman caps wrapped in whiplash stems, tulips and wheat ears, no ground; a-z is the same set",
+  "caps": true
+ },
+ {
+  "slug": "starburst",
+  "file": "starburst.ttf",
+  "name": "Starburst",
+  "designer": "David Rakowski; German characters added by Dieter Steffmann",
+  "year": 1990,
+  "license": "1001Fonts Free For Commercial Use License (FFC)",
+  "source": "https://www.1001fonts.com/starburst-font.html",
+  "style": "art-deco",
+  "coverage": "A-Z",
+  "notes": "Heavy geometric sans caps sliced by white sunburst rays radiating from a point inside each letter; a-z almost identical",
+  "caps": true
+ }
+]
