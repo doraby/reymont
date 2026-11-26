@@ -1802,6 +1802,44 @@ function iniImage(styleId, letter, v) {
   iniCache.set(key, job);
   return job;
 }
+/* Рост орнамента: когда читатель на первой странице главы, поверх буквицы ставится холст и библиотека
+   проигрывает, как орнамент прорастает (grow — кадры с печатным проходом из воркеров). Потом кадр убирается,
+   под ним та же готовая картинка. Кадр — <img>-вставка с INS_CLASS: epub.js не считает её в CFI, а withoutInsertions
+   убирает её на время пересчётов. Один раз за сессию на каждую буквицу; при prefers-reduced-motion не играем. */
+const INI_GROW_S = 2.6;
+const iniGrown = new Set();
+async function growInitials(contents) {
+  const doc = contents && contents.document, styleId = currentStyleId();
+  if (!doc || !STYLES[styleId].initialis || iniLib === false) return;
+  try { if (matchMedia('(prefers-reduced-motion: reduce)').matches) return; } catch (e) {}
+  for (const p of doc.querySelectorAll('p.rm-dc.rm-ini')) {
+    const cls = [...p.classList].find(c => /^rm-ini-[A-Z]-\d+$/.test(c));
+    if (!cls || p.classList.contains('rm-ini-growing')) continue;
+    const [, l, vs] = /^rm-ini-([A-Z])-(\d+)$/.exec(cls), v = +vs, key = styleId + ':' + l + ':' + v;
+    if (iniGrown.has(key)) continue;
+    iniGrown.add(key);
+    const side = parseFloat(getComputedStyle(p).getPropertyValue('--rm-ini'));
+    if (!side) continue;
+    if (iniLib === null) iniLib = import(new URL('vendor/initialis/lib/initialis.js', location.href).href).catch(e => { console.warn('initialis:', e); return false; });
+    const lib = await iniLib; if (!lib || !p.isConnected) continue;
+    // Кадры рисуются на холсте в окне приложения, а в книге показывается <img>, который обновляем ~15 раз в секунду:
+    // холст внутри iframe книги браузер может и не показать (проверено — не отображался).
+    const work = document.createElement('canvas');
+    const img = doc.createElement('img');
+    img.className = INS_CLASS + ' rm-ini-grow';
+    img.alt = ''; img.setAttribute('aria-hidden', 'true');
+    p.insertBefore(img, p.firstChild);
+    p.classList.add('rm-ini-growing');
+    const show = () => { try { img.src = work.toDataURL(); } catch (e) {} };
+    const tick = setInterval(show, 66);
+    const done = () => { clearInterval(tick); img.remove(); p.classList.remove('rm-ini-growing'); };
+    lib.grow(work, iniSettings(styleId, l, v), { size: Math.round(side * Math.min(2, devicePixelRatio || 1)), seconds: INI_GROW_S })
+      .then(() => { show(); })
+      .then(() => iniImage(styleId, l, v)) // готовая картинка-фон уже на месте (или дорисуется) — тогда убираем холст
+      .catch(e => console.warn('initialis grow ' + l + ':', e))
+      .finally(done);
+  }
+}
 // section — номер главы в spine (contents.sectionIndex): от него вариант орнамента, так что у главы он всегда один и тот же.
 function applyInitials(doc, styleId, section) {
   doc.querySelectorAll('p.rm-ini').forEach(p => p.classList.remove(...[...p.classList].filter(c => c.startsWith('rm-ini'))));
@@ -1823,6 +1861,9 @@ function applyInitials(doc, styleId, section) {
   const css = doc.createElement('style'); css.id = 'rm-ini-css';
   css.textContent = `@property --rm-ini { syntax: '<length>'; inherits: true; initial-value: 0px; }
 p.rm-dc.rm-ini { --rm-ini: ${side}; text-indent: 0 !important; }
+/* пока растёт орнамент, квадрат буквицы — кадр <img> в начале абзаца (тот же размер и обтекание), а сама буква не плавает */
+p.rm-dc.rm-ini.rm-ini-growing::first-letter { float: none !important; padding: 0 !important; background-image: none !important; }
+.${INS_CLASS}.rm-ini-grow { display: block !important; float: left !important; margin: 0 !important; width: var(--rm-ini) !important; height: var(--rm-ini) !important; pointer-events: none; }
 p.rm-dc.rm-ini > :first-child { margin-left: 0 !important; text-indent: 0 !important; } /* у книг под свою буквицу бывает отрицательный отступ (Bernays: .smcap1) */
 p.rm-dc.rm-ini::first-letter { float: left !important; font-size: 0 !important; line-height: 0 !important; color: transparent !important;
   padding: 0 var(--rm-ini) var(--rm-ini) 0 !important; margin: 0.25em 0.45em 0 0 !important;
@@ -2563,6 +2604,8 @@ async function openBook(id, newRec) {
     hideSelFab();
     syncSplit();
     updateRail();
+    // первая страница главы — проигрываем рост орнамента буквицы (один раз за сессию)
+    if (loc && loc.start && loc.start.displayed && loc.start.displayed.page === 1) rendition.getContents().forEach(c => growInitials(c));
     setTimeout(autoOpenPageMedia, 60);
   });
   // Перевёрстка (ширина колонки/шрифт) тоже даёт relocated — это не перелистывание, автооткрытие на неё не реагирует.
