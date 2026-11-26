@@ -16,6 +16,8 @@
   aside h1 { font-size: 16px; margin: 0 0 4px; }
   aside p.hint { color: var(--muted); font-style: italic; font-size: 12px; margin: 0 0 12px; }
   .row { margin: 0 0 10px; }
+  h3.sec { font-size: 13px; margin: 18px 0 8px; padding-top: 10px; border-top: 1px solid var(--line); }
+  h3.sec:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
   .row label { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 2px; }
   .row select, .row input[type=range] { width: 100%; }
   .row input[type=color] { width: 44px; height: 26px; border: 1px solid var(--line); padding: 0; background: none; }
@@ -86,23 +88,24 @@ document.querySelectorAll('[data-icon]').forEach(n => n.innerHTML = ICON);
 
 // Управление: [ключ, подпись, тип, значение по умолчанию, варианты или [min,max,step]]
 const C = [
+  ['#', 'Готовые варианты'],
+  ['preset', 'пресет — выберите, потом подправьте', 'sel', '—', ['—', 'лоза: трилистник и маргаритки', 'лоза: плющ и розы, симметрия', 'лоза на красном', 'тонкая лоза с бусинами', 'только точки (stipple)', 'кораллы', 'пузырьки', 'волны', 'сэйгаиха', 'асаноха', 'меандр', 'чешуя', 'гравюра (engrave)']],
+  ['#', 'Форма и размер'],
   ['frame', 'форма', 'sel', 'box', ['box', 'none', 'rect', 'rounded', 'circle', 'arch', 'pointed', 'shield', 'lozenge', 'octagon', 'quatrefoil', 'scallop']],
   ['fBoxW', 'ширина формы (box)', 'num', 1, [0.1, 1, 0.01]],
-  ['fBoxH', 'высота формы (box)', 'num', 0.45, [0.1, 1, 0.01]],
+  ['fBoxH', 'высота формы (box)', 'num', 0.25, [0.05, 1, 0.01]],
   ['fBoxR', 'скругление углов (box)', 'num', 0, [0, 0.5, 0.01]],
-  ['ground', 'фон формы', 'sel', 'нет', ['нет', 'красный (лоза белая)']],
-  ['sizeA', 'ширина A, px', 'num', 220, [40, 600, 2]],
-  ['sizeB', 'ширина B, px', 'num', 120, [24, 300, 2]],
-  ['sizeC', 'ширина C, px', 'num', 120, [48, 300, 2]],
-  ['orn', 'растущая лоза', 'sel', 'grow', ['grow', 'none']],
-  ['oStemStyle', 'стебель', 'sel', 'solid', ['solid', 'dotted', 'beaded', 'dashed', 'double', 'thorny']],
-  ['oTerminal', 'концы стеблей', 'sel', 'flower', ['curl', 'ball', 'leaf', 'flower', 'point']],
-  ['tKind', 'текстура (в просветах)', 'sel', 'none', ['none', 'stipple', 'bubbles', 'ripples', 'streams', 'fur', 'cells', 'truchet', 'coral']],
-  ['tScale', 'шаг текстуры', 'num', 9, [2, 60, 0.5]],
-  ['fPattern', 'паттерн фона (при красном фоне)', 'sel', 'none', ['none', 'hatch', 'cross', 'waves', 'dots', 'stipple', 'checker', 'diaper', 'scales', 'rays', 'rings', 'grid', 'seigaiha', 'asanoha', 'kikko', 'shippo', 'frets', 'ice', 'contour', 'engrave', 'halftone', 'mosaic', 'wash', 'frost', 'mycelium']],
-  ['fPatScale', 'шаг паттерна', 'num', 7, [2, 60, 0.5]],
+  ['ground', 'фон формы', 'sel', 'нет', ['нет', 'красный (узор белый)']],
+  ['fullA', 'A на всю ширину колонки', 'sel', 'да', ['да', 'нет']],
+  ['sizeA', 'ширина A, px (если не на всю)', 'num', 220, [40, 700, 2]],
+  ['sizeB', 'ширина B, px', 'num', 140, [24, 320, 2]],
+  ['sizeC', 'ширина C, px', 'num', 120, [48, 320, 2]],
+  ['#', 'Растущая лоза'],
+  ['orn', 'лоза', 'sel', 'grow', ['grow', 'none']],
   ['oLeaf', 'лист', 'sel', 'trefoil', ['none', 'acanthus', 'lance', 'willow', 'ovate', 'teardrop', 'oak', 'ivy', 'trefoil', 'cinquefoil', 'fern', 'dot', 'pod', 'dotted', 'comma', 'fan', 'needles', 'heart']],
   ['oFlower', 'цветок', 'sel', 'daisy', ['none', 'rosette', 'daisy', 'rose', 'star', 'phyllo', 'target', 'burst', 'dotring', 'quatre', 'tulip', 'bell', 'bud', 'pomegranate', 'thistle']],
+  ['oStemStyle', 'стебель', 'sel', 'solid', ['solid', 'dotted', 'beaded', 'dashed', 'double', 'thorny']],
+  ['oTerminal', 'концы стеблей', 'sel', 'flower', ['curl', 'ball', 'leaf', 'flower', 'point']],
   ['oDensity', 'плотность', 'num', 0.4, [0, 1, 0.01]],
   ['oStemW', 'толщина стебля', 'num', 32, [0.6, 32, 0.2]],
   ['oLeafSize', 'размер листа', 'num', 2.45, [0.2, 3, 0.05]],
@@ -112,16 +115,41 @@ const C = [
   ['oCurl', 'завиток', 'num', 0.66, [0, 1, 0.01]],
   ['oSym', 'симметрия', 'sel', 'none', ['none', 'mirror']],
   ['oSeeds', 'откуда растёт', 'sel', 'root', ['gaps', 'frame', 'corners', 'root', 'letter']],
+  ['#', 'Текстура в просветах лозы'],
+  ['tKind', 'текстура', 'sel', 'none', ['none', 'stipple', 'bubbles', 'ripples', 'streams', 'fur', 'cells', 'truchet', 'coral']],
+  ['tScale', 'шаг текстуры', 'num', 9, [2, 60, 0.5]],
+  ['#', 'Паттерн по всей форме'],
+  ['fPattern', 'паттерн', 'sel', 'none', ['none', 'hatch', 'cross', 'waves', 'dots', 'stipple', 'checker', 'diaper', 'scales', 'rays', 'rings', 'grid', 'seigaiha', 'asanoha', 'kikko', 'shippo', 'frets', 'ice', 'contour', 'engrave', 'halftone', 'mosaic', 'wash', 'frost', 'mycelium']],
+  ['fPatScale', 'шаг паттерна', 'num', 14, [2, 60, 0.5]],
+  ['fPatW', 'толщина линий паттерна', 'num', 2, [0.3, 10, 0.1]],
+  ['#', 'Печать'],
   ['seed', 'seed', 'num', 180, [1, 200, 1]],
   ['inkA', 'краска', 'color', '#B3261E'],
   ['rough', 'шероховатость печати', 'num', 0.06, [0, 2, 0.01]],
 ];
-const LSKEY = 'rm-lab-vignette-2';
-const S = Object.fromEntries(C.map(c => [c[0], c[3]]));
+// Пресеты: меняют только перечисленное, остальное остаётся как было
+const PRESETS = {
+  'лоза: трилистник и маргаритки': { orn: 'grow', ground: 'нет', fPattern: 'none', tKind: 'none', oLeaf: 'trefoil', oFlower: 'daisy', oStemStyle: 'solid', oDensity: 0.4, oStemW: 32, oLeafSize: 2.45, oFlowerSize: 0.6, oFlowerChance: 0.43, oBerries: 0.79, oSym: 'none', oSeeds: 'root', seed: 180 },
+  'лоза: плющ и розы, симметрия': { orn: 'grow', ground: 'нет', fPattern: 'none', tKind: 'none', oLeaf: 'ivy', oFlower: 'rose', oStemStyle: 'solid', oDensity: 0.45, oStemW: 14, oLeafSize: 1.6, oFlowerSize: 1.5, oFlowerChance: 0.3, oBerries: 0.4, oSym: 'mirror', oSeeds: 'root', seed: 7 },
+  'лоза на красном': { orn: 'grow', ground: 'красный (узор белый)', fPattern: 'none', tKind: 'none', oLeaf: 'acanthus', oFlower: 'rosette', oStemStyle: 'solid', oDensity: 0.75, oStemW: 9, oLeafSize: 1, oFlowerSize: 1, oSym: 'none', oSeeds: 'gaps' },
+  'тонкая лоза с бусинами': { orn: 'grow', ground: 'нет', fPattern: 'none', tKind: 'none', oLeaf: 'willow', oFlower: 'bud', oStemStyle: 'beaded', oDensity: 0.6, oStemW: 5, oLeafSize: 1.2, oFlowerSize: 1.2, oSym: 'mirror', oSeeds: 'root' },
+  'только точки (stipple)': { orn: 'none', ground: 'нет', fPattern: 'none', tKind: 'stipple', tScale: 9 },
+  'кораллы': { orn: 'none', ground: 'нет', fPattern: 'none', tKind: 'coral', tScale: 12 },
+  'пузырьки': { orn: 'none', ground: 'нет', fPattern: 'none', tKind: 'bubbles', tScale: 14 },
+  'волны': { orn: 'none', ground: 'нет', tKind: 'none', fPattern: 'waves', fPatScale: 14, fPatW: 2 },
+  'сэйгаиха': { orn: 'none', ground: 'нет', tKind: 'none', fPattern: 'seigaiha', fPatScale: 22, fPatW: 2 },
+  'асаноха': { orn: 'none', ground: 'нет', tKind: 'none', fPattern: 'asanoha', fPatScale: 26, fPatW: 1.6 },
+  'меандр': { orn: 'none', ground: 'нет', tKind: 'none', fPattern: 'frets', fPatScale: 18, fPatW: 2.5 },
+  'чешуя': { orn: 'none', ground: 'нет', tKind: 'none', fPattern: 'scales', fPatScale: 18, fPatW: 2 },
+  'гравюра (engrave)': { orn: 'none', ground: 'красный (узор белый)', tKind: 'none', fPattern: 'engrave', fPatScale: 10, fPatW: 2 },
+};
+const LSKEY = 'rm-lab-vignette-3';
+const S = Object.fromEntries(C.filter(c => c[0] !== '#').map(c => [c[0], c[3]]));
 try { Object.assign(S, JSON.parse(localStorage.getItem(LSKEY) || '{}')); } catch (e) {}
 
 const box = document.getElementById('controls');
 for (const [k, label, type, , opt] of C) {
+  if (k === '#') { const h = document.createElement('h3'); h.className = 'sec'; h.textContent = label; box.append(h); continue; }
   const row = document.createElement('div'); row.className = 'row';
   const val = document.createElement('span');
   const lab = document.createElement('label'); lab.append(label, val); row.append(lab);
@@ -132,7 +160,14 @@ for (const [k, label, type, , opt] of C) {
   el.value = S[k];
   const upd = () => { S[k] = type === 'num' ? +el.value : el.value; val.textContent = type === 'num' ? S[k] : ''; };
   upd();
-  el.addEventListener('input', () => { upd(); schedule(); });
+  el.addEventListener('input', () => {
+    upd();
+    if (k === 'preset' && PRESETS[S.preset]) { // применяем пресет: переставляем значения в контролах
+      for (const [pk, pv] of Object.entries(PRESETS[S.preset])) { S[pk] = pv; const c = document.getElementById('c-' + pk); if (c) { c.value = pv; c.dispatchEvent(new Event('sync')); } }
+    }
+    schedule();
+  });
+  el.addEventListener('sync', upd);
   el.id = 'c-' + k; row.append(el); box.append(row);
 }
 
@@ -145,7 +180,7 @@ function params() {
     oFlowerSize: S.oFlowerSize, oFlowerChance: S.oFlowerChance, oBerries: S.oBerries, oCurl: S.oCurl,
     oSym: S.oSym, oSeeds: S.oSeeds, seed: S.seed, rough: S.rough,
     orn: S.orn, oStemStyle: S.oStemStyle, oTerminal: S.oTerminal, tKind: S.tKind, tScale: S.tScale, tColor: red ? 'paper' : 'A',
-    fPattern: S.fPattern, fPatScale: S.fPatScale, fPatColor: 'paper' };
+    fPattern: S.fPattern, fPatScale: S.fPatScale, fPatW: S.fPatW, fPatColor: red ? 'paper' : 'A' };
   if (S.frame === 'box') Object.assign(P, { fBoxW: S.fBoxW, fBoxH: S.fBoxH, fBoxR: S.fBoxR });
   return P;
 }
@@ -176,15 +211,18 @@ function set(id, url, cssW) {
 }
 let timer = 0, run = 0;
 function schedule() { clearTimeout(timer); timer = setTimeout(draw, 250); }
+// ширина A: на всю колонку текста листа (без его полей) или из ползунка
+const widthA = () => { if (S.fullA !== 'да') return S.sizeA; const sh = document.getElementById('sheet'), cs = getComputedStyle(sh); return Math.floor(sh.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)); };
+addEventListener('resize', () => { if (S.fullA === 'да') schedule(); });
 async function draw() {
   const me = ++run, P = params();
   document.getElementById('json').textContent = JSON.stringify(P, null, 1);
   try { localStorage.setItem(LSKEY, JSON.stringify(S)); } catch (e) {}
   document.getElementById('sheet').classList.add('busy');
   try {
-    const [a, b, c] = await Promise.all([toURL(P, S.sizeA), toURL(P, S.sizeB), toURL(P, S.sizeC)]);
+    const [a, b, c] = await Promise.all([toURL(P, widthA()), toURL(P, S.sizeB), toURL(P, S.sizeC)]);
     if (me !== run) return;
-    set('vA', a, S.sizeA); set('vBl', b, S.sizeB); set('vBr', b, S.sizeB); set('vC', c, S.sizeC);
+    set('vA', a, widthA()); set('vBl', b, S.sizeB); set('vBr', b, S.sizeB); set('vC', c, S.sizeC);
   } catch (e) { document.getElementById('json').textContent = 'Ошибка: ' + e.message; }
   document.getElementById('sheet').classList.remove('busy');
 }
@@ -194,7 +232,7 @@ document.getElementById('copy').onclick = () => navigator.clipboard && navigator
 // «Прорасти»: проигрываем рост во всех трёх местах (кадры — на холсте, показываем обрезанными через img)
 document.getElementById('grow').onclick = () => {
   const P = params();
-  for (const [ids, cssW] of [[['vA'], S.sizeA], [['vBl', 'vBr'], S.sizeB], [['vC'], S.sizeC]]) {
+  for (const [ids, cssW] of [[['vA'], widthA()], [['vBl', 'vBr'], S.sizeB], [['vC'], S.sizeC]]) {
     const work = document.createElement('canvas'), px = renderPx(cssW);
     const show = () => { const u = crop(work, px); ids.forEach(id => document.getElementById(id).src = u); };
     const t = setInterval(show, 66);
