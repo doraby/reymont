@@ -31,6 +31,9 @@
     --topbar-h: 56px;
     --bottombar-h: 40px;
     --panel-w: 400px;
+    /* Фон под интерактивами и диаграммами — задаёт приложение (сами они прозрачные); светлый во всех темах,
+       потому что рисуют они тёмными линиями — в Dusk тоже светлая подложка */
+    --visual-bg: #FAF9F4;
     /* ── Отступы: одна шкала на 4px, всё остальное — через неё ──
        Числовые токены — только для смысловых ниже и для мелочей; раскладку страницы задают смысловые. */
     --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
@@ -90,14 +93,14 @@
   /* Tufte: тёплая слоновая кость, чёрные чернила, ничего лишнего — по мотивам книг Эдварда Тафти */
   :root[data-theme="tufte"] {
     --bg: #FFFFF8; --surface: #FFFFFC; --surface-2: #F4F3E7; --border: #E1E0D0; --text: #111111; --muted: #77746B;
-    --accent: #2C4A6B; --accent-soft: #3F6A94; --accent-bg: rgba(44, 74, 107, 0.08);
+    --accent: #2C4A6B; --accent-soft: #3F6A94; --accent-bg: rgba(44, 74, 107, 0.08); --visual-bg: #FFFFF8;
     --shadow: 0 10px 36px rgba(40, 38, 20, 0.12); --serif: 'Cardo', 'Gentium Book Plus', Palatino, 'Palatino Linotype', Georgia, 'Times New Roman', serif;
   }
   :root[data-theme="tufte"] body { background: var(--bg); font-size: 16.5px; }
   /* Dusk: тёмный, спокойный и ровный — без градиента и узора, приглушённый тёплый графит вместо синего */
   :root[data-theme="dusk"] {
     --bg: #232528; --surface: #2B2D31; --surface-2: #34363B; --border: #42454B; --text: #E7E3DA; --muted: #9C9CA2;
-    --accent: #D2B1A0; --accent-soft: #C29B88; --accent-bg: rgba(210, 177, 160, 0.13);
+    --accent: #D2B1A0; --accent-soft: #C29B88; --accent-bg: rgba(210, 177, 160, 0.13); --visual-bg: #EDE7DE;
     --shadow: 0 12px 40px rgba(0, 0, 0, 0.5); --serif: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
   }
   :root[data-theme="dusk"] body { background: var(--bg); font-size: 17px; }
@@ -106,7 +109,7 @@
   :root[data-theme="dusk"] input, :root[data-theme="dusk"] textarea, :root[data-theme="dusk"] select { background: var(--surface-2); color: var(--text); color-scheme: dark; }
   :root[data-theme="paper"] {
     --bg: #E6E3DC; --surface: #FFFFFF; --surface-2: #F1EEE7; --border: #DAD6CC; --text: #1F1E1B; --muted: #86827A;
-    --accent: #B3261E; --accent-soft: #C4423A; --accent-bg: rgba(179, 38, 30, 0.08);
+    --accent: #B3261E; --accent-soft: #C4423A; --accent-bg: rgba(179, 38, 30, 0.08); --visual-bg: #FFFFFF;
     --shadow: 0 10px 40px rgba(0, 0, 0, 0.13); --serif: 'Libre Baskerville', 'PT Serif', Georgia, 'Times New Roman', serif;
   }
   :root[data-theme="paper"] body { background: radial-gradient(1000px 600px at 50% 0%, #EFEDE7, var(--bg)); font-size: 15px; }
@@ -355,7 +358,7 @@
   #panel-visual .pv-media img:fullscreen { max-height: none; width: 100%; height: 100%; object-fit: contain; background: #111; border-radius: 0; }
   #interactive-frame:fullscreen { height: 100% !important; }
   /* Диаграмма Mermaid рисуется тёмными линиями — подкладываем светлую подложку, чтобы её было видно и в тёмном стиле */
-  #panel-visual.dg-view .pv-media svg { background: #FAF9F5; border-radius: 10px; padding: var(--space-4); } /* вертикальная иллюстрация видна целиком */
+  #panel-visual.dg-view .pv-media svg { background: var(--visual-bg); border-radius: 10px; padding: var(--space-4); } /* вертикальная иллюстрация видна целиком */
   #panel-visual .io-loading { margin: 0 auto; padding: var(--space-4) var(--panel-pad-x) var(--space-5); }
   #panel-visual .p-error { margin: var(--space-1) var(--panel-pad-x) var(--space-4); }
   #panel-visual #interactive-frame { flex: none; height: 420px; } /* сразу же — во всю высоту панели (ioFit), выше — если игра выше (rmHeight) */
@@ -398,7 +401,7 @@
   .pv-media svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
   .pv-media img { display: block; max-width: 100%; height: auto; margin: 0 auto; border-radius: 8px; }
   /* Диаграмма на весь экран: поверх всего, с зумом и прокруткой (из iframe книги выйти за колонку нельзя) */
-  #diagram-fs { display: none; position: fixed; inset: 0; z-index: 600; background: #FAF9F5; flex-direction: column; }
+  #diagram-fs { display: none; position: fixed; inset: 0; z-index: 600; background: var(--visual-bg); flex-direction: column; }
   #diagram-fs.open { display: flex; }
   .dfs-bar {
     flex: none; display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2);
@@ -427,7 +430,7 @@
     padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--surface); }
   .io-notice { flex: none; padding: 10px 16px; font-size: 13.5px; background: #FFF4DC; color: #7A5B14; border-bottom: 1px solid #EBD9A8; }
   .io-tools .btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 13.5px; }
-  #interactive-frame { flex: 1; width: 100%; border: 0; background: #fff; }
+  #interactive-frame { flex: 1; width: 100%; border: 0; background: var(--visual-bg); color-scheme: light; } /* фон — приложения, игра прозрачная */
   .io-loading { margin: auto; padding: 24px 28px; max-width: 360px; text-align: center; }
   .io-loading .spinner { margin: 0 auto 18px; }
   .io-title { font-size: 18px; font-weight: 600; color: var(--text); }
@@ -1832,7 +1835,9 @@ function bookSet(styleId) { return parseInt(iniHash((typeof currentBookId !== 'u
 async function keptStyle(styleId) {
   const kept = await loadKept();
   if (!kept.length) return null;
-  const st = STYLES[styleId], K = kept[bookSet(styleId) % kept.length], P = Object.assign({}, K);
+  // стиль из подборки: сет книги, или выбранный в панели (Randomize в темах со стилями подборки)
+  const idx = VIG.setPick != null ? VIG.setPick : bookSet(styleId);
+  const st = STYLES[styleId], K = kept[idx % kept.length], P = Object.assign({}, K);
   if (modeOf(styleId) === 'varied' && st.initialisPalette) {
     // на светлой бумаге самая тёмная краска — самая контрастная; в тёмной теме палитра уже начинается со светлой
     ['A', 'B', 'C'].sort((a, b) => hexLum(K['ink' + a]) - hexLum(K['ink' + b])).forEach((k, i) => { P['ink' + k] = st.initialisPalette[i]; });
@@ -1865,7 +1870,7 @@ async function iniDiskPut(url, blob) {
   } catch (e) {}
 }
 function iniImage(styleId, letter, v) {
-  const key = modeOf(styleId) + ':' + (typeof currentBookId !== 'undefined' && currentBookId || '') + ':' + styleId + ':' + letter + ':' + v;
+  const key = modeOf(styleId) + ':' + VIG.setPick + ':' + (typeof currentBookId !== 'undefined' && currentBookId || '') + ':' + styleId + ':' + letter + ':' + v;
   if (iniCache.has(key)) return iniCache.get(key);
   let P, url;
   const job = iniSettingsFor(styleId, letter, v).then(p => {
@@ -1903,12 +1908,13 @@ const VIG_DEFAULT = {
   look: { oLeaf: 'auto', oFlower: 'auto', oStemStyle: 'dotted', oDensity: 0.55, oStemW: 8, oLeafSize: 1, oFlowerSize: 1.4, oBerrySize: 0.2, oFlowerChance: 0.29, oBerries: 0.08, oCurl: 0.15, oSeeds: 'gaps', rough: 0,
     oFill: 'A', oStroke: 'none', oStrokeW: 1.5, oDetail: 'veins', oDetailColor: 'auto', tKind: 'none', tColor: 'auto', tScale: 9 },
   cssW: 680, // ширина полосы на широкой колонке (на узкой — во всю колонку)
+  setPick: null, // номер стиля подборки вместо сета книги (выбирает Randomize в темах со стилями подборки); null — сет книги
 };
 /* Текущие настройки: по умолчанию из кода, поверх — правки из временной панели (кнопка рядом с bug), в этом браузере. */
 const VIG_TUNE_KEY = 'rm-vig-tune';
 function vigLoad() {
   const v = JSON.parse(JSON.stringify(VIG_DEFAULT));
-  try { const o = JSON.parse(localStorage.getItem(VIG_TUNE_KEY) || 'null'); if (o) { Object.assign(v.box, o.box); Object.assign(v.look, o.look); if (o.ink) v.ink = o.ink; if (o.inkB) v.inkB = o.inkB; if (o.inkC) v.inkC = o.inkC; if (o.cssW) v.cssW = o.cssW; if (o.alpha != null) v.alpha = o.alpha; } } catch (e) {}
+  try { const o = JSON.parse(localStorage.getItem(VIG_TUNE_KEY) || 'null'); if (o) { Object.assign(v.box, o.box); Object.assign(v.look, o.look); if (o.setPick != null) v.setPick = o.setPick; if (o.ink) v.ink = o.ink; if (o.inkB) v.inkB = o.inkB; if (o.inkC) v.inkC = o.inkC; if (o.cssW) v.cssW = o.cssW; if (o.alpha != null) v.alpha = o.alpha; } } catch (e) {}
   return v;
 }
 let VIG = vigLoad(), vigRev = 0; // vigRev меняется при правке — ключи кэша в памяти становятся новыми
@@ -1942,7 +1948,7 @@ async function vigSettingsFor(styleId, v) {
   return Object.assign(K, VIG.box, { text: ' ', frame: 'box', fRules: 0, fField: 'paper', oRegion: 'field', seed: (K.seed || 1) + v });
 }
 function vigImage(styleId, v) {
-  const key = 'vig:' + vigRev + ':' + modeOf(styleId) + ':' + (typeof currentBookId !== 'undefined' && currentBookId || '') + ':' + styleId + ':' + v;
+  const key = 'vig:' + vigRev + ':' + modeOf(styleId) + ':' + VIG.setPick + ':' + (typeof currentBookId !== 'undefined' && currentBookId || '') + ':' + styleId + ':' + v;
   if (iniCache.has(key)) return iniCache.get(key);
   const C = vigCrop(), px = Math.round(VIG.cssW / 2 * 2 * 1000 / C.w); // каждая половина — cssW/2
   let P, url;
@@ -2039,7 +2045,7 @@ function refreshVignettes() {
 const VT_LEAVES = ['auto', 'none', 'acanthus', 'lance', 'willow', 'ovate', 'teardrop', 'oak', 'ivy', 'trefoil', 'cinquefoil', 'fern', 'dot', 'pod', 'dotted', 'comma', 'fan', 'needles', 'heart'];
 const VT_FLOWERS = ['auto', 'none', 'rosette', 'daisy', 'rose', 'star', 'phyllo', 'target', 'burst', 'dotring', 'quatre', 'tulip', 'bell', 'bud', 'pomegranate', 'thistle'];
 const VT_SPEC = [ // [где, ключ, подпись, тип, варианты или [min,max,step]]
-  ['ini', 'mode', 'INITIALS + vignettes set (applies at once; look sliders below work in "vine")', 'sel', INI_MODES],
+  ['ini', 'mode', 'INITIALS + vignettes set (applies at once; look sliders below work in "vine"; Randomize in other modes picks a style from the set)', 'sel', INI_MODES],
   ['vt', 'variant', 'preview variant (each page has its own)', 'num', [0, 999, 1]],
   ['root', 'ink', 'ink A', 'color'],
   ['root', 'inkB', 'ink B', 'color'],
@@ -2115,17 +2121,25 @@ function toggleVigTune(force) {
   if (on) { vtBuild(); vtPreview(); }
 }
 function vigTuneApply() {
-  try { localStorage.setItem(VIG_TUNE_KEY, JSON.stringify({ box: VIG.box, look: VIG.look, ink: VIG.ink, inkB: VIG.inkB, inkC: VIG.inkC, cssW: VIG.cssW, alpha: VIG.alpha })); } catch (e) {}
-  vigRev++; refreshVignettes(); toast('Vignettes redrawn');
+  try { localStorage.setItem(VIG_TUNE_KEY, JSON.stringify({ box: VIG.box, look: VIG.look, ink: VIG.ink, inkB: VIG.inkB, inkC: VIG.inkC, cssW: VIG.cssW, alpha: VIG.alpha, setPick: VIG.setPick })); } catch (e) {}
+  vigRev++; refreshVignettes();
+  if (typeof rendition !== 'undefined' && rendition) rendition.getContents().forEach(applyStyleToContents); // сет мог смениться — буквицы тоже
+  toast('Vignettes redrawn');
 }
 function vigTuneReset() {
   try { localStorage.removeItem(VIG_TUNE_KEY); } catch (e) {}
   VIG = vigLoad(); vigRev++; vtBuild(); vtPreview(); refreshVignettes();
+  if (typeof rendition !== 'undefined' && rendition) rendition.getContents().forEach(applyStyleToContents);
 }
 /* «Randomize»: случайный вид виньетки — лоза, детали, распределение красок и сами краски (из книжных тонов),
    вариант раскладки. Видно в превью; на страницу — кнопкой Apply. Форма, ширина и прозрачность не трогаются. */
 const VT_INKS = ['#1F1E1B', '#B3261E', '#2C4A6B', '#5E6B45', '#A8742A', '#7E3648', '#3F6A94', '#C15F3C', '#6F7F5E'];
 function vigTuneRandom() {
+  // в темах со стилями подборки — случайный стиль подборки (общий для буквиц и виньеток) и раскладка
+  if (modeOf(currentStyleId()) !== 'vine') {
+    loadKept().then(kept => { VIG.setPick = Math.floor(Math.random() * Math.max(1, kept.length)); vtVariant = Math.floor(Math.random() * 1000); vtBuild(); vtPreview(); });
+    return;
+  }
   const pick = a => a[Math.floor(Math.random() * a.length)], rnd = (lo, hi, st) => Math.round((lo + Math.random() * (hi - lo)) / st) * st;
   const inks = [...VT_INKS].sort(() => Math.random() - 0.5);
   VIG.ink = inks[0]; VIG.inkB = inks[1]; VIG.inkC = inks[2];
@@ -2142,7 +2156,7 @@ function vigTuneRandom() {
   vtBuild(); vtPreview();
 }
 function vigTuneCopy() {
-  const t = JSON.stringify({ box: VIG.box, ink: VIG.ink, inkB: VIG.inkB, inkC: VIG.inkC, alpha: VIG.alpha, look: VIG.look, cssW: VIG.cssW });
+  const t = JSON.stringify({ box: VIG.box, ink: VIG.ink, inkB: VIG.inkB, inkC: VIG.inkC, alpha: VIG.alpha, look: VIG.look, cssW: VIG.cssW, setPick: VIG.setPick });
   (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast('Settings copied'), () => prompt('Settings:', t));
 }
 /* Рост орнамента: когда читатель на первой странице главы, поверх буквицы ставится холст и библиотека
@@ -4505,7 +4519,8 @@ const HEIGHT_SCRIPT = `<script>(function(){var last=0,n=0;function s(){var d=doc
   `if(Math.abs(h-last)>2&&n<20){last=h;n++;parent.postMessage({rmHeight:h},'*');}}` +
   `addEventListener('load',s);setTimeout(s,300);setTimeout(s,1500);if(window.ResizeObserver)new ResizeObserver(s).observe(document.documentElement);})();<\/script>`;
 // Рамка игры без внешней чернильной линии — и у уже сгенерированных (шаблон раньше её рисовал)
-const FRAME_FIX = '<style>.frame{border:0!important}</style>';
+// и без своего фона: фон под игрой задаёт приложение (--visual-bg), у старых игр он был вписан в код
+const FRAME_FIX = '<style>html,body{background:transparent!important}.frame{border:0!important;background:transparent!important}</style>';
 function withFrameFix(html) { return /<\/head>/i.test(html) ? html.replace(/<\/head>/i, FRAME_FIX + '</head>') : FRAME_FIX + html; }
 function withHeightScript(html) {
   return /<\/body>/i.test(html) ? html.replace(/<\/body>/i, HEIGHT_SCRIPT + '</body>') : html + HEIGHT_SCRIPT;

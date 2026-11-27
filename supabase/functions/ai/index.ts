@@ -148,8 +148,9 @@ const INTERACTIVE_KIT = `<!doctype html>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap">
 <style>
 html,body{height:100%;margin:0}
-body{background:#F6F1E8;color:#2B2623;font-family:'EB Garamond',Georgia,serif;display:flex;flex-direction:column;gap:16px;padding:16px;box-sizing:border-box}
-.frame{position:relative;flex:1;min-height:320px;background:#FDFBF7}
+html,body{background:transparent}
+body{color:#2B2623;font-family:'EB Garamond',Georgia,serif;display:flex;flex-direction:column;gap:16px;padding:16px;box-sizing:border-box}
+.frame{position:relative;flex:1;min-height:320px}
 .frame::before{content:'';position:absolute;inset:7px;border:1px solid #A23B33;opacity:.5;pointer-events:none}
 .frame>svg.scene{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
 .sprig{position:absolute;width:56px;height:56px;overflow:visible;pointer-events:none}
@@ -313,6 +314,7 @@ Deno.serve(async (req) => {
         `The page fills the whole panel height: html and body height 100%, a column — the goal line (and its translation) on top, the frame with the scene filling the remaining height (flex: 1), below it only what the game needs (choices, a feedback line); no page scroll at heights from 600px up. ` +
         `Plan elements (use them, scaled and placed for this scene): people as white roundels with an initial or a name; the key character as a small red lozenge with a white initial; animals and important things as pale pink lozenges with a name; buildings as plain outlines with a roof line and hatching; ` +
         `a road as a tinted band with a dashed axis; a fence as a dashed ink line; movement, a gaze or a route as a red dotted line with an arrowhead; names of places in italic. ` +
+        `Background: the page is transparent — the app paints the background behind it. Never set a background colour on html, body, the frame or full-size wrappers; only small elements (tokens, bands, chips) may have their own fill. ` +
         `Drawing stays schematic, like a plan: never try to draw people, animals or objects realistically, no faces, anatomy, perspective, clip-art or emoji. Only the template's colours; no gradients, no shadows, no glow, no rounded cards, no filled or dark buttons. ` +
         `If an image of ornamental initials is attached, take from it only the mood (fine botanical ornament, printed ink); the template decides the layout and the elements. ` +
         `Controls are typography like the template's .choice buttons (at least 44px to tap, visible keyboard focus); quiet transitions about 0.3s, respect prefers-reduced-motion. ` +
