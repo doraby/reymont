@@ -3856,7 +3856,7 @@ async function requestIllustration(noteId) {
     const ctx = getIllustrationContext(note);
     console.log('requestIllustration: chapter =', JSON.stringify(ctx.chapter), '| wideContext =', JSON.stringify(ctx.wideContext.slice(0, 200)) + '…');
     console.log('requestIllustration: calling aiProxy…');
-    const res = await aiProxy({ action: 'illustrate', text: note.text, para: ctx.wideContext || note.para, chapter: ctx.chapter,
+    const res = await aiProxy({ action: 'illustrate', art: await bookArtPayload(false), text: note.text, para: ctx.wideContext || note.para, chapter: ctx.chapter,
       title: currentMeta.title, author: currentMeta.author, noteId: note.id, bookId: currentBookId, style: getIllusStyle() }, illustrateAbort.signal, 120000);
     if (res.status === 403) {
       console.warn('requestIllustration: 403 — not invited');
@@ -4511,6 +4511,7 @@ function injectInteractives(contents) {
    родителю разметку уже отрисованной страницы (без <script>). Принимаем только от нашей рамки. */
 const SNAPSHOT_SCRIPT = `<script>setTimeout(function(){try{var c=document.documentElement.cloneNode(true);` +
   `c.querySelectorAll('script').forEach(function(s){s.remove()});` +
+  `c.querySelectorAll('img[data-rm]').forEach(function(i){i.setAttribute('src',i.getAttribute('data-rm'))});` + // картинки сета — обратно метками (снимок мал)
   `parent.postMessage({rmSnapshot:'<!doctype html>'+c.outerHTML},'*');}catch(e){}},1500);<\/script>`;
 let currentInteractive = null;
 /* Игра сама сообщает высоту своего содержимого — рамка растёт под неё, и у панели остаётся одна прокрутка.
@@ -4522,6 +4523,79 @@ const HEIGHT_SCRIPT = `<script>(function(){var last=0,n=0;function s(){var d=doc
 // и без своего фона: фон под игрой задаёт приложение (--visual-bg), у старых игр он был вписан в код
 const FRAME_FIX = '<style>html,body{background:transparent!important}.frame{border:0!important;background:transparent!important}</style>';
 function withFrameFix(html) { return /<\/head>/i.test(html) ? html.replace(/<\/head>/i, FRAME_FIX + '</head>') : FRAME_FIX + html; }
+/* ═══════════ Сет книги в визуалах ═══════════
+   Краски и орнамент ТЕКУЩИХ буквиц и виньеток (книга + тема + режим): bookArt() собирает их для генерации
+   (игре — мотив орнамента и сама буквица образцом, иллюстрации — краски и мотив), artApply() — при показе игры:
+   шаблонные краски игры (ART_TEMPLATE, из INTERACTIVE_KIT в supabase/functions/ai) перекрашиваются в краски сета,
+   метки rm:vignette и rm:initial заменяются виньеткой и буквицей книги. Игры старше меток получают их здесь же.
+   Сменили тему или книгу — игра показывается уже в новом сете, перегенерировать не нужно. Фон под игрой всегда
+   светлый (--visual-bg), поэтому слишком светлые краски (Dusk) притемняются. */
+const ART_TEMPLATE = { ink: '#2B2623', quiet: '#6E655C', accent: '#A23B33', deep: '#7E2A24', tint: '#EBCFCA', band: '#F0E8DA', axis: '#B9A98F', leaf: '#6F7F5E', leafFill: '#8A9A78' };
+const hexRgb = h => { const v = parseInt(String(h).slice(1), 16); return [v >> 16 & 255, v >> 8 & 255, v & 255]; };
+const hexMix = (a, b, t) => '#' + hexRgb(a).map((x, i) => Math.round(x + (hexRgb(b)[i] - x) * t).toString(16).padStart(2, '0')).join('').toUpperCase();
+const hexSat = h => { const c = hexRgb(h); return (Math.max(...c) - Math.min(...c)) / 255; };
+const isHex = h => /^#[0-9a-f]{6}$/i.test(h || '');
+function hexReadable(h, maxLum) { let x = h; for (let i = 0; i < 12 && hexLum(x) > maxLum; i++) x = hexMix(x, '#000000', 0.12); return x; }
+async function bookArt() {
+  const sid = currentStyleId(), st = STYLES[sid], mode = modeOf(sid), pal = st.initialisPalette || [];
+  let P = null; try { P = await iniSettingsFor(sid, 'A', 0); } catch (e) {}
+  let ink, accent, leafInk, orn;
+  if (mode === 'vine' || !P) { ink = st.initialis.inkB; accent = st.initialis.inkA; leafInk = pal[2] || ART_TEMPLATE.leaf; orn = vigInkOf(st, 'ink'); }
+  else if (mode === 'varied') { ink = pal[0]; accent = pal[1]; leafInk = pal[2]; orn = P['ink' + (['A', 'B', 'C'].includes(P.fField) ? P.fField : 'A')]; }
+  else { // родные краски подборки: самая тёмная — чернила, самая яркая из остальных — акцент
+    const ks = ['inkA', 'inkB', 'inkC'].map(k => P[k]).filter(isHex).sort((a, b) => hexLum(a) - hexLum(b));
+    const rest = ks.slice(1).sort((a, b) => hexSat(b) - hexSat(a));
+    ink = ks[0]; accent = rest[0] || ks[0]; leafInk = rest[1] || accent; orn = P['ink' + (['A', 'B', 'C'].includes(P.fField) ? P.fField : 'A')];
+  }
+  ink = hexReadable(isHex(ink) ? ink : ART_TEMPLATE.ink, 0.25);
+  accent = hexReadable(isHex(accent) ? accent : ART_TEMPLATE.accent, 0.5);
+  leafInk = hexReadable(isHex(leafInk) ? leafInk : ART_TEMPLATE.leaf, 0.5);
+  orn = hexReadable(isHex(orn) ? orn : accent, 0.5);
+  const src = mode === 'vine' || !P ? vigSettings(sid, bookSet(sid) % 1000) : P, has = k => src[k] && src[k] !== 'none';
+  const ornament = mode === 'vine' || !P || P.orn !== 'none';
+  return { sid, ink, accent, orn, leafInk,
+    leaf: ornament && has('oLeaf') ? String(src.oLeaf) : '', flower: ornament && has('oFlower') ? String(src.oFlower) : '',
+    texture: has('tKind') ? String(src.tKind) : '' };
+}
+// краски шаблона → краски сета (один проход по всем цветам, без цепочек замен)
+function artColors(a) {
+  return { ink: a.ink, quiet: hexMix(a.ink, '#FFFFFF', 0.38), accent: a.accent, deep: hexMix(a.accent, '#000000', 0.3), tint: hexMix(a.accent, '#FFFFFF', 0.78),
+    band: hexMix(a.orn, '#FFFFFF', 0.9), axis: hexMix(a.orn, '#FFFFFF', 0.55), leaf: a.leafInk, leafFill: hexMix(a.leafInk, '#FFFFFF', 0.2) };
+}
+// для запроса: краски, мотив и буквица книги образцом (буква — первая главы не важна, нужен сам сет)
+async function bookArtPayload(withRef) {
+  try {
+    const a = await bookArt(), out = { ink: a.ink, accent: a.accent, orn: a.orn, leafInk: a.leafInk, leaf: a.leaf, flower: a.flower, texture: a.texture };
+    if (withRef && dropcapsOn()) { const ref = await iniImage(a.sid, 'A', 0); if (ref && ref.length < 400000) out.ref = ref; }
+    return out;
+  } catch (e) { console.warn('bookArt:', e); return null; }
+}
+async function artApply(html, key) {
+  let a; try { a = await bookArt(); } catch (e) { return html; }
+  const C = artColors(a), from = {};
+  for (const [k, h] of Object.entries(ART_TEMPLATE)) from[h.slice(1).toUpperCase()] = C[k];
+  let out = html.replace(/#(2B2623|6E655C|A23B33|7E2A24|EBCFCA|F0E8DA|B9A98F|6F7F5E|8A9A78)\b/gi, (m, h) => from[h.toUpperCase()] || m);
+  // игры, сделанные до меток: виньетка — первой в body, буквица — к началу цели (только латиница, как у буквиц книги)
+  if (!/rm:vignette/.test(out)) out = out.replace(/<body\b[^>]*>/i, m => m + '<img class="vig" src="rm:vignette" alt="" aria-hidden="true">');
+  if (!/rm:initial/.test(out)) out = out.replace(/(<p\b[^>]*class=["'][^"']*\bgoal\b[^"']*["'][^>]*>)\s*([A-Za-z])/i, '<div class="lead" data-rm-lead>$1<img class="ini" src="rm:initial" alt="$2">');
+  out = out.replace(/(<div class="lead" data-rm-lead>[\s\S]*?<\/p>)(\s*<p\b[^>]*class=["'][^"']*\btr\b[^"']*["'][^>]*>[\s\S]*?<\/p>)?/, '$1$2</div>'); // с переводом цели
+  const on = dropcapsOn();
+  const vig = on ? await vigImage(a.sid, Math.abs(hashStr(key || '')) % 1000).catch(() => null) : null;
+  out = out.replace(/<img\b[^>]*\bsrc=["']rm:vignette["'][^>]*>/gi, vig ? `<img class="vig" data-rm="rm:vignette" src="${vig}" alt="" aria-hidden="true">` : '');
+  const tags = [...out.matchAll(/<img\b[^>]*\bsrc=["']rm:initial["'][^>]*>/gi)].map(m => m[0]);
+  for (const tag of new Set(tags)) {
+    const L = ((/\balt=["']([^"']*)["']/i.exec(tag) || [])[1] || '').trim().charAt(0);
+    const url = on && /^[A-Za-z]$/.test(L) ? await iniImage(a.sid, L.toUpperCase(), 0).catch(() => null) : null;
+    out = out.split(tag).join(url ? `<img class="ini" data-rm="rm:initial" src="${url}" alt="${esc(L)}">` : `<span class="ini ini-txt">${esc(L)}</span>`);
+  }
+  const css = `<style>.vig{display:block;width:100%;max-width:560px;height:auto;margin:0 auto;flex:none}.lead{display:flow-root}` +
+    `.lead .ini{float:left;width:66px;height:66px;margin:3px 14px 0 0}.lead .goal,.lead .tr{text-align:left}` +
+    `.ini-txt{width:auto!important;height:auto!important;font:600 62px/54px 'Cormorant Garamond',Georgia,serif;color:${C.accent};margin:2px 8px 0 0!important}` +
+    `.frame::before{border-color:${a.orn}!important}` +
+    // тёмная тема (Dusk): буквица и виньетка светлые, под тёмную страницу — на светлом фоне игры притемняем, как краски выше
+    (hexLum((STYLES[a.sid].preview || {}).bg || '#FFFFFF') < 0.4 ? `img.vig,img.ini{filter:brightness(.45) contrast(1.4)}` : '') + `</style>`;
+  return /<\/head>/i.test(out) ? out.replace(/<\/head>/i, css + '</head>') : css + out;
+}
 function withHeightScript(html) {
   return /<\/body>/i.test(html) ? html.replace(/<\/body>/i, HEIGHT_SCRIPT + '</body>') : html + HEIGHT_SCRIPT;
 }
@@ -4563,7 +4637,7 @@ function showInteractiveInPanel(rec, notice) {
   ensureVisualTitle('io', rec);
   const frame = $('interactive-frame');
   ioContentH = 0; requestAnimationFrame(ioFit);
-  loadD3Src().then(lib => { if (frame.isConnected) frame.srcdoc = withCsp(withHeightScript(withFrameFix(rec.snap ? rec.html : withSnapshotScript(rec.html))), lib); });
+  Promise.all([loadD3Src(), artApply(rec.html, rec.cfi)]).then(([lib, html]) => { if (frame.isConnected) frame.srcdoc = withCsp(withHeightScript(withFrameFix(rec.snap ? html : withSnapshotScript(html))), lib); });
 }
 function deleteInteractive() {
   const rec = currentInteractive;
@@ -4666,7 +4740,7 @@ async function makeIllustration(feedback) {
   toast('Painting the scene… this can take up to a minute');
   try {
     const noteId = 'pg' + Math.abs(hashStr(bookId + '|' + cfi)).toString(36);
-    const res = await aiProxy({ action: 'illustrate', text: text.slice(0, 400), para: text, chapter: '', title: currentMeta.title || '', author: currentMeta.author || '', noteId, bookId, style: getIllusStyle(), feedback: redraw ? feedback : '' }, null, 150000);
+    const res = await aiProxy({ action: 'illustrate', text: text.slice(0, 400), para: text, chapter: '', title: currentMeta.title || '', author: currentMeta.author || '', noteId, bookId, style: getIllusStyle(), feedback: redraw ? feedback : '', art: await bookArtPayload(false) }, null, 150000);
     if (res.status === 403) { console.warn('[illustrate] 403: built-in library book — curator only'); toast('Illustrations for the built-in library are curated by the Reymont team only'); return; }
     if (res.status === 402) { console.warn('[illustrate] 402: free limit reached'); showPaywall('generations'); return; }
     if (!res.ok) { let m = 'HTTP ' + res.status; try { m = (await res.json()).error.message; } catch (e) {} throw new Error(m); }
@@ -5035,7 +5109,7 @@ async function buildInteractive(action, cfi, text, prevRec, feedback) {
       <div class="io-note">Usually takes 20–60 seconds. You can keep reading — the view will open here when ready.</div>
     </div>`);
   try {
-    const payload = { action, text, lang: settings.lang, title: currentMeta.title || '', author: currentMeta.author || '' };
+    const payload = { action, text, lang: settings.lang, title: currentMeta.title || '', author: currentMeta.author || '', art: await bookArtPayload(true) };
     if (improving) { payload.html = prevRec.html; payload.feedback = feedback; }
     console.log(`[interactive] ${action} → page ${text.length} chars` + (improving ? `, current code ${prevRec.html.length} chars, feedback ${JSON.stringify(feedback)}` : ''));
     const res = await aiProxy(payload, null, 170000); // Claude с длинным ответом может думать дольше минуты
