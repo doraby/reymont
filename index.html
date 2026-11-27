@@ -269,13 +269,15 @@
      нижнюю панель на тач-устройствах. */
   /* Теперь единственный способ показать/спрятать меню на любом устройстве — не только
      тач: ховер на десктопе раньше сам открывал/закрывал топбар, что мешало читать. */
-  #chrome-toggle-btn {
+  #hl-fab {
     display: flex; position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); right: 12px;
     width: 38px; height: 38px; border-radius: 50%; border: none; cursor: pointer;
     background: var(--surface); color: var(--muted);
     z-index: 220; align-items: center; justify-content: center;
   }
-  #chrome-toggle-btn svg { transition: transform .2s; }
+  #hl-fab:hover { color: var(--accent); }
+  /* на телефоне панель во весь экран — угловая кнопка закрыла бы её ✕, поэтому пока панель открыта, её нет */
+  body:not(.split).panel-open #hl-fab { display: none; }
   /* «Назад» при свёрнутом меню — та же круглая кнопка, зеркально в левом верхнем углу. */
   #float-back-btn {
     display: none; position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); left: 12px;
@@ -307,7 +309,7 @@
   body.panel-resizing #reading-col, body.panel-resizing #panel { transition: none; }
   body.split.panel-open #topbar { right: var(--panel-w); } /* нижняя полоса и так внутри колонки текста */
   /* Стрелка меню — снаружи панели, в правом верхнем углу колонки текста */
-  body.split.panel-open #chrome-toggle-btn { right: calc(var(--panel-w) + 12px); }
+  body.split.panel-open #hl-fab { right: calc(var(--panel-w) + 12px); }
   body.split.panel-open #font-controls { right: calc(var(--panel-w) + 12px); }
 
   /* Диаграмма и интерактив страницы (Premium) — простые иконки НАД текстом книги (не в меню и без кружков).
@@ -436,7 +438,6 @@
   .io-bar i { display: block; height: 100%; width: 2%; background: var(--accent); transition: width 1s linear; }
   .io-elapsed { margin-top: 8px; font-variant-numeric: tabular-nums; color: var(--muted); }
   .io-note { margin-top: 16px; font-size: 13px; color: var(--muted); }
-  #reader.chrome-hidden #chrome-toggle-btn svg { transform: rotate(180deg); }
 
   /* Кнопки размера шрифта — справа под топбаром, видны только когда открыто меню
      (топбар показан); в chrome-hidden прячутся вместе с ним. */
@@ -505,9 +506,13 @@
     position: absolute; z-index: 15;
     right: calc(max(var(--page-gutter), (100% - var(--page-measure)) / 2) + var(--page-col-gap) / 2 + var(--page-text-inset));
     bottom: calc(var(--folio-bottom) + env(safe-area-inset-bottom, 0px));
-    font-size: 12px; color: var(--muted); font-variant-numeric: oldstyle-nums; pointer-events: none;
+    font-size: 12px; color: var(--muted); font-variant-numeric: oldstyle-nums; cursor: pointer;
+    padding: var(--space-3); margin: calc(-1 * var(--space-3)); /* зона нажатия больше самих цифр, место — то же */
+    -webkit-tap-highlight-color: transparent;
   }
-  #reader:not(.chrome-hidden) #page-corner { display: none; }
+  /* Клик по номеру страницы показывает и прячет верхнее и нижнее меню; пока меню открыто — номер над нижней полосой */
+  #page-corner:hover { color: var(--text); }
+  #reader:not(.chrome-hidden) #page-corner { bottom: calc(var(--bottombar-h) + var(--space-2) + env(safe-area-inset-bottom, 0px)); color: var(--text); }
 
   #hint {
     position: absolute; left: 50%; top: var(--space-4); transform: translateX(-50%); width: max-content; max-width: calc(100% - 2 * var(--space-4)); text-align: center;
@@ -571,13 +576,6 @@
     display: flex; align-items: center; justify-content: flex-end;
     padding: var(--space-3) var(--space-4) var(--space-1);
   }
-  /* #chrome-toggle-btn — фиксированная кнопка в углу (38px, right:12px) — на тач-устройствах
-     физически перекрывает свою же кнопку ✕ панели в том же углу. toggleChrome() уже умеет
-     закрывать панель по тапу на неё, но саму ✕ всё равно стоит увести из-под неё. */
-  .is-touch .panel-head { padding-right: calc(38px + var(--space-3) + var(--space-2)); } /* кнопка 38px + её отступ от края + зазор */
-  /* На тач это уже дублирует #chrome-toggle-btn (закрывает панель по тапу в углу) —
-     на мобилке своя ✕ у панели больше не нужна, только на десктопе (там угловой кнопки нет). */
-  .is-touch #panel-close-btn { display: none; }
   #panel-scroll { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
   #panel-body { flex: 1 0 auto; padding: 0 var(--panel-pad-x) var(--panel-pad-bottom); }
 
@@ -867,8 +865,9 @@
 
 <!-- ════════ Reader ════════ -->
 <div id="reader">
-  <button id="chrome-toggle-btn" onclick="toggleChrome()" title="Show/hide menu" aria-label="Show/hide menu">
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+  <!-- Хайлайты — всегда видимая кнопка в правом верхнем углу (меню показывает клик по номеру страницы) -->
+  <button id="hl-fab" onclick="openHighlightsPanel()" title="Highlights" aria-label="Highlights">
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
   </button>
   <button id="float-back-btn" onclick="backToLibrary()" title="Back to library" aria-label="Back to library">
     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
@@ -879,9 +878,6 @@
     </button>
     <div id="tb-title"></div>
     <button id="tb-panel-btn" class="icon-btn" onclick="togglePanelCollapsed()" title="Show panel" aria-label="Show panel"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg></button>
-    <button class="icon-btn" onclick="openHighlightsPanel()" title="Highlights" aria-label="Highlights">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-    </button>
   </div>
   <div id="font-controls">
     <button class="font-btn" onclick="changeFontSize(-1)" title="Smaller text" aria-label="Smaller text">−</button>
@@ -906,7 +902,7 @@
         <button id="nav-prev" class="nav-btn" aria-label="Previous page">‹</button>
         <button id="nav-next" class="nav-btn" aria-label="Next page">›</button>
         <div id="hint" class="hide">Select any phrase to get an illustrated explanation</div>
-        <div id="page-corner" aria-hidden="true"></div>
+        <div id="page-corner" role="button" tabindex="0" title="Show/hide menu" aria-label="Show/hide menu" onclick="toggleChrome()" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleChrome(); }"></div>
       </div>
       <div id="bottombar" onclick="toggleToc(true)" title="Contents" role="button" aria-label="Contents">
         <span id="chapter-label"></span>
@@ -2112,7 +2108,7 @@ function vigTuneCopy() {
    под ним та же готовая картинка. Кадр — <img>-вставка с INS_CLASS: epub.js не считает её в CFI, а withoutInsertions
    убирает её на время пересчётов. Играет при каждом показе первой страницы главы (но не пока книга открывается
    и восстанавливает место); при prefers-reduced-motion не играем. */
-const INI_GROW_S = 2.6;
+const INI_GROW_S = 1.5; // рост буквиц и виньеток, с
 const iniGrownEls = new WeakSet(); // абзацы, у которых рост уже сыгран (новая отрисовка главы — новые абзацы, играет снова)
 let iniReady = false; // false, пока книга открывается и восстанавливает место — анимацию тогда не видно, не тратим её
 /* Пока не ясно, будет ли рост (глава только отрисована, книга ещё открывается), готовая буквица не показывается —
@@ -2995,7 +2991,7 @@ function updateProgress(loc) {
   const ch = findChapter(loc.start.href);
   $('chapter-label').textContent = ch || '';
   const pp = pageOfCfi(loc.start.cfi);
-  $('page-corner').textContent = pp ? String(pp.page) : '';
+  $('page-corner').textContent = pp ? String(pp.page) : '·'; // точка, пока номер не посчитан: по ней тоже открывается меню
   markTocActive(loc.start.href, pp && pp.page);
   if (currentBookId && !useCloudPos() && locationsReady) dbGet('books', currentBookId).then(rec => { if (rec) { rec.progress = pct; dbPut('books', rec); } });
 }
@@ -3250,10 +3246,8 @@ function stopSelectionPoll() {
 }
 
 /* ═══════════ Immersive reading — hide topbar/bottombar while reading ═══════════
-   Только по кнопке #chrome-toggle-btn, на любом устройстве — раньше на десктопе
-   ещё и ховер мышью над текстом сам показывал/прятал меню, что мешало читать.
-   #chrome-toggle-btn — реальная кнопка снаружи iframe, не зависит от ненадёжных
-   touch-событий внутри контента на iOS Safari. */
+   По клику на номер страницы (#page-corner), на любом устройстве — раньше была угловая кнопка-стрелка, теперь там
+   кнопка хайлайтов. Номер — элемент снаружи iframe, не зависит от ненадёжных touch-событий внутри контента на iOS Safari. */
 function setChromeHidden(hidden) { $('reader').classList.toggle('chrome-hidden', hidden); }
 let panelCollapsed = false; // десктоп: панель свёрнута своей кнопкой (в шапке панели / справа на краю)
 /* Ширина панели тянется за её внутренний край; запоминается в браузере. Страницы перевёрстываются один раз — когда отпустили. */
@@ -3297,11 +3291,7 @@ function toggleChrome() {
   // Живёт снаружи iframe с фиксированной позицией в углу — там же обычно и своя
   // кнопка ✕ открытой панели/TOC, только под ней и не видна. Раз кнопка тут одна,
   // при открытой панели/TOC она должна закрывать их, а не прятать топбар за ними.
-  if (($('panel').classList.contains('open') && panelOwner !== 'home') || $('toc').classList.contains('open')) {
-    closePanel();
-    toggleToc(false);
-    return;
-  }
+  if ($('toc').classList.contains('open')) { toggleToc(false); return; }
   setChromeHidden(!$('reader').classList.contains('chrome-hidden'));
 }
 
