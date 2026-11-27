@@ -1154,6 +1154,7 @@
   <div class="vt-btns">
     <button class="btn primary" onclick="vigTuneApply()">Apply to page</button>
     <button class="btn" onclick="vigTuneReset()">Reset</button>
+    <button class="btn" onclick="vigTuneRandom()">Randomize</button>
     <button class="btn" onclick="vigTuneCopy()">Copy settings</button>
   </div>
 </div>
@@ -2120,6 +2121,25 @@ function vigTuneApply() {
 function vigTuneReset() {
   try { localStorage.removeItem(VIG_TUNE_KEY); } catch (e) {}
   VIG = vigLoad(); vigRev++; vtBuild(); vtPreview(); refreshVignettes();
+}
+/* «Randomize»: случайный вид виньетки — лоза, детали, распределение красок и сами краски (из книжных тонов),
+   вариант раскладки. Видно в превью; на страницу — кнопкой Apply. Форма, ширина и прозрачность не трогаются. */
+const VT_INKS = ['#1F1E1B', '#B3261E', '#2C4A6B', '#5E6B45', '#A8742A', '#7E3648', '#3F6A94', '#C15F3C', '#6F7F5E'];
+function vigTuneRandom() {
+  const pick = a => a[Math.floor(Math.random() * a.length)], rnd = (lo, hi, st) => Math.round((lo + Math.random() * (hi - lo)) / st) * st;
+  const inks = [...VT_INKS].sort(() => Math.random() - 0.5);
+  VIG.ink = inks[0]; VIG.inkB = inks[1]; VIG.inkC = inks[2];
+  Object.assign(VIG.look, {
+    oLeaf: pick(VT_LEAVES.filter(x => x !== 'none')), oFlower: pick(VT_FLOWERS),
+    oStemStyle: pick(['solid', 'dotted', 'beaded', 'dashed', 'double', 'thorny']), oSeeds: pick(['gaps', 'root', 'corners']),
+    oDensity: rnd(0.3, 0.85, 0.01), oStemW: rnd(2, 14, 0.2), oLeafSize: rnd(0.6, 2, 0.05), oFlowerSize: rnd(0.5, 1.8, 0.05),
+    oBerrySize: rnd(0.2, 1.4, 0.05), oFlowerChance: rnd(0, 0.6, 0.01), oBerries: rnd(0, 0.8, 0.01), oCurl: rnd(0, 0.9, 0.01),
+    oFill: pick(['A', 'A', 'B', 'C']), oStroke: pick(['none', 'none', 'A', 'B', 'C']), oStrokeW: rnd(0.6, 3, 0.1),
+    oDetail: pick(['none', 'vein', 'veins', 'hatch', 'inline']), oDetailColor: pick(['auto', 'A', 'B', 'C', 'paper']),
+    tKind: pick(['none', 'none', 'none', 'stipple', 'bubbles', 'ripples', 'streams', 'cells']), tColor: pick(['auto', 'A', 'B', 'C']), tScale: rnd(5, 18, 0.5),
+  });
+  vtVariant = Math.floor(Math.random() * 1000);
+  vtBuild(); vtPreview();
 }
 function vigTuneCopy() {
   const t = JSON.stringify({ box: VIG.box, ink: VIG.ink, inkB: VIG.inkB, inkC: VIG.inkC, alpha: VIG.alpha, look: VIG.look, cssW: VIG.cssW });
