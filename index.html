@@ -1897,25 +1897,34 @@ const VIG_DEFAULT = {
   ink: 'auto', // краска лозы: 'auto' — акцент темы (initialis.inkA, как у буквиц); или конкретный цвет
   alpha: 0.8, // непрозрачность полосы (вшивается в картинку, иконка поверх остаётся яркой)
   // oLeaf/oFlower: 'auto' — из вариантов буквиц (initialisVary) по странице
-  look: { oLeaf: 'auto', oFlower: 'auto', oStemStyle: 'dotted', oDensity: 0.55, oStemW: 8, oLeafSize: 1, oFlowerSize: 1.4, oBerrySize: 0.2, oFlowerChance: 0.29, oBerries: 0.08, oCurl: 0.15, oSeeds: 'gaps', rough: 0 },
+  inkB: 'auto', inkC: 'auto', // вторая и третья краски: 'auto' — из палитры темы (initialisPalette[0] и [2])
+  // что какой краской: oFill — орнамент целиком, oStroke — контур, oDetailColor — жилки/штриховка, tColor — текстура в просветах
+  look: { oLeaf: 'auto', oFlower: 'auto', oStemStyle: 'dotted', oDensity: 0.55, oStemW: 8, oLeafSize: 1, oFlowerSize: 1.4, oBerrySize: 0.2, oFlowerChance: 0.29, oBerries: 0.08, oCurl: 0.15, oSeeds: 'gaps', rough: 0,
+    oFill: 'A', oStroke: 'none', oStrokeW: 1.5, oDetail: 'veins', oDetailColor: 'auto', tKind: 'none', tColor: 'auto', tScale: 9 },
   cssW: 680, // ширина полосы на широкой колонке (на узкой — во всю колонку)
 };
 /* Текущие настройки: по умолчанию из кода, поверх — правки из временной панели (кнопка рядом с bug), в этом браузере. */
 const VIG_TUNE_KEY = 'rm-vig-tune';
 function vigLoad() {
   const v = JSON.parse(JSON.stringify(VIG_DEFAULT));
-  try { const o = JSON.parse(localStorage.getItem(VIG_TUNE_KEY) || 'null'); if (o) { Object.assign(v.box, o.box); Object.assign(v.look, o.look); if (o.ink) v.ink = o.ink; if (o.cssW) v.cssW = o.cssW; if (o.alpha != null) v.alpha = o.alpha; } } catch (e) {}
+  try { const o = JSON.parse(localStorage.getItem(VIG_TUNE_KEY) || 'null'); if (o) { Object.assign(v.box, o.box); Object.assign(v.look, o.look); if (o.ink) v.ink = o.ink; if (o.inkB) v.inkB = o.inkB; if (o.inkC) v.inkC = o.inkC; if (o.cssW) v.cssW = o.cssW; if (o.alpha != null) v.alpha = o.alpha; } } catch (e) {}
   return v;
 }
 let VIG = vigLoad(), vigRev = 0; // vigRev меняется при правке — ключи кэша в памяти становятся новыми
 // где на квадрате 1000×1000 лежит форма (поле внутри полей fMargin = 40) — по этой рамке обрезаем
 function vigCrop() { const f = 920, pad = 10, w = f * VIG.box.fBoxW + 2 * pad, h = f * VIG.box.fBoxH + 2 * pad; return { x: 500 - w / 2, y: 500 - h / 2, w, h }; }
 let vigBoxReady = null;
+// краски виньетки: 'auto' — от темы (A — vigInk или акцент; B — цвет текста палитры; C — третья краска палитры)
+function vigInkOf(st, k) {
+  if (VIG[k] && VIG[k] !== 'auto') return VIG[k];
+  const pal = st.initialisPalette || [];
+  return k === 'ink' ? (st.vigInk || st.initialis.inkA) : k === 'inkB' ? (pal[0] || st.book.ink) : (pal[2] || st.initialis.inkA);
+}
 function vigSettings(styleId, v) {
   const st = STYLES[styleId], look = {};
   for (const [k, x] of Object.entries(VIG.look)) if (x !== 'auto') look[k] = x;
   const P = Object.assign({}, st.initialis, VIG.box,
-    { text: ' ', frame: 'box', fRules: 0, fField: 'paper', oFill: 'A', seed: v + 1, inkA: VIG.ink === 'auto' ? (st.vigInk || st.initialis.inkA) : VIG.ink });
+    { text: ' ', frame: 'box', fRules: 0, fField: 'paper', oFill: 'A', seed: v + 1, inkA: vigInkOf(st, 'ink'), inkB: vigInkOf(st, 'inkB'), inkC: vigInkOf(st, 'inkC') });
   for (const [k, list] of Object.entries(st.initialisVary || {})) P[k] = list[v % list.length];
   return Object.assign(P, look);
 }
@@ -2031,7 +2040,17 @@ const VT_FLOWERS = ['auto', 'none', 'rosette', 'daisy', 'rose', 'star', 'phyllo'
 const VT_SPEC = [ // [где, ключ, подпись, тип, варианты или [min,max,step]]
   ['ini', 'mode', 'INITIALS + vignettes set (applies at once; look sliders below work in "vine")', 'sel', INI_MODES],
   ['vt', 'variant', 'preview variant (each page has its own)', 'num', [0, 999, 1]],
-  ['root', 'ink', 'ink', 'color'],
+  ['root', 'ink', 'ink A', 'color'],
+  ['root', 'inkB', 'ink B', 'color'],
+  ['root', 'inkC', 'ink C', 'color'],
+  ['look', 'oFill', 'ornament ink (stems, leaves, flowers)', 'sel', ['A', 'B', 'C']],
+  ['look', 'oStroke', 'outline ink', 'sel', ['none', 'A', 'B', 'C']],
+  ['look', 'oStrokeW', 'outline width', 'num', [0.3, 8, 0.1]],
+  ['look', 'oDetail', 'detail', 'sel', ['none', 'vein', 'veins', 'hatch', 'inline']],
+  ['look', 'oDetailColor', 'detail ink', 'sel', ['auto', 'A', 'B', 'C', 'paper']],
+  ['look', 'tKind', 'texture in the gaps', 'sel', ['none', 'stipple', 'bubbles', 'ripples', 'streams', 'fur', 'cells', 'truchet']],
+  ['look', 'tColor', 'texture ink', 'sel', ['auto', 'A', 'B', 'C']],
+  ['look', 'tScale', 'texture step', 'num', [2, 60, 0.5]],
   ['root', 'alpha', 'opacity', 'num', [0.05, 1, 0.01]],
   ['root', 'cssW', 'strip width, px', 'num', [240, 900, 10]],
   ['box', 'fBoxH', 'strip height (box)', 'num', [0.06, 0.4, 0.002]],
@@ -2052,7 +2071,7 @@ const VT_SPEC = [ // [где, ключ, подпись, тип, варианты
 let vtVariant = 7, vtTimer = 0, vtRun = 0;
 function vtGet(where, k) {
   if (where === 'ini') return modeOf(currentStyleId());
-  if (where === 'root' && k === 'ink' && VIG.ink === 'auto') { const st = STYLES[currentStyleId()]; return st.vigInk || st.initialis.inkA; } // 'auto' — краска темы
+  if (where === 'root' && /^ink[BC]?$/.test(k)) return vigInkOf(STYLES[currentStyleId()], k); // 'auto' — краска темы
   return where === 'vt' ? vtVariant : where === 'root' ? VIG[k] : VIG[where][k];
 }
 function vtSet(where, k, v) {
@@ -2095,7 +2114,7 @@ function toggleVigTune(force) {
   if (on) { vtBuild(); vtPreview(); }
 }
 function vigTuneApply() {
-  try { localStorage.setItem(VIG_TUNE_KEY, JSON.stringify({ box: VIG.box, look: VIG.look, ink: VIG.ink, cssW: VIG.cssW, alpha: VIG.alpha })); } catch (e) {}
+  try { localStorage.setItem(VIG_TUNE_KEY, JSON.stringify({ box: VIG.box, look: VIG.look, ink: VIG.ink, inkB: VIG.inkB, inkC: VIG.inkC, cssW: VIG.cssW, alpha: VIG.alpha })); } catch (e) {}
   vigRev++; refreshVignettes(); toast('Vignettes redrawn');
 }
 function vigTuneReset() {
@@ -2103,7 +2122,7 @@ function vigTuneReset() {
   VIG = vigLoad(); vigRev++; vtBuild(); vtPreview(); refreshVignettes();
 }
 function vigTuneCopy() {
-  const t = JSON.stringify({ box: VIG.box, ink: VIG.ink, alpha: VIG.alpha, look: VIG.look, cssW: VIG.cssW });
+  const t = JSON.stringify({ box: VIG.box, ink: VIG.ink, inkB: VIG.inkB, inkC: VIG.inkC, alpha: VIG.alpha, look: VIG.look, cssW: VIG.cssW });
   (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast('Settings copied'), () => prompt('Settings:', t));
 }
 /* Рост орнамента: когда читатель на первой странице главы, поверх буквицы ставится холст и библиотека
