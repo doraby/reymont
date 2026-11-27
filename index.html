@@ -1043,15 +1043,15 @@
 <!-- ════════ Interactive feedback modal ════════ -->
 <div id="fb-overlay">
   <div class="modal">
-    <h2>What didn’t you like?</h2>
-    <div class="m-sub">Your comment and the current code are sent to the AI, which rebuilds the view to fix it.</div>
+    <h2 id="fb-title">What didn’t you like?</h2>
+    <div class="m-sub" id="fb-sub">Your comment is sent to the AI, which redraws it to fix it.</div>
     <div class="field">
-      <textarea id="in-fb" rows="4" maxlength="800" placeholder="E.g. too empty, text is hard to read, wrong characters, I wanted a map of the room…"></textarea>
+      <textarea id="in-fb" rows="4" maxlength="800" placeholder="E.g. too empty, text is hard to read, wrong characters…"></textarea>
       <div class="note">Optional — without a comment the AI fixes the most obvious weaknesses.</div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeFeedback()">Cancel</button>
-      <button class="btn primary" onclick="submitFeedback()">Improve it</button>
+      <button class="btn primary" onclick="submitFeedback()">Redraw</button>
     </div>
   </div>
 </div>
@@ -1131,7 +1131,7 @@
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" onclick="saveSettings()">Save</button>
     </div>
-    <div class="settings-version" onclick="handleVersionTap()">v3.196</div>
+    <div class="settings-version" onclick="handleVersionTap()">v3.197</div>
   </div>
 </div>
 
@@ -1254,7 +1254,7 @@ console.log('Reymont v3.68 |', navigator.userAgent);
 <script>
 /* ════════════════════════ State & settings ════════════════════════ */
 function safeResize() { try { if (typeof rendition !== 'undefined' && rendition && rendition.manager) rendition.resize(); } catch (e) {} }
-const APP_VERSION = '3.196'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
+const APP_VERSION = '3.197'; // поднимать при каждом деплое — и в статичном бейдже .settings-version в HTML
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 
@@ -4559,7 +4559,7 @@ window.addEventListener('message', e => {
 function showInteractiveInPanel(rec, notice) {
   currentInteractive = rec;
   vzShow('io-view', `${notice ? `<div class="io-notice">${esc(notice)}</div>` : ''}<iframe id="interactive-frame" sandbox="allow-scripts" title="Game"></iframe>`
-    + vzBar(vzRedraw('redrawGame()') + vzFullscreen(), rec.title)); // как у диаграммы и иллюстрации: одна кнопка «перерисовать»
+    + vzBar(vzRedraw("openFeedback('io')") + vzFullscreen(), rec.title)); // как у диаграммы и иллюстрации: одна кнопка «перерисовать»
   ensureVisualTitle('io', rec);
   const frame = $('interactive-frame');
   ioContentH = 0; requestAnimationFrame(ioFit);
@@ -4580,13 +4580,36 @@ function deleteInteractive() {
   vzAfterDelete();
   toast('Game deleted');
 }
-function openFeedback() { $('in-fb').value = ''; $('fb-overlay').classList.add('open'); }
+/* Кнопка «перерисовать» у игры, диаграммы и иллюстрации открывает одно окно: что не понравилось / что поменять —
+   и перерисовывает с этим уточнением (игру — правкой текущего кода, диаграмму и картинку — заново с пожеланием). */
+const FB_KIND = {
+  io: { title: 'What didn’t you like in the game?', sub: 'Your comment and the current game are sent to the AI, which rebuilds it to fix it.',
+        ph: 'E.g. too empty, text is hard to read, wrong characters, I wanted a map of the room…' },
+  dg: { title: 'What didn’t you like in the diagram?', sub: 'Your comment is sent to the AI, which draws the diagram again with it in mind.',
+        ph: 'E.g. show who talks to whom, fewer boxes, add the places, it missed the main event…' },
+  il: { title: 'What didn’t you like in the illustration?', sub: 'Your comment is added to the prompt, and the scene is painted again.',
+        ph: 'E.g. night, not day; she has dark hair; show the whole room; fewer people…' },
+};
+let fbKind = null;
+function openFeedback(k) {
+  if (k === 'io' ? (!currentInteractive || interactiveBusy) : k === 'dg' ? diagramBusy : illusBusy) return;
+  if (k !== 'il' && generationBlocked()) { showPaywall('generations'); return; }
+  fbKind = k;
+  const f = FB_KIND[k];
+  $('fb-title').textContent = f.title; $('fb-sub').textContent = f.sub; $('in-fb').placeholder = f.ph;
+  $('in-fb').value = ''; $('fb-overlay').classList.add('open');
+  setTimeout(() => $('in-fb').focus(), 30);
+}
 function closeFeedback() { $('fb-overlay').classList.remove('open'); }
 function submitFeedback() {
-  const rec = currentInteractive;
-  const feedback = $('in-fb').value.trim().slice(0, 800);
+  const feedback = $('in-fb').value.trim().slice(0, 800), k = fbKind;
   closeFeedback();
-  if (rec) buildInteractive('diagram_html_improve', rec.cfi, rec.text || currentPageText().slice(0, 3000) || 'n/a', rec, feedback);
+  console.log(`[redraw] ${k}: feedback ${JSON.stringify(feedback)}`);
+  if (k === 'io') {
+    const rec = currentInteractive;
+    if (rec) buildInteractive('diagram_html_improve', rec.cfi, rec.text || currentPageText().slice(0, 3000) || 'n/a', rec, feedback);
+  } else if (k === 'dg') makeDiagram(feedback);
+  else if (k === 'il') makeIllustration(feedback);
 }
 /* Перейти на страницу интерактива: сначала по CFI; если он не разрешился — по главе; затем проверяем, что сама
    метка интерактива на показанной странице, и если нет — переходим к блоку, перед которым она стоит. */
@@ -4626,8 +4649,9 @@ function deletePageIllustration(rec) {
   renderNotesList(); updateRail();
   toast('Illustration deleted');
 }
-async function makeIllustration() {
-  console.log(`[illustrate] click: style=${getIllusStyle()} busy=${illusBusy} book=${currentBookId || '—'}`);
+async function makeIllustration(feedback) {
+  const redraw = typeof feedback === 'string'; // из окна «перерисовать» — уже подтверждено, с уточнением (может быть пустым)
+  console.log(`[illustrate] click: style=${getIllusStyle()} busy=${illusBusy} book=${currentBookId || '—'}` + (redraw ? ` feedback=${JSON.stringify(feedback)}` : ''));
   if (illusBusy) { console.warn('[illustrate] stopped: previous illustration is still being painted'); toast('Still painting the previous illustration…'); return; }
   if (!rendition || !currentBookId) { console.warn('[illustrate] stopped: no book open'); return; }
   if (!isRealUser()) { console.warn('[illustrate] stopped: not signed in with email'); toast('Sign in with email to generate illustrations'); return; }
@@ -4635,14 +4659,14 @@ async function makeIllustration() {
   const text = currentPageText().slice(0, 3000);
   if (!contents || !loc || !loc.start || text.length < 80) { console.warn(`[illustrate] stopped: not enough text on this page (${text.length} chars)`); toast('Not enough text on this page'); return; }
   const bookId = currentBookId, cfi = realPageStartCfi(contents, loc);
-  if (loadIllustrations(bookId).some(x => x.cfi === cfi) && !confirm('This page already has an illustration. Paint a new one?')) { console.warn('[illustrate] stopped: page already has an illustration, repaint cancelled'); return; }
+  if (!redraw && loadIllustrations(bookId).some(x => x.cfi === cfi) && !confirm('This page already has an illustration. Paint a new one?')) { console.warn('[illustrate] stopped: page already has an illustration, repaint cancelled'); return; }
   console.log(`[illustrate] sending: ${text.length} chars of page text`);
   const btn = $('illustrate-btn');
   illusBusy = true; btn.classList.add('busy'); updateRail();
   toast('Painting the scene… this can take up to a minute');
   try {
     const noteId = 'pg' + Math.abs(hashStr(bookId + '|' + cfi)).toString(36);
-    const res = await aiProxy({ action: 'illustrate', text: text.slice(0, 400), para: text, chapter: '', title: currentMeta.title || '', author: currentMeta.author || '', noteId, bookId, style: getIllusStyle() }, null, 150000);
+    const res = await aiProxy({ action: 'illustrate', text: text.slice(0, 400), para: text, chapter: '', title: currentMeta.title || '', author: currentMeta.author || '', noteId, bookId, style: getIllusStyle(), feedback: redraw ? feedback : '' }, null, 150000);
     if (res.status === 403) { console.warn('[illustrate] 403: built-in library book — curator only'); toast('Illustrations for the built-in library are curated by the Reymont team only'); return; }
     if (res.status === 402) { console.warn('[illustrate] 402: free limit reached'); showPaywall('generations'); return; }
     if (!res.ok) { let m = 'HTTP ' + res.status; try { m = (await res.json()).error.message; } catch (e) {} throw new Error(m); }
@@ -4869,13 +4893,6 @@ function vzFullscreenOpen() { // диаграмма — в свой просмо
   const el = vzOwner === 'io-view' ? $('interactive-frame') : $('panel-visual').querySelector('.pv-media img');
   if (el && el.requestFullscreen) el.requestFullscreen().catch(e => console.warn('[fullscreen]', e.message || e));
 }
-function redrawGame() { // новая игра для той же страницы (с нуля, не правка)
-  const rec = currentInteractive;
-  if (!rec || interactiveBusy) return;
-  if (generationBlocked()) { showPaywall('generations'); return; }
-  if (!confirm('Build a new game for this page?')) return;
-  buildInteractive('diagram_html', rec.cfi, rec.text || currentPageText().slice(0, 3000), null, '');
-}
 function vzTilesHtml() {
   const tile = k => `<button class="rail-tile" id="rail-${k}" onclick="railClick('${k}')"></button>`;
   const signedIn = !!(sb && isRealUser());
@@ -4963,7 +4980,7 @@ function railClick(k) {
 function showDiagramInPanel(d) {
   panelMediaRec = d;
   vzShow('dg-view', `<div class="pv-media">${d.svg}</div>`
-    + vzBar(vzRedraw('makeDiagram()') + vzFullscreen(), d.title));
+    + vzBar(vzRedraw("openFeedback('dg')") + vzFullscreen(), d.title));
   ensureVisualTitle('dg', d);
   const svg = $('panel-visual').querySelector('.pv-media svg'); // Mermaid задаёт естественную ширину — растягиваем на всю панель
   if (svg) { svg.style.maxWidth = '100%'; svg.setAttribute('width', '100%'); svg.removeAttribute('height'); }
@@ -4971,7 +4988,7 @@ function showDiagramInPanel(d) {
 function showIllustrationInPanel(rec) {
   panelMediaRec = rec;
   vzShow('il-view', `<div class="pv-media"><img src="${esc(rec.url)}" alt=""></div>`
-    + vzBar(vzRedraw('makeIllustration()') + vzFullscreen(), rec.title));
+    + vzBar(vzRedraw("openFeedback('il')") + vzFullscreen(), rec.title));
   ensureVisualTitle('il', rec);
 }
 function interactiveElapsed() { return Math.round((Date.now() - interactiveStartedAt) / 1000); }
@@ -5107,7 +5124,8 @@ async function renderMermaidSafe(mermaid, code) {
     try { return await mermaid.render('rm-diagram-' + Date.now() + 'b', fixed); } catch (e2) { throw e; }
   }
 }
-async function makeDiagram() {
+async function makeDiagram(feedback) {
+  feedback = typeof feedback === 'string' ? feedback : '';
   if (diagramBusy || !rendition || !currentBookId) return; // повторный клик во время запроса — игнор
   if (generationBlocked()) { showPaywall('generations'); return; }
   const btn = $('diagram-btn');
@@ -5118,7 +5136,7 @@ async function makeDiagram() {
   diagramBusy = true; btn.classList.add('busy'); updateRail();
   toast('Drawing a diagram…');
   try {
-    const res = await aiProxy({ action: 'diagram', text, lang: settings.lang,
+    const res = await aiProxy({ action: 'diagram', text, lang: settings.lang, feedback,
       title: currentMeta.title || '', author: currentMeta.author || '' }, null, 45000);
     if (res.status === 402) { freeUsed = freeLimit; syncToolStrip(); showPaywall('generations'); return; }
     if (res.status === 403) { toast('Sign in with email to generate diagrams'); return; }
