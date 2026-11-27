@@ -509,7 +509,7 @@
     padding: var(--space-3); margin: calc(-1 * var(--space-3)); /* зона нажатия больше самих цифр, место — то же */
     -webkit-tap-highlight-color: transparent;
   }
-  /* Клик по номеру страницы показывает и прячет верхнее и нижнее меню; пока меню открыто — номер над нижней полосой */
+  /* Клик по номеру страницы открывает панель Contents (оглавление); пока меню открыто — номер над нижней полосой */
   #page-corner:hover { color: var(--text); }
   #reader:not(.chrome-hidden) #page-corner { bottom: calc(var(--bottombar-h) + var(--space-2) + env(safe-area-inset-bottom, 0px)); color: var(--text); }
 
@@ -900,7 +900,7 @@
         <button id="nav-prev" class="nav-btn" aria-label="Previous page">‹</button>
         <button id="nav-next" class="nav-btn" aria-label="Next page">›</button>
         <div id="hint" class="hide">Select any phrase to get an illustrated explanation</div>
-        <div id="page-corner" role="button" tabindex="0" title="Show/hide menu" aria-label="Show/hide menu" onclick="toggleChrome()" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleChrome(); }"></div>
+        <div id="page-corner" role="button" tabindex="0" title="Contents" aria-label="Contents" onclick="toggleToc(true)" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleToc(true); }"></div>
       </div>
       <div id="bottombar">
         <!-- оглавление открывает только название главы — случайный клик внизу страницы его не открывает -->
@@ -3013,7 +3013,7 @@ function updateProgress(loc) {
   const ch = findChapter(loc.start.href);
   $('chapter-label').textContent = ch || '';
   const pp = pageOfCfi(loc.start.cfi);
-  $('page-corner').textContent = pp ? String(pp.page) : '·'; // точка, пока номер не посчитан: по ней тоже открывается меню
+  $('page-corner').textContent = pp ? String(pp.page) : '·'; // точка, пока номер не посчитан: по ней тоже открывается оглавление
   markTocActive(loc.start.href, pp && pp.page);
   if (currentBookId && !useCloudPos() && locationsReady) dbGet('books', currentBookId).then(rec => { if (rec) { rec.progress = pct; dbPut('books', rec); } });
 }
