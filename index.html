@@ -1936,16 +1936,62 @@ function vigImage(styleId, v) {
   return job;
 }
 // поставить виньетку строке вставки (wrap.dataset.rmVig — вариант орнамента); пропорции — у самой строки
+function vigStatic(wrap, url) {
+  const C = vigCrop();
+  if (url) wrap.style.backgroundImage = `url("${url}")`;
+  wrap.style.aspectRatio = `${Math.round(C.w * 2)} / ${Math.round(C.h)}`;
+  wrap.style.maxWidth = VIG.cssW + 'px';
+  wrap.classList.add('rm-ins-vig');
+}
+/* Рост виньетки — как у буквиц: когда строка с иконкой впервые на экране, полоса прорастает из пустоты (обе половины
+   разом). Пока строка не видна, готовой картинки нет (остаются точечные линии) — иначе она мелькнула бы и выросла заново.
+   Один раз на строку; не пока книга открывается (iniReady) и не при prefers-reduced-motion. */
+const vigGrown = new WeakSet();
+function vigVisible(wrap) {
+  const fr = wrap.ownerDocument.defaultView && wrap.ownerDocument.defaultView.frameElement, view = $('viewer');
+  if (!fr || !view || !wrap.isConnected) return false;
+  const a = fr.getBoundingClientRect(), b = wrap.getBoundingClientRect(), v = view.getBoundingClientRect();
+  const x = a.left + b.left + b.width / 2, y = a.top + b.top + b.height / 2;
+  return x > v.left && x < v.right && y > v.top && y < v.bottom;
+}
+function vigCheckVisible() {
+  if (!iniReady || typeof rendition === 'undefined' || !rendition) return;
+  rendition.getContents().forEach(c => c.document.querySelectorAll('[data-vig-pending]').forEach(w => { if (vigVisible(w)) vigGrow(w); }));
+}
+async function vigGrow(wrap) {
+  delete wrap.dataset.vigPending;
+  vigGrown.add(wrap);
+  const styleId = currentStyleId(), v = +wrap.dataset.rmVig, url = wrap._vigUrl;
+  try {
+    if (iniLib === null) iniLib = import(new URL('vendor/initialis/lib/initialis.js', location.href).href).catch(e => { console.warn('initialis:', e); return false; });
+    const lib = await iniLib; if (!lib) throw new Error('no library');
+    if (!vigBoxReady) vigBoxReady = lib.use(new URL('vendor/initialis-kinds/box.js', location.href).href);
+    await vigBoxReady;
+    const P = vigSettings(styleId, v), C = vigCrop(), px = Math.round(VIG.cssW / 2 * 2 * 1000 / C.w), k = px / 1000, hw = Math.round(C.w * k);
+    const w1 = document.createElement('canvas'), w2 = document.createElement('canvas'), comp = document.createElement('canvas');
+    comp.width = hw * 2; comp.height = Math.round(C.h * k);
+    const g = comp.getContext('2d');
+    const show = () => {
+      g.clearRect(0, 0, comp.width, comp.height); g.globalAlpha = Math.max(0.05, Math.min(1, VIG.alpha));
+      [w1, w2].forEach((w, i) => { if (w.width) g.drawImage(w, C.x * k, C.y * k, C.w * k, C.h * k, i * hw, 0, hw, comp.height); });
+      try { wrap.style.backgroundImage = `url("${comp.toDataURL()}")`; } catch (e) {}
+    };
+    vigStatic(wrap, null); wrap.style.backgroundImage = 'none'; // пустая полоса нужной высоты — из неё и прорастает
+    const tick = setInterval(show, 66);
+    try { await Promise.all([lib.grow(w1, P, { size: px, seconds: INI_GROW_S }), lib.grow(w2, Object.assign({}, P, { seed: P.seed + 500 }), { size: px, seconds: INI_GROW_S })]); }
+    finally { clearInterval(tick); }
+  } catch (e) { console.warn('vignette grow:', e); }
+  vigStatic(wrap, url); // в конце — готовая картинка из кэша (совпадает с последним кадром)
+}
 function applyVig(wrap) {
   const styleId = currentStyleId(), v = +wrap.dataset.rmVig;
   if (!STYLES[styleId].initialis || typeof OffscreenCanvas === 'undefined' || isNaN(v)) return;
   vigImage(styleId, v).then(url => {
     if (!url) return;
-    const C = vigCrop();
-    wrap.style.backgroundImage = `url("${url}")`;
-    wrap.style.aspectRatio = `${Math.round(C.w * 2)} / ${Math.round(C.h)}`;
-    wrap.style.maxWidth = VIG.cssW + 'px';
-    wrap.classList.add('rm-ins-vig');
+    wrap._vigUrl = url;
+    if (vigGrown.has(wrap) || iniReduced()) { vigStatic(wrap, url); return; }
+    wrap.dataset.vigPending = '1';
+    if (iniReady && vigVisible(wrap)) vigGrow(wrap);
   });
 }
 // перерисовать виньетки во всех показанных главах (после правки в панели)
@@ -2860,6 +2906,7 @@ async function openBook(id, newRec) {
     updateRail();
     // первая страница главы — проигрываем рост орнамента буквицы
     if (iniReady) {
+      setTimeout(vigCheckVisible, 30); // виньетки на этой странице — прорастают
       if (loc && loc.start && loc.start.displayed && loc.start.displayed.page === 1) rendition.getContents().forEach(c => growInitials(c));
       else rendition.getContents().forEach(iniUnpend); // открыли не начало главы — сразу готовая буквица
     }
@@ -2880,6 +2927,7 @@ async function openBook(id, newRec) {
   const vl = document.querySelector('#viewer .viewer-loading'); if (vl) vl.remove();
   // книга на экране — теперь рост буквицы видно; если открылись на первой странице главы, играем сразу
   iniReady = true;
+  setTimeout(vigCheckVisible, 30);
   { const l0 = rendition.currentLocation(); if (l0 && l0.start && l0.start.displayed && l0.start.displayed.page === 1) rendition.getContents().forEach(c => growInitials(c)); else rendition.getContents().forEach(iniUnpend); }
 
   bookNotes.forEach(addHighlight);
