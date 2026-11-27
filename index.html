@@ -1853,7 +1853,8 @@ function iniImage(styleId, letter, v) {
    а так каждая половина нормальной высоты, вся полоса — длинная и низкая (≈ 1/15 ширины). */
 const VIG_DEFAULT = {
   box: { fBoxW: 1, fBoxH: 0.112, fBoxR: 0.11 },
-  ink: 'auto', // краска лозы: 'auto' — цвет текста темы (book.ink); или конкретный цвет
+  ink: 'auto', // краска лозы: 'auto' — акцент темы (initialis.inkA, как у буквиц); или конкретный цвет
+  alpha: 0.55, // непрозрачность полосы (вшивается в картинку, иконка поверх остаётся яркой)
   // oLeaf/oFlower: 'auto' — из вариантов буквиц (initialisVary) по странице
   look: { oLeaf: 'auto', oFlower: 'auto', oStemStyle: 'dotted', oDensity: 0.55, oStemW: 8, oLeafSize: 1, oFlowerSize: 1.4, oBerrySize: 0.2, oFlowerChance: 0.29, oBerries: 0.08, oCurl: 0.28, oSeeds: 'gaps', rough: 0 },
   cssW: 680, // ширина полосы на широкой колонке (на узкой — во всю колонку)
@@ -1862,7 +1863,7 @@ const VIG_DEFAULT = {
 const VIG_TUNE_KEY = 'rm-vig-tune';
 function vigLoad() {
   const v = JSON.parse(JSON.stringify(VIG_DEFAULT));
-  try { const o = JSON.parse(localStorage.getItem(VIG_TUNE_KEY) || 'null'); if (o) { Object.assign(v.box, o.box); Object.assign(v.look, o.look); if (o.ink) v.ink = o.ink; if (o.cssW) v.cssW = o.cssW; } } catch (e) {}
+  try { const o = JSON.parse(localStorage.getItem(VIG_TUNE_KEY) || 'null'); if (o) { Object.assign(v.box, o.box); Object.assign(v.look, o.look); if (o.ink) v.ink = o.ink; if (o.cssW) v.cssW = o.cssW; if (o.alpha != null) v.alpha = o.alpha; } } catch (e) {}
   return v;
 }
 let VIG = vigLoad(), vigRev = 0; // vigRev меняется при правке — ключи кэша в памяти становятся новыми
@@ -1873,7 +1874,7 @@ function vigSettings(styleId, v) {
   const st = STYLES[styleId], look = {};
   for (const [k, x] of Object.entries(VIG.look)) if (x !== 'auto') look[k] = x;
   const P = Object.assign({}, st.initialis, VIG.box,
-    { text: ' ', frame: 'box', fRules: 0, fField: 'paper', oFill: 'A', seed: v + 1, inkA: VIG.ink === 'auto' ? st.book.ink : VIG.ink });
+    { text: ' ', frame: 'box', fRules: 0, fField: 'paper', oFill: 'A', seed: v + 1, inkA: VIG.ink === 'auto' ? st.initialis.inkA : VIG.ink });
   for (const [k, list] of Object.entries(st.initialisVary || {})) P[k] = list[v % list.length];
   return Object.assign(P, look);
 }
@@ -1881,7 +1882,7 @@ function vigImage(styleId, v) {
   const key = 'vig:' + vigRev + ':' + styleId + ':' + v;
   if (iniCache.has(key)) return iniCache.get(key);
   const P = vigSettings(styleId, v), C = vigCrop(), px = Math.round(VIG.cssW / 2 * 2 * 1000 / C.w); // каждая половина — cssW/2
-  const url = new URL('__initialis/' + iniHash('vig2|' + JSON.stringify(P) + '|' + px + '|' + INI_LIB_VER), location.href).href;
+  const url = new URL('__initialis/' + iniHash('vig2|' + JSON.stringify(P) + '|' + px + '|' + VIG.alpha + '|' + INI_LIB_VER), location.href).href;
   const job = iniDiskGet(url).then(hit => hit || (async () => {
     if (iniLib === null) iniLib = import(new URL('vendor/initialis/lib/initialis.js', location.href).href).catch(e => { console.warn('initialis:', e); return false; });
     const lib = await iniLib;
@@ -1892,6 +1893,7 @@ function vigImage(styleId, v) {
     const [b1, b2] = await Promise.all([lib.render(P, { size: px }), lib.render(Object.assign({}, P, { seed: P.seed + 500 }), { size: px })]);
     const c = document.createElement('canvas'); c.width = hw * 2; c.height = Math.round(C.h * k);
     const g = c.getContext('2d');
+    g.globalAlpha = Math.max(0.05, Math.min(1, VIG.alpha));
     [b1, b2].forEach((bm, i) => { g.drawImage(bm, C.x * k, C.y * k, C.w * k, C.h * k, i * hw, 0, hw, c.height); bm.close(); });
     const blob = await new Promise(ok => c.toBlob(ok, 'image/webp', 0.9));
     if (!blob) return c.toDataURL('image/png');
@@ -1926,6 +1928,7 @@ const VT_FLOWERS = ['auto', 'none', 'rosette', 'daisy', 'rose', 'star', 'phyllo'
 const VT_SPEC = [ // [где, ключ, подпись, тип, варианты или [min,max,step]]
   ['vt', 'variant', 'preview variant (each page has its own)', 'num', [0, 999, 1]],
   ['root', 'ink', 'ink', 'color'],
+  ['root', 'alpha', 'opacity', 'num', [0.05, 1, 0.01]],
   ['root', 'cssW', 'strip width, px', 'num', [240, 900, 10]],
   ['box', 'fBoxH', 'strip height (box)', 'num', [0.06, 0.4, 0.002]],
   ['look', 'oLeaf', 'leaf', 'sel', VT_LEAVES],
@@ -1944,7 +1947,7 @@ const VT_SPEC = [ // [где, ключ, подпись, тип, варианты
 ];
 let vtVariant = 7, vtTimer = 0, vtRun = 0;
 function vtGet(where, k) {
-  if (where === 'root' && k === 'ink' && VIG.ink === 'auto') return STYLES[currentStyleId()].book.ink; // 'auto' — показываем цвет текста темы
+  if (where === 'root' && k === 'ink' && VIG.ink === 'auto') return STYLES[currentStyleId()].initialis.inkA; // 'auto' — показываем акцент темы
   return where === 'vt' ? vtVariant : where === 'root' ? VIG[k] : VIG[where][k];
 }
 function vtSet(where, k, v) { if (where === 'vt') vtVariant = v; else if (where === 'root') VIG[k] = v; else VIG[where][k] = v; }
@@ -1981,7 +1984,7 @@ function toggleVigTune(force) {
   if (on) { vtBuild(); vtPreview(); }
 }
 function vigTuneApply() {
-  try { localStorage.setItem(VIG_TUNE_KEY, JSON.stringify({ box: VIG.box, look: VIG.look, ink: VIG.ink, cssW: VIG.cssW })); } catch (e) {}
+  try { localStorage.setItem(VIG_TUNE_KEY, JSON.stringify({ box: VIG.box, look: VIG.look, ink: VIG.ink, cssW: VIG.cssW, alpha: VIG.alpha })); } catch (e) {}
   vigRev++; refreshVignettes(); toast('Vignettes redrawn');
 }
 function vigTuneReset() {
@@ -1989,7 +1992,7 @@ function vigTuneReset() {
   VIG = vigLoad(); vigRev++; vtBuild(); vtPreview(); refreshVignettes();
 }
 function vigTuneCopy() {
-  const t = JSON.stringify({ box: VIG.box, ink: VIG.ink, look: VIG.look, cssW: VIG.cssW });
+  const t = JSON.stringify({ box: VIG.box, ink: VIG.ink, alpha: VIG.alpha, look: VIG.look, cssW: VIG.cssW });
   (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast('Settings copied'), () => prompt('Settings:', t));
 }
 /* Рост орнамента: когда читатель на первой странице главы, поверх буквицы ставится холст и библиотека
