@@ -1697,6 +1697,7 @@ const STYLES = {
     cap: { 'float': 'left', 'font-family': "'Playfair Display', 'Lora', Georgia, serif", 'font-weight': '800', 'font-size': '3.5em', 'line-height': '0.8', 'padding': '0.06em 0.1em 0 0', 'color': '#C15F3C' },
     // орнаментальные буквицы — как в Paper, в акценте темы (см. paper.initialis)
     initialis: { font: 'abril-fatface-400', inkA: '#C15F3C', inkB: '#3D3929', paper: '#FFFFFF' },
+    initialisPalette: ['#3D3929', '#C15F3C', '#6F7F5E'], // для разных стилей буквиц: текст, акцент, третья краска
     initialisVary: { oLeaf: ['acanthus', 'ivy', 'oak', 'trefoil', 'fern', 'willow', 'ovate'],
       oFlower: ['rosette', 'daisy', 'rose', 'tulip', 'pomegranate', 'quatre', 'bell', 'thistle'] },
     hl: { fill: '#D97757', opacity: '0.22', blend: 'multiply' },
@@ -1720,6 +1721,7 @@ const STYLES = {
     firstLine: { 'font-variant': 'small-caps', 'letter-spacing': '0.06em', 'font-size': '1.06em' },
     cap: {},
     initialis: { font: 'abril-fatface-400', inkA: '#2C4A6B', inkB: '#111111', paper: '#FFFFFF' },
+    initialisPalette: ['#111111', '#2C4A6B', '#A00000'],
     initialisVary: { oLeaf: ['acanthus', 'ivy', 'oak', 'trefoil', 'fern', 'willow', 'ovate'],
       oFlower: ['rosette', 'daisy', 'rose', 'tulip', 'pomegranate', 'quatre', 'bell', 'thistle'] },
     hl: { fill: '#2C4A6B', opacity: '0.14', blend: 'multiply' }, // бледный оттенок акцентного синего
@@ -1737,6 +1739,7 @@ const STYLES = {
     // Орнаментальные буквицы INITIĀLIS (vendor/initialis): настройки — только отличия от DEFAULTS в render/src/params.js.
     // Шрифты библиотеки содержат лишь латинские A–Z, для остальных букв (Ś, Ł, кириллица…) остаётся CSS-буквица выше.
     initialis: { font: 'abril-fatface-400', inkA: '#B3261E', inkB: '#1F1E1B', paper: '#FFFFFF' },
+    initialisPalette: ['#1F1E1B', '#B3261E', '#5E6B45'],
     // У каждой главы свой орнамент: seed = номер варианта, а из списков ниже берётся элемент по кругу. Длины 7 и 8
     // взаимно просты — 56 разных сочетаний листа и цветка подряд, прежде чем повторится пара.
     initialisVary: { oLeaf: ['acanthus', 'ivy', 'oak', 'trefoil', 'fern', 'willow', 'ovate'],
@@ -1755,6 +1758,7 @@ const STYLES = {
     cap: { 'float': 'left', 'font-family': "'Playfair Display', 'Cormorant Garamond', Georgia, serif", 'font-style': 'italic', 'font-weight': '800', 'font-size': '4em', 'line-height': '0.82',
       'padding': '0.02em 0.1em 0 0', 'margin': '0.04em 0.04em 0 0', 'color': '#D2B1A0' },
     initialis: { font: 'abril-fatface-400', inkA: '#D2B1A0', inkB: '#E7E3DA', paper: '#FFFFFF' },
+    initialisPalette: ['#E7E3DA', '#D2B1A0', '#8FA38C'],
     initialisVary: { oLeaf: ['acanthus', 'ivy', 'oak', 'trefoil', 'fern', 'willow', 'ovate'],
       oFlower: ['rosette', 'daisy', 'rose', 'tulip', 'pomegranate', 'quatre', 'bell', 'thistle'] },
     hl: { fill: '#D2B1A0', opacity: '0.30', blend: 'screen' },
@@ -1805,6 +1809,32 @@ function iniSettings(styleId, letter, v) {
   for (const [k, list] of Object.entries(st.initialisVary || {})) P[k] = list[v % list.length];
   return P;
 }
+/* Разные стили буквиц: подборка автора библиотеки (render/data/kept.json, 26 штук — шрифты, рамки, паттерны, текстуры).
+   У главы — свой стиль из подборки, буква — первая буква главы. Режим (rm-ini-mode, переключается во временной панели):
+     varied — краски подборки заменяются палитрой темы (самая контрастная → initialisPalette[0], и т.д.);
+     varied-original — родные краски подборки; vine — как раньше, только растительный орнамент (iniSettings). */
+const INI_MODES = ['varied', 'varied-original', 'vine'];
+let iniMode = (() => { try { const m = localStorage.getItem('rm-ini-mode'); return INI_MODES.includes(m) ? m : 'varied'; } catch (e) { return 'varied'; } })();
+let iniKept = null;
+function loadKept() {
+  if (!iniKept) iniKept = fetch(new URL('vendor/initialis/render/data/kept.json', location.href).href).then(r => r.json())
+    .then(list => list.map(k => k.params).filter(p => p && p.font !== 'init-florana-initials')) // у этого шрифта нет файла в нашей копии
+    .catch(e => { console.warn('initialis kept:', e); return []; });
+  return iniKept;
+}
+const hexLum = h => { const v = parseInt(String(h).slice(1), 16); return isNaN(v) ? 0.5 : (0.3 * (v >> 16 & 255) + 0.59 * (v >> 8 & 255) + 0.11 * (v & 255)) / 255; };
+async function iniSettingsFor(styleId, letter, v) {
+  if (iniMode === 'vine') return iniSettings(styleId, letter, v);
+  const kept = await loadKept();
+  if (!kept.length) return iniSettings(styleId, letter, v);
+  const st = STYLES[styleId], K = kept[(v * 7) % kept.length]; // ×7 — соседние главы не идут подряд по подборке
+  const P = Object.assign({}, K, { text: letter });
+  if (iniMode === 'varied' && st.initialisPalette) {
+    // на светлой бумаге самая тёмная краска — самая контрастная; в тёмной теме палитра уже начинается со светлой
+    ['A', 'B', 'C'].sort((a, b) => hexLum(K['ink' + a]) - hexLum(K['ink' + b])).forEach((k, i) => { P['ink' + k] = st.initialisPalette[i]; });
+  }
+  return P;
+}
 /* Кэш между сессиями — Cache Storage. Ключ — хэш полных настроек буквицы, размера и версии библиотеки
    (обновили vendor/initialis — поменяйте INI_LIB_VER), так что сменившиеся настройки просто дают новые ключи.
    Записей не больше INI_DISK_MAX: лишние, самые старые по порядку записи, удаляются. Нет Cache Storage
@@ -1825,11 +1855,13 @@ async function iniDiskPut(url, blob) {
   } catch (e) {}
 }
 function iniImage(styleId, letter, v) {
-  const key = styleId + ':' + letter + ':' + v;
+  const key = iniMode + ':' + styleId + ':' + letter + ':' + v;
   if (iniCache.has(key)) return iniCache.get(key);
-  const P = iniSettings(styleId, letter, v);
-  const url = new URL('__initialis/' + iniHash(JSON.stringify(P) + '|' + INI_PX + '|' + INI_LIB_VER), location.href).href;
-  const job = iniDiskGet(url).then(hit => hit || (async () => {
+  let P, url;
+  const job = iniSettingsFor(styleId, letter, v).then(p => {
+    P = p; url = new URL('__initialis/' + iniHash(JSON.stringify(P) + '|' + INI_PX + '|' + INI_LIB_VER), location.href).href;
+    return iniDiskGet(url);
+  }).then(hit => hit || (async () => {
     if (iniLib === null) iniLib = import(new URL('vendor/initialis/lib/initialis.js', location.href).href).catch(e => { console.warn('initialis:', e); return false; });
     const lib = await iniLib;
     if (!lib) return null;
@@ -1926,6 +1958,7 @@ function refreshVignettes() {
 const VT_LEAVES = ['auto', 'none', 'acanthus', 'lance', 'willow', 'ovate', 'teardrop', 'oak', 'ivy', 'trefoil', 'cinquefoil', 'fern', 'dot', 'pod', 'dotted', 'comma', 'fan', 'needles', 'heart'];
 const VT_FLOWERS = ['auto', 'none', 'rosette', 'daisy', 'rose', 'star', 'phyllo', 'target', 'burst', 'dotring', 'quatre', 'tulip', 'bell', 'bud', 'pomegranate', 'thistle'];
 const VT_SPEC = [ // [где, ключ, подпись, тип, варианты или [min,max,step]]
+  ['ini', 'mode', 'INITIALS style (applies at once)', 'sel', INI_MODES],
   ['vt', 'variant', 'preview variant (each page has its own)', 'num', [0, 999, 1]],
   ['root', 'ink', 'ink', 'color'],
   ['root', 'alpha', 'opacity', 'num', [0.05, 1, 0.01]],
@@ -1947,10 +1980,17 @@ const VT_SPEC = [ // [где, ключ, подпись, тип, варианты
 ];
 let vtVariant = 7, vtTimer = 0, vtRun = 0;
 function vtGet(where, k) {
+  if (where === 'ini') return iniMode;
   if (where === 'root' && k === 'ink' && VIG.ink === 'auto') return STYLES[currentStyleId()].initialis.inkA; // 'auto' — показываем акцент темы
   return where === 'vt' ? vtVariant : where === 'root' ? VIG[k] : VIG[where][k];
 }
-function vtSet(where, k, v) { if (where === 'vt') vtVariant = v; else if (where === 'root') VIG[k] = v; else VIG[where][k] = v; }
+function vtSet(where, k, v) {
+  if (where === 'ini') { // стиль буквиц — сразу перерисовываем буквицы показанных глав
+    iniMode = v; try { localStorage.setItem('rm-ini-mode', v); } catch (e) {}
+    if (typeof rendition !== 'undefined' && rendition) rendition.getContents().forEach(applyStyleToContents);
+    return;
+  }
+  if (where === 'vt') vtVariant = v; else if (where === 'root') VIG[k] = v; else VIG[where][k] = v; }
 function vtBuild() {
   const box = $('vt-controls'); box.innerHTML = '';
   for (const [where, k, label, type, opt] of VT_SPEC) {
@@ -2037,7 +2077,7 @@ async function growInitials(contents) {
     const show = () => { try { img.src = work.toDataURL(); } catch (e) {} };
     const tick = setInterval(show, 66);
     const done = () => { clearInterval(tick); img.remove(); p.classList.remove('rm-ini-growing'); };
-    lib.grow(work, iniSettings(styleId, l, v), { size: Math.round(side * Math.min(2, devicePixelRatio || 1)), seconds: INI_GROW_S })
+    lib.grow(work, await iniSettingsFor(styleId, l, v), { size: Math.round(side * Math.min(2, devicePixelRatio || 1)), seconds: INI_GROW_S })
       .then(() => { show(); })
       .then(() => iniImage(styleId, l, v)) // готовая картинка-фон уже на месте (или дорисуется) — тогда убираем холст
       .catch(e => console.warn('initialis grow ' + l + ':', e))
