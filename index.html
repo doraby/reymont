@@ -302,9 +302,7 @@
   }
   .edge-tab:hover { color: var(--text); }
   .edge-tab svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  /* Закрытую панель (✕) открывает кнопка в верхнем меню — у правого края экрана ничего не торчит */
-  #tb-panel-btn { display: none; }
-  body.split:not(.panel-open) #tb-panel-btn { display: inline-flex; }
+  /* Закрытую панель (✕) открывает кнопка хайлайтов в правом верхнем углу (#hl-fab) — отдельной кнопки «Show panel» нет */
   body.panel-resizing, body.panel-resizing * { cursor: col-resize !important; user-select: none; }
   body.panel-resizing #reading-col, body.panel-resizing #panel { transition: none; }
   body.split.panel-open #topbar { right: var(--panel-w); } /* нижняя полоса и так внутри колонки текста */
@@ -878,7 +876,6 @@
       <svg viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
     </button>
     <div id="tb-title"></div>
-    <button id="tb-panel-btn" class="icon-btn" onclick="togglePanelCollapsed()" title="Show panel" aria-label="Show panel"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg></button>
   </div>
   <div id="font-controls">
     <button class="font-btn" onclick="changeFontSize(-1)" title="Smaller text" aria-label="Smaller text">−</button>
