@@ -103,6 +103,24 @@ const ILLUS_STYLES: Record<string, string> = {
     `no colour and no smooth digital gradients.`,
 };
 
+/* Краски и орнамент сета книги в иллюстрации: картинка встаёт в книгу рядом с её буквицами и виньетками.
+   Инфографике — акцент буквиц вместо «тёмно-красного»; модерну — рамка из орнамента книги в её красках.
+   Живопись и гравюра остаются в своей манере (у них своя палитра). */
+function illusArtLine(style: string, art: Art | null): string {
+  if (!art) return "";
+  const motif = artMotifText(art);
+  if (style === "infographic") {
+    return ` Colours of this book's ornamental initials: ink ${art.ink}; the single accent colour is ${art.accent} (use it instead of deep red)` +
+      (art.orn && art.orn !== art.accent ? `; a second quiet colour ${art.orn} may mark one secondary thing` : "") + `.`;
+  }
+  if (style === "artnouveau" || !ILLUS_STYLES[style]) {
+    return ` Match this book's ornamental initials and vignettes: build the palette around ${art.accent}, ${art.orn || art.accent}` +
+      (art.leafInk ? ` and ${art.leafInk}` : "") + ` with ink ${art.ink} on warm paper` +
+      (motif ? `, and draw the decorative border as the same botanical ornament — ${motif}` : "") + `.`;
+  }
+  return "";
+}
+
 async function callOpenAIImage(prompt: string, size: string): Promise<ImageResult> {
   // /v1/images/generations (в отличие от /v1/images/edits) принимает только JSON,
   // не multipart/form-data — тот формат был нужен только для загрузки файлов-референсов.
@@ -141,6 +159,27 @@ async function getStyleRef(): Promise<string | null> {
   return styleRefB64;
 }
 
+/* Сет книги от клиента: краски и орнамент её текущих буквиц и виньеток (тема + книга) и сама буквица картинкой.
+   Игре — мотив орнамента и образец (краски игры клиент перекрашивает сам при показе), иллюстрациям — краски и мотив.
+   Всё проверяем: краски — только #rrggbb, мотивы — короткие слова, картинка — небольшой data-URL. */
+type Art = { ink: string; accent: string; orn: string; leafInk: string; leaf: string; flower: string; texture: string; ref?: string; refType?: string };
+function parseArt(a: unknown): Art | null {
+  if (!a || typeof a !== "object") return null;
+  const o = a as Record<string, unknown>;
+  const hex = (v: unknown) => (typeof v === "string" && /^#[0-9a-f]{6}$/i.test(v) ? v : "");
+  const word = (v: unknown) => (typeof v === "string" && /^[a-z][a-z -]{0,23}$/i.test(v) && v !== "none" ? v : "");
+  const art: Art = { ink: hex(o.ink), accent: hex(o.accent), orn: hex(o.orn), leafInk: hex(o.leafInk),
+    leaf: word(o.leaf), flower: word(o.flower), texture: word(o.texture) };
+  if (!art.ink || !art.accent) return null;
+  const m = typeof o.ref === "string" ? /^data:(image\/(?:webp|png|jpeg));base64,([A-Za-z0-9+/=]{100,400000})$/.exec(o.ref) : null;
+  if (m) { art.refType = m[1]; art.ref = m[2]; }
+  return art;
+}
+function artMotifText(a: Art): string {
+  const parts = [a.leaf && `${a.leaf} leaves`, a.flower && `${a.flower} flowers`, a.texture && `a ${a.texture} texture`].filter(Boolean);
+  return parts.join(", ");
+}
+
 /* Набор вёрстки интерактива: рамка, веточки в углах и образцы элементов схемы (по макету panel-p26-scheme).
    Модель копирует его и строит игру внутри рамки. Меняя стиль интерактивов, правьте здесь. */
 const INTERACTIVE_KIT = `<!doctype html>
@@ -165,6 +204,10 @@ body{color:#2B2623;font-family:'EB Garamond',Georgia,serif;display:flex;flex-dir
 .choice:hover,.choice[aria-pressed=true]{color:#A23B33;border-color:#A23B33}
 .choice:focus-visible{outline:1px solid #A23B33;outline-offset:2px}
 .right{color:#A23B33}.wrong{color:#6E655C;text-decoration:line-through}
+.vig{display:block;width:100%;max-width:560px;height:auto;margin:0 auto;flex:none}
+.lead{display:flow-root}
+.lead .ini{float:left;width:66px;height:66px;margin:3px 14px 0 0}
+.lead .goal,.lead .tr{text-align:left}
 </style></head><body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
  <symbol id="sprig" viewBox="0 0 56 56" overflow="visible"><path d="M3 53C5 30 20 12 52 4" stroke="#6F7F5E" stroke-width="1.2" fill="none" stroke-linecap="round"/>
@@ -174,7 +217,8 @@ body{color:#2B2623;font-family:'EB Garamond',Georgia,serif;display:flex;flex-dir
  <pattern id="hatch" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(135)"><line y2="9" stroke="#2B2623" stroke-opacity=".28"/></pattern>
  <marker id="arrow" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0L4 2 0 4Z" fill="#A23B33"/></marker>
 </defs></svg>
-<p class="goal">Kto stał na progu obory?</p><p class="tr">Кто стоял на пороге хлева?</p>
+<img class="vig" src="rm:vignette" alt="" aria-hidden="true">
+<div class="lead"><img class="ini" src="rm:initial" alt="K"><p class="goal">to stał na progu obory?</p><p class="tr">Кто стоял на пороге хлева?</p></div>
 <div class="frame">
  <svg class="sprig tl"><use href="#sprig"/></svg><svg class="sprig tr"><use href="#sprig"/></svg><svg class="sprig bl"><use href="#sprig"/></svg><svg class="sprig br"><use href="#sprig"/></svg>
  <svg class="scene" viewBox="0 0 560 420" preserveAspectRatio="xMidYMid meet">
@@ -300,6 +344,8 @@ Deno.serve(async (req) => {
     if (body.action === "diagram_html" || body.action === "diagram_html_improve") {
       // Название книги модели не передаём: стоит его назвать — и оно оказывается в заголовке.
       const userMsgHtml = `<passage>${pageText}</passage>`;
+      const art = parseArt(body.art);
+      const artMotif = art ? artMotifText(art) : "";
       // Интерактивная версия: один самодостаточный HTML-документ. Клиент запускает его в
       // изолированной рамке (sandbox без allow-same-origin + CSP без сети), поэтому внешних
       // ресурсов в нём быть не должно.
@@ -316,7 +362,12 @@ Deno.serve(async (req) => {
         `a road as a tinted band with a dashed axis; a fence as a dashed ink line; movement, a gaze or a route as a red dotted line with an arrowhead; names of places in italic. ` +
         `Background: the page is transparent — the app paints the background behind it. Never set a background colour on html, body, the frame or full-size wrappers; only small elements (tokens, bands, chips) may have their own fill. ` +
         `Drawing stays schematic, like a plan: never try to draw people, animals or objects realistically, no faces, anatomy, perspective, clip-art or emoji. Only the template's colours; no gradients, no shadows, no glow, no rounded cards, no filled or dark buttons. ` +
-        `If an image of ornamental initials is attached, take from it only the mood (fine botanical ornament, printed ink); the template decides the layout and the elements. ` +
+        `Book ornament: the page carries the book's own vignette and ornamental initial, as in the template — keep <img class="vig" src="rm:vignette" alt="" aria-hidden="true"> as the first element of the body, ` +
+        `and start the goal with <img class="ini" src="rm:initial" alt="X"> inside the .lead block, where X is the first letter of the goal in the original language and the goal text goes on from its second letter (as in the template: alt="K", then "to stał…"). ` +
+        `Keep these two tags exactly, with these src values: the app replaces them with the pictures; no other <img>. ` +
+        `Colours: use exactly the template's hex colours and no others — the app repaints them into the colours of the book's initials when it shows the game.` +
+        (artMotif ? ` The book's ornament is ${artMotif}: you may reshape the leaves of the corner sprig into that leaf and turn one berry into a tiny flower of that kind, keeping its size and colours. ` : " ") +
+        `If an image of an ornamental initial is attached, it is the book's initial: take from it only the mood (fine botanical ornament, printed ink); the template decides the layout and the elements. ` +
         `Controls are typography like the template's .choice buttons (at least 44px to tap, visible keyboard focus); quiet transitions about 0.3s, respect prefers-reduced-motion. ` +
         `Technical: inline SVG + CSS + vanilla JS; the only external resource allowed is the Google Fonts stylesheet from the template. The d3 library (v7) is already loaded as the global "d3" — do not import or load it; use it for dragging or a scale when it helps. Pointer events for drag and tap (works with mouse and touch). ` +
         `Shown in a narrow side panel (about 400–600px wide, usually 480): works from 320 to 900px wide, no horizontal scroll; base text at least 18px, labels on the plan at least 16px. ` +
@@ -341,7 +392,9 @@ Deno.serve(async (req) => {
       const inputFinal = improve
         ? `${userMsgHtml}\n<reader_feedback>${feedback || "(no comment — improve the visualisation in general)"}</reader_feedback>\n<current_html>${currentHtml}</current_html>`
         : userMsgHtml;
-      const styleRef = await getStyleRef(); // лист буквиц — образец стиля (или null)
+      // образец стиля: буквица книги из запроса (её сет и краски), иначе — общий лист буквиц (или null)
+      const styleRef = art?.ref ?? (await getStyleRef());
+      const refType = (art?.refType ?? "image/jpeg") as "image/jpeg" | "image/png" | "image/webp";
       const clean = (t: string) => t.trim().replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/, "").trim().slice(0, 80000);
 
       // Провайдер интерактива: секрет INTERACTIVE_PROVIDER ("anthropic" по умолчанию | "openai" — прежний путь
@@ -368,7 +421,7 @@ Deno.serve(async (req) => {
             output_config: { effort: "medium" },
             system: sysFinal,
             messages: [{ role: "user", content: styleRef
-              ? [{ type: "image" as const, source: { type: "base64" as const, media_type: "image/jpeg" as const, data: styleRef } }, { type: "text" as const, text: inputFinal }]
+              ? [{ type: "image" as const, source: { type: "base64" as const, media_type: refType, data: styleRef } }, { type: "text" as const, text: inputFinal }]
               : inputFinal }],
             ...(useFallbacks ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" } : {}),
           });
@@ -395,7 +448,7 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           model: htmlModel, instructions: sysFinal, max_output_tokens: 12000,
           input: styleRef
-            ? [{ role: "user", content: [{ type: "input_image", image_url: `data:image/jpeg;base64,${styleRef}` }, { type: "input_text", text: inputFinal }] }]
+            ? [{ role: "user", content: [{ type: "input_image", image_url: `data:${refType};base64,${styleRef}` }, { type: "input_text", text: inputFinal }] }]
             : inputFinal,
           ...(/^(gpt-5|o\d)/.test(htmlModel) ? { reasoning: { effort: "low" } } : {}),
         }),
@@ -481,7 +534,7 @@ Deno.serve(async (req) => {
         `and add one short quotation from the highlighted text or its context (up to about 8 words) as a caption. Copy every word letter for letter, with all diacritics (ą, ę, ł, ś, ż…); never translate, paraphrase or invent words. ` +
         `Lettering: a classic book serif or small caps, small and sparse, set right next to what it names or in a caption line or ribbon, part of the composition. ` +
         `No other text: no titles, speech bubbles, signs with invented words or watermarks.\n` +
-        `Use ${ILLUS_STYLES[String(body.style)] ?? ILLUS_STYLES.artnouveau}`;
+        `Use ${ILLUS_STYLES[String(body.style)] ?? ILLUS_STYLES.artnouveau}` + illusArtLine(String(body.style), parseArt(body.art));
     } else {
       if (!title) return err("No title", 400, cors);
       const customPrompt = String(body.customPrompt ?? "").slice(0, 500).trim();
