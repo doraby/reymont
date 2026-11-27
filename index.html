@@ -1818,22 +1818,32 @@ let iniMode = (() => { try { const m = localStorage.getItem('rm-ini-mode'); retu
 let iniKept = null;
 function loadKept() {
   if (!iniKept) iniKept = fetch(new URL('vendor/initialis/render/data/kept.json', location.href).href).then(r => r.json())
-    .then(list => list.map(k => k.params).filter(p => p && p.font !== 'init-florana-initials')) // у этого шрифта нет файла в нашей копии
+    .then(list => list.map(k => k.params).filter(p => p && p.font !== 'init-florana-initials' // у этого шрифта нет файла в нашей копии
+      // в сет книги — только стили с узором: виньетке (полосе без буквы) нужен орнамент, текстура или паттерн
+      && (p.tKind !== 'none' || p.fPattern !== 'none' || (p.orn !== 'none' && p.oRegion === 'field'))
+      && p.tKind !== 'coral')) // «кораллы» считаются ~20 с на кадр — рост буквицы и виньетки растянулся бы на минуты
     .catch(e => { console.warn('initialis kept:', e); return []; });
   return iniKept;
 }
 const hexLum = h => { const v = parseInt(String(h).slice(1), 16); return isNaN(v) ? 0.5 : (0.3 * (v >> 16 & 255) + 0.59 * (v >> 8 & 255) + 0.11 * (v & 255)) / 255; };
-async function iniSettingsFor(styleId, letter, v) {
-  if (iniMode === 'vine') return iniSettings(styleId, letter, v);
+/* «Сет» книги: один стиль на книгу и тему — общий для буквиц и виньеток, во всех главах. Другая книга или тема —
+   другой стиль из подборки (детерминированно, по хэшу «книга|тема»). */
+function bookSet(styleId) { return parseInt(iniHash((typeof currentBookId !== 'undefined' && currentBookId || '') + '|' + styleId), 36); }
+async function keptStyle(styleId) {
   const kept = await loadKept();
-  if (!kept.length) return iniSettings(styleId, letter, v);
-  const st = STYLES[styleId], K = kept[(v * 7) % kept.length]; // ×7 — соседние главы не идут подряд по подборке
-  const P = Object.assign({}, K, { text: letter });
+  if (!kept.length) return null;
+  const st = STYLES[styleId], K = kept[bookSet(styleId) % kept.length], P = Object.assign({}, K);
   if (iniMode === 'varied' && st.initialisPalette) {
     // на светлой бумаге самая тёмная краска — самая контрастная; в тёмной теме палитра уже начинается со светлой
     ['A', 'B', 'C'].sort((a, b) => hexLum(K['ink' + a]) - hexLum(K['ink' + b])).forEach((k, i) => { P['ink' + k] = st.initialisPalette[i]; });
   }
   return P;
+}
+async function iniSettingsFor(styleId, letter, v) {
+  const h = bookSet(styleId) % 1000;
+  if (iniMode === 'vine') return iniSettings(styleId, letter, h); // лоза: один вид листа и цветка на книгу
+  const K = await keptStyle(styleId);
+  return K ? Object.assign(K, { text: letter }) : iniSettings(styleId, letter, h);
 }
 /* Кэш между сессиями — Cache Storage. Ключ — хэш полных настроек буквицы, размера и версии библиотеки
    (обновили vendor/initialis — поменяйте INI_LIB_VER), так что сменившиеся настройки просто дают новые ключи.
@@ -1855,7 +1865,7 @@ async function iniDiskPut(url, blob) {
   } catch (e) {}
 }
 function iniImage(styleId, letter, v) {
-  const key = iniMode + ':' + styleId + ':' + letter + ':' + v;
+  const key = iniMode + ':' + (typeof currentBookId !== 'undefined' && currentBookId || '') + ':' + styleId + ':' + letter + ':' + v;
   if (iniCache.has(key)) return iniCache.get(key);
   let P, url;
   const job = iniSettingsFor(styleId, letter, v).then(p => {
@@ -1910,12 +1920,27 @@ function vigSettings(styleId, v) {
   for (const [k, list] of Object.entries(st.initialisVary || {})) P[k] = list[v % list.length];
   return Object.assign(P, look);
 }
+/* Виньетка — из того же сета, что буквицы книги: стиль подборки без буквы, в форме полосы; от страницы к странице
+   меняется только раскладка орнамента (seed). В режиме vine — лоза (vigSettings) с листом и цветком сета книги. */
+async function vigSettingsFor(styleId, v) {
+  const h = bookSet(styleId) % 1000;
+  const K = iniMode === 'vine' ? null : await keptStyle(styleId);
+  if (!K) { const P = vigSettings(styleId, h); P.seed = v + 1; return P; }
+  // Без буквы и без заливки фона: сплошной фон в полосе — тяжёлый брусок. Что было «цвета бумаги» на фоне (вырезанный
+  // белым орнамент, текстура), рисуем краской бывшего фона — тот же узор в негативе, лёгкой лентой.
+  const ground = ['A', 'B', 'C'].includes(K.fField) ? K.fField : 'A';
+  for (const key of ['oFill', 'tColor', 'fPatColor', 'oDetailColor']) if (K[key] === 'paper') K[key] = ground;
+  return Object.assign(K, VIG.box, { text: ' ', frame: 'box', fRules: 0, fField: 'paper', oRegion: 'field', seed: (K.seed || 1) + v });
+}
 function vigImage(styleId, v) {
-  const key = 'vig:' + vigRev + ':' + styleId + ':' + v;
+  const key = 'vig:' + vigRev + ':' + iniMode + ':' + (typeof currentBookId !== 'undefined' && currentBookId || '') + ':' + styleId + ':' + v;
   if (iniCache.has(key)) return iniCache.get(key);
-  const P = vigSettings(styleId, v), C = vigCrop(), px = Math.round(VIG.cssW / 2 * 2 * 1000 / C.w); // каждая половина — cssW/2
-  const url = new URL('__initialis/' + iniHash('vig2|' + JSON.stringify(P) + '|' + px + '|' + VIG.alpha + '|' + INI_LIB_VER), location.href).href;
-  const job = iniDiskGet(url).then(hit => hit || (async () => {
+  const C = vigCrop(), px = Math.round(VIG.cssW / 2 * 2 * 1000 / C.w); // каждая половина — cssW/2
+  let P, url;
+  const job = vigSettingsFor(styleId, v).then(p => {
+    P = p; url = new URL('__initialis/' + iniHash('vig2|' + JSON.stringify(P) + '|' + px + '|' + VIG.alpha + '|' + INI_LIB_VER), location.href).href;
+    return iniDiskGet(url);
+  }).then(hit => hit || (async () => {
     if (iniLib === null) iniLib = import(new URL('vendor/initialis/lib/initialis.js', location.href).href).catch(e => { console.warn('initialis:', e); return false; });
     const lib = await iniLib;
     if (!lib) return null;
@@ -1967,7 +1992,8 @@ async function vigGrow(wrap) {
     const lib = await iniLib; if (!lib) throw new Error('no library');
     if (!vigBoxReady) vigBoxReady = lib.use(new URL('vendor/initialis-kinds/box.js', location.href).href);
     await vigBoxReady;
-    const P = vigSettings(styleId, v), C = vigCrop(), px = Math.round(VIG.cssW / 2 * 2 * 1000 / C.w), k = px / 1000, hw = Math.round(C.w * k);
+    // кадры роста — в меньшем разрешении (×0,6) и 10 в секунду: две половины по ~40 кадров иначе тяжелы; в конце — полная картинка
+    const P = await vigSettingsFor(styleId, v), C = vigCrop(), px = Math.round(VIG.cssW / 2 * 2 * 1000 / C.w * 0.6), k = px / 1000, hw = Math.round(C.w * k);
     const w1 = document.createElement('canvas'), w2 = document.createElement('canvas'), comp = document.createElement('canvas');
     comp.width = hw * 2; comp.height = Math.round(C.h * k);
     const g = comp.getContext('2d');
@@ -1977,8 +2003,8 @@ async function vigGrow(wrap) {
       try { wrap.style.backgroundImage = `url("${comp.toDataURL()}")`; } catch (e) {}
     };
     vigStatic(wrap, null); wrap.style.backgroundImage = 'none'; // пустая полоса нужной высоты — из неё и прорастает
-    const tick = setInterval(show, 66);
-    try { await Promise.all([lib.grow(w1, P, { size: px, seconds: INI_GROW_S }), lib.grow(w2, Object.assign({}, P, { seed: P.seed + 500 }), { size: px, seconds: INI_GROW_S })]); }
+    const tick = setInterval(show, 100);
+    try { await Promise.all([lib.grow(w1, P, { size: px, seconds: INI_GROW_S, fps: 10 }), lib.grow(w2, Object.assign({}, P, { seed: P.seed + 500 }), { size: px, seconds: INI_GROW_S, fps: 10 })]); }
     finally { clearInterval(tick); }
   } catch (e) { console.warn('vignette grow:', e); }
   vigStatic(wrap, url); // в конце — готовая картинка из кэша (совпадает с последним кадром)
@@ -2004,7 +2030,7 @@ function refreshVignettes() {
 const VT_LEAVES = ['auto', 'none', 'acanthus', 'lance', 'willow', 'ovate', 'teardrop', 'oak', 'ivy', 'trefoil', 'cinquefoil', 'fern', 'dot', 'pod', 'dotted', 'comma', 'fan', 'needles', 'heart'];
 const VT_FLOWERS = ['auto', 'none', 'rosette', 'daisy', 'rose', 'star', 'phyllo', 'target', 'burst', 'dotring', 'quatre', 'tulip', 'bell', 'bud', 'pomegranate', 'thistle'];
 const VT_SPEC = [ // [где, ключ, подпись, тип, варианты или [min,max,step]]
-  ['ini', 'mode', 'INITIALS style (applies at once)', 'sel', INI_MODES],
+  ['ini', 'mode', 'INITIALS + vignettes set (applies at once; look sliders below work in "vine")', 'sel', INI_MODES],
   ['vt', 'variant', 'preview variant (each page has its own)', 'num', [0, 999, 1]],
   ['root', 'ink', 'ink', 'color'],
   ['root', 'alpha', 'opacity', 'num', [0.05, 1, 0.01]],
@@ -2033,7 +2059,7 @@ function vtGet(where, k) {
 function vtSet(where, k, v) {
   if (where === 'ini') { // стиль буквиц — сразу перерисовываем буквицы показанных глав
     iniMode = v; try { localStorage.setItem('rm-ini-mode', v); } catch (e) {}
-    if (typeof rendition !== 'undefined' && rendition) rendition.getContents().forEach(applyStyleToContents);
+    if (typeof rendition !== 'undefined' && rendition) { rendition.getContents().forEach(applyStyleToContents); refreshVignettes(); }
     return;
   }
   if (where === 'vt') vtVariant = v; else if (where === 'root') VIG[k] = v; else VIG[where][k] = v; }
@@ -2227,6 +2253,7 @@ function applyStyle(id) {
       rendition.getContents().forEach(c => ours.forEach(sid => { if (sid !== keep) { const n = c.document.getElementById(sid); if (n) n.remove(); } }));
       rendition.themes.select(styleThemeName(id));
       rendition.getContents().forEach(applyStyleToContents);
+      refreshVignettes(); // виньетки — из сета новой темы
       refreshAllHighlights(); // цвет подсветки зависит от стиля
       setTimeout(() => safeResize(), 120); // шрифт/размер сменились — страницы пересчитываются
     } catch (e) { console.warn('applyStyle:', e); }
