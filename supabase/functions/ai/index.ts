@@ -478,12 +478,18 @@ Deno.serve(async (req) => {
       `Language: each label is the original text of the passage, then " · ", then its translation into ${lang}${lang.toLowerCase() === "english" ? "" : " (not English)"}. ` +
       `Names of characters and places are not translated. If the passage is already in ${lang}, write each label once. ` +
       `Use only what the passage says. Every node and arrow carries information: specific names, places and objects, no "Start", "End" or "Scene".`;
+    // «Перерисовать» с уточнением читателя: пожелание важнее умолчаний (но формат и правила Mermaid выше — в силе).
+    const dgFeedback = String(body.feedback ?? "").slice(0, 800).trim();
+    const dgMsg = dgFeedback
+      ? `${userMsg}\n<reader_feedback>The reader redraws the diagram for this passage and asks: ${dgFeedback}</reader_feedback>\nFollow the reader's request while keeping all the format rules.`
+      : userMsg;
+    if (dgFeedback) console.log(`[diagram] redraw feedback=${JSON.stringify(dgFeedback)}`);
     const r = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },
       body: JSON.stringify({
         model: TEXT_MODEL, reasoning_effort: "low", max_completion_tokens: 3000,
-        messages: [{ role: "system", content: sys }, { role: "user", content: userMsg }],
+        messages: [{ role: "system", content: sys }, { role: "user", content: dgMsg }],
       }),
     });
     await logOpenAIFailure("diagram", TEXT_MODEL, r);
@@ -535,6 +541,12 @@ Deno.serve(async (req) => {
         `Lettering: a classic book serif or small caps, small and sparse, set right next to what it names or in a caption line or ribbon, part of the composition. ` +
         `No other text: no titles, speech bubbles, signs with invented words or watermarks.\n` +
         `Use ${ILLUS_STYLES[String(body.style)] ?? ILLUS_STYLES.artnouveau}` + illusArtLine(String(body.style), parseArt(body.art));
+      // «Перерисовать» с уточнением читателя — оно важнее всего остального в описании сцены.
+      const ilFeedback = String(body.feedback ?? "").slice(0, 800).trim();
+      if (ilFeedback) {
+        prompt += `\nThe reader is redrawing this illustration and asks (follow this above everything else): ${ilFeedback}`;
+        console.log(`[illustrate] redraw feedback=${JSON.stringify(ilFeedback)}`);
+      }
     } else {
       if (!title) return err("No title", 400, cors);
       const customPrompt = String(body.customPrompt ?? "").slice(0, 500).trim();
