@@ -2152,7 +2152,15 @@ function vigTuneCopy() {
    и восстанавливает место); при prefers-reduced-motion не играем. */
 const INI_GROW_S = 1.5; // рост буквиц и виньеток, с
 const iniGrownEls = new WeakSet(); // абзацы, у которых рост уже сыгран (новая отрисовка главы — новые абзацы, играет снова)
-let iniReady = false; // false, пока книга открывается и восстанавливает место — анимацию тогда не видно, не тратим её
+let iniReady = false; // true с начала открытия книги (openBook); до того рост не играет
+// Прогрев библиотеки при открытии книги: модуль, воркеры и WebGL заводятся параллельно с загрузкой текста —
+// иначе первый кадр роста ждал бы холодного старта.
+function iniWarmup() {
+  if (!STYLES[currentStyleId()].initialis || typeof OffscreenCanvas === 'undefined') return;
+  if (iniLib === null) iniLib = import(new URL('vendor/initialis/lib/initialis.js', location.href).href).catch(e => { console.warn('initialis:', e); return false; });
+  iniLib.then(lib => lib && lib.render({ text: ' ', frame: 'none', orn: 'none' }, { size: 16 }).then(bm => bm.close()).catch(() => {}));
+  loadKept();
+}
 /* Пока не ясно, будет ли рост (глава только отрисована, книга ещё открывается), готовая буквица не показывается —
    иначе она мелькала бы целиком, исчезала и прорастала заново. Квадрат пустой (rm-ini-pending), потом либо рост
    с пустого квадрата, либо (открыли не первую страницу главы, рост уже был, reduced motion) — сразу готовая картинка. */
@@ -2888,7 +2896,10 @@ function blobUrlToDataUrl(url) {
 
 /* ════════════════════════ Reader ════════════════════════ */
 async function openBook(id, newRec) {
-  iniReady = false; // пока книга открывается, рост буквиц не играем (см. growInitials)
+  // Рост буквиц и виньеток — сразу, как только видна первая страница главы: раньше ждали конца восстановления позиции
+  // (шрифты + паузы, 1–3 с), и анимация теряла смысл. Повтора не будет: тот же раздел epub.js не перерисовывает.
+  iniReady = true;
+  iniWarmup();
   const rec = newRec || await dbGet('books', id);
   if (!rec) { toast('Book not found'); return; }
   const curated = curatedById(id);
