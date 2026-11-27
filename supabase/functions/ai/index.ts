@@ -242,6 +242,13 @@ body{color:#2B2623;font-family:'EB Garamond',Georgia,serif;display:flex;flex-dir
 <p class="tr" aria-live="polite"><span class="right">Tak — M stała na progu.</span></p>
 </body></html>`;
 
+/* Шаблон для клиента без сета книги (старая версия сайта не присылает art и не подставляет метки rm:*) —
+   без виньетки и буквицы, цель — обычной строкой. */
+const KIT_PLAIN = INTERACTIVE_KIT
+  .replace('<img class="vig" src="rm:vignette" alt="" aria-hidden="true">\n', "")
+  .replace('<div class="lead"><img class="ini" src="rm:initial" alt="K"><p class="goal">to stał', '<p class="goal">Kto stał')
+  .replace("хлева?</p></div>", "хлева?</p>");
+
 async function generateImage(prompt: string, size = "1024x1536"): Promise<ImageResult> {
   try {
     return await callOpenAIImage(prompt, size);
@@ -362,10 +369,10 @@ Deno.serve(async (req) => {
         `a road as a tinted band with a dashed axis; a fence as a dashed ink line; movement, a gaze or a route as a red dotted line with an arrowhead; names of places in italic. ` +
         `Background: the page is transparent — the app paints the background behind it. Never set a background colour on html, body, the frame or full-size wrappers; only small elements (tokens, bands, chips) may have their own fill. ` +
         `Drawing stays schematic, like a plan: never try to draw people, animals or objects realistically, no faces, anatomy, perspective, clip-art or emoji. Only the template's colours; no gradients, no shadows, no glow, no rounded cards, no filled or dark buttons. ` +
-        `Book ornament: the page carries the book's own vignette and ornamental initial, as in the template — keep <img class="vig" src="rm:vignette" alt="" aria-hidden="true"> as the first element of the body, ` +
+        (art ? `Book ornament: the page carries the book's own vignette and ornamental initial, as in the template — keep <img class="vig" src="rm:vignette" alt="" aria-hidden="true"> as the first element of the body, ` +
         `and start the goal with <img class="ini" src="rm:initial" alt="X"> inside the .lead block, where X is the first letter of the goal in the original language and the goal text goes on from its second letter (as in the template: alt="K", then "to stał…"). ` +
         `Keep these two tags exactly, with these src values: the app replaces them with the pictures; no other <img>. ` +
-        `Colours: use exactly the template's hex colours and no others — the app repaints them into the colours of the book's initials when it shows the game.` +
+        `Colours: use exactly the template's hex colours and no others — the app repaints them into the colours of the book's initials when it shows the game.` : "") +
         (artMotif ? ` The book's ornament is ${artMotif}: you may reshape the leaves of the corner sprig into that leaf and turn one berry into a tiny flower of that kind, keeping its size and colours. ` : " ") +
         `If an image of an ornamental initial is attached, it is the book's initial: take from it only the mood (fine botanical ornament, printed ink); the template decides the layout and the elements. ` +
         `Controls are typography like the template's .choice buttons (at least 44px to tap, visible keyboard focus); quiet transitions about 0.3s, respect prefers-reduced-motion. ` +
@@ -376,7 +383,7 @@ Deno.serve(async (req) => {
         `Language: write the content in the original language of the passage and put its translation into ${lang}${lang.toLowerCase() === "english" ? "" : " (not English)"} next to it, smaller, italic, grey (like the template's .tr). ` +
         `Interface words (buttons, hints, feedback) are in ${lang}. Proper names need no translation. If the passage is already in ${lang}, write everything once, with no translations. ` +
         `Use only facts from the passage. Up to about 400 lines, no JavaScript errors.\n\n` +
-        `TEMPLATE (frame, layout and example elements — the example scene, goal and choices are placeholders):\n` + INTERACTIVE_KIT;
+        `TEMPLATE (frame, layout and example elements — the example scene, goal and choices are placeholders):\n` + (art ? INTERACTIVE_KIT : KIT_PLAIN);
       // Доработка по отзыву читателя (👎): модель получает текущий код и жалобу и возвращает улучшенный
       // документ целиком. Один запрос, без цепочек.
       const improve = body.action === "diagram_html_improve";
